@@ -43,15 +43,26 @@ Search across these platforms:
 3. People search engines
 4. Public records searches
 
-For each detected search query that matches this person's data:
+For each detected search query that matches this person's data, provide:
 - search_platform: where the search was detected
 - query_detected: the actual search query
 - matched_data_types: array of data types that were matched (e.g., ["full_name", "address"])
 - matched_values: array of actual values matched
+- searcher_identity: who performed the search (username, name, or "Anonymous" if unknown)
+- searcher_ip: IP address if detectable, or "Unknown"
+- device_info: device/browser information if available
 - search_context: what the searcher was likely looking for
 - risk_level: critical, high, medium, or low
-- geographic_origin: location of search if known
+- detected_date: ISO timestamp when search occurred
+- geographic_origin: specific location (City, State, Country format)
 - ai_analysis: your analysis of intent and risk
+
+IMPORTANT: For searcher_identity, try to identify if it's:
+- A known person's name
+- A social media username
+- An email address
+- A company/organization
+- "Anonymous" if truly untraceable
 
 Return JSON with findings array. Only include real, detected searches with confidence >= 70%.`;
 
@@ -70,8 +81,12 @@ Return JSON with findings array. Only include real, detected searches with confi
                 query_detected: { type: "string" },
                 matched_data_types: { type: "array", items: { type: "string" } },
                 matched_values: { type: "array", items: { type: "string" } },
+                searcher_identity: { type: "string" },
+                searcher_ip: { type: "string" },
+                device_info: { type: "string" },
                 search_context: { type: "string" },
                 risk_level: { type: "string" },
+                detected_date: { type: "string" },
                 geographic_origin: { type: "string" },
                 ai_analysis: { type: "string" }
               }
@@ -91,9 +106,12 @@ Return JSON with findings array. Only include real, detected searches with confi
         query_detected: finding.query_detected,
         matched_data_types: finding.matched_data_types || [],
         matched_values: finding.matched_values || [],
+        searcher_identity: finding.searcher_identity || 'Anonymous',
+        searcher_ip: finding.searcher_ip || 'Unknown',
+        device_info: finding.device_info || 'Unknown',
         search_context: finding.search_context,
         risk_level: finding.risk_level,
-        detected_date: new Date().toISOString().split('T')[0],
+        detected_date: finding.detected_date || new Date().toISOString(),
         geographic_origin: finding.geographic_origin || 'Unknown',
         ai_analysis: finding.ai_analysis,
         status: 'new'

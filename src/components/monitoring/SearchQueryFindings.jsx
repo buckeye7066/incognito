@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, MapPin, Eye, CheckCircle } from 'lucide-react';
+import { Search, Loader2, MapPin, Eye, CheckCircle, User, Clock, Monitor } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -123,7 +123,7 @@ export default function SearchQueryFindings({ profileId }) {
                         {finding.search_platform}
                       </p>
                       <p className="text-xs text-purple-400">
-                        {new Date(finding.detected_date).toLocaleDateString()}
+                        {new Date(finding.detected_date).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -131,6 +131,50 @@ export default function SearchQueryFindings({ profileId }) {
                     {finding.risk_level.toUpperCase()}
                   </Badge>
                 </div>
+
+                {/* Who, Where, When Section */}
+                <div className="grid grid-cols-3 gap-3 mb-3 p-3 rounded-lg bg-slate-900/50 border border-purple-500/10">
+                  <div className="flex items-start gap-2">
+                    <User className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-purple-400 mb-0.5">Who</p>
+                      <p className="text-sm text-white font-semibold">
+                        {finding.searcher_identity || 'Anonymous'}
+                      </p>
+                      {finding.searcher_ip && finding.searcher_ip !== 'Unknown' && (
+                        <p className="text-xs text-purple-300 font-mono">{finding.searcher_ip}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-purple-400 mb-0.5">Where</p>
+                      <p className="text-sm text-white font-semibold">
+                        {finding.geographic_origin || 'Unknown'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-purple-400 mb-0.5">When</p>
+                      <p className="text-sm text-white font-semibold">
+                        {new Date(finding.detected_date).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-purple-300">
+                        {new Date(finding.detected_date).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {finding.device_info && finding.device_info !== 'Unknown' && (
+                  <div className="flex items-center gap-2 mb-3 text-xs text-purple-300 bg-slate-900/30 px-3 py-2 rounded">
+                    <Monitor className="w-3 h-3" />
+                    <span>Device: {finding.device_info}</span>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <div>
@@ -150,13 +194,6 @@ export default function SearchQueryFindings({ profileId }) {
                       ))}
                     </div>
                   </div>
-
-                  {finding.geographic_origin && finding.geographic_origin !== 'Unknown' && (
-                    <div className="flex items-center gap-2 text-xs text-purple-300">
-                      <MapPin className="w-3 h-3" />
-                      <span>{finding.geographic_origin}</span>
-                    </div>
-                  )}
 
                   <div>
                     <p className="text-xs text-purple-400 mb-1">AI Analysis:</p>

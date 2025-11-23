@@ -11,6 +11,7 @@ import { Mail, Phone, Plus, RefreshCw, CheckCircle, AlertCircle, Smartphone } fr
 import { motion } from 'framer-motion';
 import DisposableCredentialCard from '../components/monitoring/DisposableCredentialCard';
 import AIActivityAnalyzer from '../components/monitoring/AIActivityAnalyzer';
+import QuickGenerateCard from '../components/monitoring/QuickGenerateCard';
 
 export default function MonitoringHub() {
   const queryClient = useQueryClient();
@@ -378,6 +379,12 @@ export default function MonitoringHub() {
           </Card>
         )}
       </div>
+
+      {/* Quick Generate */}
+      <QuickGenerateCard 
+        profileId={activeProfileId}
+        onGenerated={() => queryClient.invalidateQueries(['disposableCredentials'])}
+      />
 
       {/* Disposable Credentials & AI Analyzer */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -58,6 +58,13 @@ export default function AIInsights() {
     }
   });
 
+  const createNotificationMutation = useMutation({
+    mutationFn: (data) => base44.entities.NotificationAlert.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notificationAlerts']);
+    }
+  });
+
   const runAIAnalysis = async () => {
     if (!activeProfileId) {
       alert('Please select a profile first');
@@ -67,6 +74,66 @@ export default function AIInsights() {
     setAnalyzing(true);
 
     try {
+      // 0. Exposure Forewarning - Proactive Threat Detection
+      const forewarningAnalysis = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a predictive cybersecurity analyst. Analyze potential FUTURE threats and exposures BEFORE they happen:
+
+Current Profile Data:
+- Monitored Identifiers: ${JSON.stringify(personalData.map(d => ({ type: d.data_type, monitoring: d.monitoring_enabled })))}
+- Existing Exposures: ${scanResults.length}
+- Recent Breach Patterns: ${JSON.stringify(scanResults.slice(0, 5).map(r => r.source_type))}
+
+PREDICT AND FOREWARN:
+1. Which monitored identifiers are at HIGHEST RISK of being exposed in NEW breaches in the next 30-90 days?
+2. What emerging breach trends or threat actors should we watch for?
+3. Are any of the monitored data types currently trending in dark web markets?
+4. What preventive actions should be taken NOW to avoid future exposure?
+5. Are there any indicators that suggest imminent data breach activity?
+
+Be specific and actionable. Focus on PREVENTION not reaction.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            high_risk_identifiers: { type: 'array', items: { type: 'string' } },
+            emerging_threats: { type: 'array', items: { type: 'string' } },
+            threat_indicators: { type: 'array', items: { type: 'string' } },
+            preventive_actions: { type: 'array', items: { type: 'string' } },
+            confidence: { type: 'number' },
+            timeframe: { type: 'string' }
+          }
+        }
+      });
+
+      // Create forewarning notification
+      if (forewarningAnalysis.high_risk_identifiers && forewarningAnalysis.high_risk_identifiers.length > 0) {
+        await createNotificationMutation.mutateAsync({
+          profile_id: activeProfileId,
+          alert_type: 'exposure_forewarning',
+          title: 'Exposure Forewarning: High Risk Detected',
+          message: `AI predicts potential exposure risk for ${forewarningAnalysis.high_risk_identifiers.length} identifiers within ${forewarningAnalysis.timeframe || 'the next 90 days'}. Take preventive action now.`,
+          severity: 'high',
+          confidence_score: forewarningAnalysis.confidence || 80,
+          threat_indicators: forewarningAnalysis.threat_indicators || [],
+          related_data_ids: personalData.map(d => d.id)
+        });
+
+        // Create AI Insight
+        await createInsightMutation.mutateAsync({
+          profile_id: activeProfileId,
+          insight_type: 'exposure_forecast',
+          title: 'Exposure Forewarning Alert',
+          description: `AI analysis predicts high exposure risk for the following identifiers: ${forewarningAnalysis.high_risk_identifiers.join(', ')}. ${forewarningAnalysis.emerging_threats?.[0] || 'Take immediate preventive action.'}`,
+          severity: 'high',
+          recommendations: forewarningAnalysis.preventive_actions || [],
+          confidence_score: forewarningAnalysis.confidence || 80,
+          metadata: {
+            emerging_threats: forewarningAnalysis.emerging_threats,
+            threat_indicators: forewarningAnalysis.threat_indicators,
+            timeframe: forewarningAnalysis.timeframe
+          }
+        });
+      }
       // 1. Pattern Analysis
       const patternAnalysis = await base44.integrations.Core.InvokeLLM({
         prompt: `You are an expert cybersecurity analyst. Analyze the following data exposure patterns:
@@ -150,6 +217,49 @@ Predict:
             emerging_threats: riskPrediction.emerging_threats
           }
         });
+      }
+
+      // Check for new breaches in monitored databases
+      const newBreachCheck = await base44.integrations.Core.InvokeLLM({
+        prompt: `Check for NEWLY REPORTED data breaches in the last 30 days that may affect these identifiers:
+
+${JSON.stringify(personalData.map(d => ({ type: d.data_type, value: d.value.substring(0, 20) + '...' })))}
+
+Focus on:
+1. Major breaches announced in the last month
+2. Dark web credential dumps appearing recently
+3. New additions to breach databases (HIBP, DeHashed, etc.)
+4. Emerging threats targeting these data types
+
+Only report if there are genuinely NEW breaches. Be accurate.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            new_breaches: { type: 'array', items: { type: 'object', properties: {
+              breach_name: { type: 'string' },
+              date_discovered: { type: 'string' },
+              affected_data_types: { type: 'array', items: { type: 'string' } },
+              severity: { type: 'string' }
+            }}},
+            recommendations: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      });
+
+      // Create notifications for new breaches
+      if (newBreachCheck.new_breaches && newBreachCheck.new_breaches.length > 0) {
+        for (const breach of newBreachCheck.new_breaches.slice(0, 2)) {
+          await createNotificationMutation.mutateAsync({
+            profile_id: activeProfileId,
+            alert_type: 'new_breach_detected',
+            title: `New Breach Alert: ${breach.breach_name}`,
+            message: `A new data breach has been detected that may affect your monitored identifiers. Discovered: ${breach.date_discovered}. Affected data: ${breach.affected_data_types?.join(', ')}`,
+            severity: breach.severity === 'critical' ? 'critical' : 'high',
+            confidence_score: 85,
+            threat_indicators: breach.affected_data_types || []
+          });
+        }
       }
 
       // 3. Mitigation Strategies

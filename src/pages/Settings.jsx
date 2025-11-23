@@ -262,6 +262,62 @@ export default function Settings() {
               onCheckedChange={(checked) => handleToggle('notifications_deletion_updates', checked)}
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white mb-1">Exposure Forewarnings</p>
+              <p className="text-sm text-purple-300">Proactive alerts before data is exposed</p>
+            </div>
+            <Switch 
+              checked={preference.notifications_forewarnings !== false}
+              onCheckedChange={(checked) => handleToggle('notifications_forewarnings', checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Background Monitoring */}
+      <Card className="glass-card border-purple-500/30">
+        <CardHeader className="border-b border-purple-500/20">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Eye className="w-5 h-5 text-purple-400" />
+            Background Monitoring
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white mb-1">Continuous Monitoring</p>
+              <p className="text-sm text-purple-300">AI watches for emerging threats 24/7</p>
+            </div>
+            <Switch 
+              checked={preference.background_monitoring_enabled || false}
+              onCheckedChange={(checked) => handleToggle('background_monitoring_enabled', checked)}
+            />
+          </div>
+
+          {preference.background_monitoring_enabled && (
+            <div className="flex items-center justify-between pt-4 border-t border-purple-500/20">
+              <div>
+                <p className="font-medium text-white mb-1">Check Frequency</p>
+                <p className="text-sm text-purple-300">How often to scan for threats</p>
+              </div>
+              <Select 
+                value={String(preference.monitoring_frequency_hours || 24)}
+                onValueChange={(value) => handleToggle('monitoring_frequency_hours', Number(value))}
+              >
+                <SelectTrigger className="w-40 bg-slate-900/50 border-purple-500/30 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="6">Every 6 hours</SelectItem>
+                  <SelectItem value="12">Every 12 hours</SelectItem>
+                  <SelectItem value="24">Daily</SelectItem>
+                  <SelectItem value="168">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 

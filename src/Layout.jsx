@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
+import NotificationBell from './components/notifications/NotificationBell';
 
 export default function Layout({ children, currentPageName }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -98,14 +99,17 @@ export default function Layout({ children, currentPageName }) {
         {/* Sidebar */}
         <aside className="w-64 glass-card border-r border-purple-500/20 flex flex-col">
           <div className="p-6 border-b border-purple-500/20">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-                <Shield className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white">Incognito</h1>
+                  <p className="text-xs text-purple-300">Privacy Guardian</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Incognito</h1>
-                <p className="text-xs text-purple-300">Privacy Guardian</p>
-              </div>
+              <NotificationBell activeProfileId={activeProfile?.id} />
             </div>
           </div>
 

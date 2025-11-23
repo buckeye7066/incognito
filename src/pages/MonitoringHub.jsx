@@ -147,6 +147,69 @@ export default function MonitoringHub() {
         </CardContent>
       </Card>
 
+      {/* T-Mobile Specific Setup */}
+      <Card className="glass-card border-pink-500/30">
+        <CardHeader className="border-b border-pink-500/20">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Phone className="w-5 h-5 text-pink-400" />
+            T-Mobile Setup Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="space-y-3">
+            <div className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/30">
+              <h4 className="font-semibold text-white mb-2">1. Enable T-Mobile Scam Shield (Free)</h4>
+              <ul className="text-sm text-purple-300 space-y-1 list-disc list-inside">
+                <li>Download "Scam Shield" app from App Store or Google Play</li>
+                <li>Or dial #662# from your T-Mobile phone</li>
+                <li>Blocks known scam calls automatically</li>
+                <li>Enable "Scam Block" and "Scam ID" features</li>
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30">
+              <h4 className="font-semibold text-white mb-2">2. Forward Spam Texts to 7726 (SPAM)</h4>
+              <ul className="text-sm text-purple-300 space-y-1 list-disc list-inside">
+                <li>When you receive spam text, forward to 7726</li>
+                <li>T-Mobile investigates and blocks the sender</li>
+                <li>Free service, works on all T-Mobile plans</li>
+                <li>You'll get confirmation that report was received</li>
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+              <h4 className="font-semibold text-white mb-2">3. Set Up Monitoring Email (Optional)</h4>
+              <ul className="text-sm text-purple-300 space-y-1 list-disc list-inside">
+                <li>Create a dedicated Gmail for spam tracking (e.g., familyspam@gmail.com)</li>
+                <li>Add it to your vault first</li>
+                <li>Connect it here in Monitoring Hub</li>
+                <li>Forward spam texts to that email as BCC for automatic logging</li>
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <h4 className="font-semibold text-white mb-2">4. For Each Family Member</h4>
+              <ul className="text-sm text-purple-300 space-y-1 list-disc list-inside">
+                <li>Create a profile for each person</li>
+                <li>Add their email (Gmail, iCloud, Outlook) here</li>
+                <li>Add their phone number (we'll track manually reported spam)</li>
+                <li>They'll need to authorize email access once (one-click OAuth)</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+            <p className="text-sm text-green-300 flex items-start gap-2">
+              <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>What Gets Monitored:</strong> Once connected, we'll automatically check spam folders every {accounts[0]?.check_frequency_hours || 6} hours, 
+                detect phishing/spam emails, and log them to your Spam Tracker. No manual work needed!
+              </span>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Add Account Form */}
       {showAddForm && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>

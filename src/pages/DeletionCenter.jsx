@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AutomatedTracking from '../components/deletion/AutomatedTracking';
+import BulkDeletionPanel from '../components/deletion/BulkDeletionPanel';
 
 export default function DeletionCenter() {
   const queryClient = useQueryClient();
@@ -169,6 +170,12 @@ Best regards,
         responses={responses}
         onRefresh={checkDeletionResponses}
         refreshing={checkingResponses}
+      />
+
+      {/* Bulk Deletion Panel */}
+      <BulkDeletionPanel
+        scanResults={scanResults}
+        profileId={activeProfileId}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

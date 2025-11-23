@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
 import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 
 export default function Findings() {
   const queryClient = useQueryClient();
@@ -55,6 +56,9 @@ export default function Findings() {
         <h1 className="text-4xl font-bold text-white mb-2">Findings</h1>
         <p className="text-purple-300">Review and manage discovered exposures</p>
       </div>
+
+      {/* Search Query Monitor */}
+      <SearchQueryFindings profileId={activeProfileId} />
 
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">

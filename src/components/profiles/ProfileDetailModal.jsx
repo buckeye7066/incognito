@@ -1,0 +1,306 @@
+import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Trash2, Eye, EyeOff, Shield } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+const DATA_TYPES = [
+  { value: 'full_name', label: 'Full Name', icon: '👤' },
+  { value: 'email', label: 'Email Address', icon: '📧' },
+  { value: 'phone', label: 'Phone Number', icon: '📱' },
+  { value: 'address', label: 'Physical Address', icon: '🏠' },
+  { value: 'dob', label: 'Date of Birth', icon: '🎂' },
+  { value: 'ssn', label: 'Social Security Number', icon: '🔒' },
+  { value: 'drivers_license', label: 'Driver\'s License', icon: '🪪' },
+  { value: 'passport', label: 'Passport Number', icon: '🛂' },
+  { value: 'green_card', label: 'Green Card Number', icon: '💳' },
+  { value: 'credit_card', label: 'Credit Card (Last 4)', icon: '💳' },
+  { value: 'bank_account', label: 'Bank Account Number', icon: '🏦' },
+  { value: 'tax_id', label: 'Tax ID / EIN', icon: '📄' },
+  { value: 'medical_id', label: 'Medical/Insurance ID', icon: '🏥' },
+  { value: 'student_id', label: 'Student ID', icon: '🎓' },
+  { value: 'vehicle_vin', label: 'Vehicle VIN', icon: '🚗' },
+  { value: 'property_deed', label: 'Property/Deed Info', icon: '🏡' },
+  { value: 'username', label: 'Username', icon: '🔑' },
+  { value: 'employer', label: 'Employer', icon: '💼' },
+  { value: 'relative', label: 'Relative', icon: '👨‍👩‍👧' },
+  { value: 'alias', label: 'Alias', icon: '🎭' }
+];
+
+export default function ProfileDetailModal({ open, onClose, profile, personalData }) {
+  const queryClient = useQueryClient();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showValues, setShowValues] = useState(false);
+  const [formData, setFormData] = useState({
+    data_type: '',
+    value: '',
+    label: '',
+    monitoring_enabled: true,
+    notes: ''
+  });
+
+  const profileData = personalData.filter(d => d.profile_id === profile?.id);
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.PersonalData.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['personalData']);
+      setShowAddForm(false);
+      setFormData({
+        data_type: '',
+        value: '',
+        label: '',
+        monitoring_enabled: true,
+        notes: ''
+      });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.PersonalData.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['personalData']);
+    }
+  });
+
+  const toggleMonitoringMutation = useMutation({
+    mutationFn: ({ id, monitoring_enabled }) => 
+      base44.entities.PersonalData.update(id, { monitoring_enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['personalData']);
+    }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    createMutation.mutate({ ...formData, profile_id: profile.id });
+  };
+
+  const maskValue = (value) => {
+    if (!value) return '';
+    if (value.length <= 4) return '•'.repeat(value.length);
+    return value.slice(0, 2) + '•'.repeat(value.length - 4) + value.slice(-2);
+  };
+
+  const colorClasses = {
+    purple: 'from-purple-600 to-indigo-600',
+    blue: 'from-blue-600 to-cyan-600',
+    green: 'from-green-600 to-emerald-600',
+    red: 'from-red-600 to-pink-600',
+    pink: 'from-pink-600 to-rose-600',
+    amber: 'from-amber-600 to-orange-600',
+    cyan: 'from-cyan-600 to-teal-600',
+    indigo: 'from-indigo-600 to-purple-600'
+  };
+
+  const getInitials = (name) => {
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '';
+  };
+
+  if (!profile) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-slate-900 border-purple-500/50 text-white max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[profile.avatar_color]} flex items-center justify-center text-white font-bold shadow-lg`}>
+              {getInitials(profile.name)}
+            </div>
+            <div>
+              <DialogTitle className="text-2xl font-bold">{profile.name}</DialogTitle>
+              {profile.description && (
+                <p className="text-purple-300 text-sm">{profile.description}</p>
+              )}
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Header Actions */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-purple-400" />
+              Identity Data ({profileData.length})
+            </h3>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowValues(!showValues)}
+                className="border-purple-500/50 text-purple-300"
+              >
+                {showValues ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showValues ? 'Hide' : 'Show'}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Data
+              </Button>
+            </div>
+          </div>
+
+          {/* Add Form */}
+          {showAddForm && (
+            <Card className="border-purple-500/30 bg-slate-800/50">
+              <CardContent className="p-4">
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Data Type</Label>
+                      <Select
+                        value={formData.data_type}
+                        onValueChange={(value) => setFormData({ ...formData, data_type: value })}
+                      >
+                        <SelectTrigger className="bg-slate-900/50 border-purple-500/30 text-white">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DATA_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.icon} {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Label (Optional)</Label>
+                      <Input
+                        value={formData.label}
+                        onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                        placeholder="e.g., Primary Email"
+                        className="bg-slate-900/50 border-purple-500/30 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-purple-200 text-sm">Value</Label>
+                    <Input
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      placeholder="Enter the actual data"
+                      className="bg-slate-900/50 border-purple-500/30 text-white"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-purple-200 text-sm">Notes (Optional)</Label>
+                    <Textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Private notes"
+                      className="bg-slate-900/50 border-purple-500/30 text-white h-20"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={formData.monitoring_enabled}
+                        onCheckedChange={(checked) => setFormData({ ...formData, monitoring_enabled: checked })}
+                      />
+                      <Label className="text-purple-200 text-sm">Enable monitoring</Label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddForm(false)}
+                        className="border-purple-500/50 text-purple-300"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={createMutation.isPending}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                      >
+                        {createMutation.isPending ? 'Adding...' : 'Add'}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Data List */}
+          <div className="space-y-3">
+            {profileData.length > 0 ? (
+              profileData.map((item) => {
+                const typeInfo = DATA_TYPES.find(t => t.value === item.data_type);
+                return (
+                  <Card key={item.id} className="border-purple-500/20 bg-slate-800/30">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xl">{typeInfo?.icon}</span>
+                            <span className="text-sm font-semibold text-white">{typeInfo?.label}</span>
+                            {item.label && (
+                              <span className="text-xs text-purple-400">({item.label})</span>
+                            )}
+                          </div>
+                          <p className="text-white font-mono text-sm mb-2">
+                            {showValues ? item.value : maskValue(item.value)}
+                          </p>
+                          {item.notes && (
+                            <p className="text-xs text-purple-300">{item.notes}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex flex-col items-end gap-1">
+                            <Switch
+                              checked={item.monitoring_enabled}
+                              onCheckedChange={(checked) =>
+                                toggleMonitoringMutation.mutate({ id: item.id, monitoring_enabled: checked })
+                              }
+                            />
+                            <span className="text-xs text-purple-400">
+                              {item.monitoring_enabled ? 'Monitoring' : 'Paused'}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(item.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-purple-300">
+                <p>No identity data added yet</p>
+                <p className="text-sm mt-1">Click "Add Data" to get started</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

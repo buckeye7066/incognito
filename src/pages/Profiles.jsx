@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Edit, Trash2, Shield, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfileModal from '../components/profiles/ProfileModal';
+import ProfileDetailModal from '../components/profiles/ProfileDetailModal';
 
 const colorClasses = {
   purple: 'from-purple-600 to-indigo-600',
@@ -22,6 +23,7 @@ export default function Profiles() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['profiles'],
@@ -210,15 +212,23 @@ export default function Profiles() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEdit(profile)}
+                          onClick={() => setViewingProfile(profile)}
                           className="flex-1 border-purple-500/50 text-purple-300"
                         >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
+                          <Eye className="w-4 h-4 mr-2" />
+                          Open
                         </Button>
                         <Button
                           variant="outline"
-                          size="sm"
+                          size="icon"
+                          onClick={() => handleEdit(profile)}
+                          className="border-purple-500/50 text-purple-300"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
                           onClick={() => handleDelete(profile)}
                           className="border-red-500/50 text-red-300 hover:bg-red-500/10"
                         >
@@ -263,6 +273,14 @@ export default function Profiles() {
         }}
         onSave={handleSave}
         editProfile={editingProfile}
+      />
+
+      {/* Profile Detail Modal */}
+      <ProfileDetailModal
+        open={!!viewingProfile}
+        onClose={() => setViewingProfile(null)}
+        profile={viewingProfile}
+        personalData={personalData}
       />
     </div>
   );

@@ -12,10 +12,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import ImpersonationFindings from '../social/ImpersonationFindings';
 
 const DATA_TYPES = [
   { value: 'full_name', label: 'Full Name', icon: '👤' },
@@ -60,6 +61,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   const [showAddSocialForm, setShowAddSocialForm] = useState(false);
   const [showValues, setShowValues] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [checkingImpersonation, setCheckingImpersonation] = useState(false);
   const [formData, setFormData] = useState({
     data_type: '',
     value: '',
@@ -84,6 +86,14 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   });
 
   const socialProfiles = allSocialProfiles.filter(s => s.profile_id === profile?.id);
+
+  const { data: allSocialFindings = [] } = useQuery({
+    queryKey: ['socialMediaFindings'],
+    queryFn: () => base44.entities.SocialMediaFinding.list(),
+    enabled: !!profile
+  });
+
+  const socialFindings = allSocialFindings.filter(f => f.profile_id === profile?.id);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PersonalData.create(data),
@@ -225,6 +235,31 @@ Return JSON array of findings.`;
       alert('Scan failed: ' + error.message);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleCheckImpersonation = async () => {
+    if (!profile?.id) return;
+
+    if (socialProfiles.length === 0) {
+      alert('Please add your legitimate social media profiles first.');
+      return;
+    }
+
+    setCheckingImpersonation(true);
+    try {
+      const response = await base44.functions.invoke('checkSocialMediaImpersonation', { 
+        profileId: profile.id 
+      });
+
+      queryClient.invalidateQueries(['socialMediaFindings']);
+      queryClient.invalidateQueries(['notificationAlerts']);
+      
+      alert(response.data.message);
+    } catch (error) {
+      alert('Impersonation check failed: ' + error.message);
+    } finally {
+      setCheckingImpersonation(false);
     }
   };
 
@@ -478,14 +513,35 @@ Return JSON array of findings.`;
                 <h3 className="text-sm font-medium text-purple-300">
                   Your legitimate social media accounts
                 </h3>
-                <Button
-                  size="sm"
-                  onClick={() => setShowAddSocialForm(!showAddSocialForm)}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Profile
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCheckImpersonation}
+                    disabled={checkingImpersonation || socialProfiles.length === 0}
+                    className="border-red-500/50 text-red-300"
+                  >
+                    {checkingImpersonation ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 mr-2" />
+                        Check Impersonation
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddSocialForm(!showAddSocialForm)}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Profile
+                  </Button>
+                </div>
               </div>
 
               {/* Add Social Media Form */}
@@ -628,6 +684,17 @@ Return JSON array of findings.`;
                   </div>
                 )}
               </div>
+
+              {/* Impersonation Findings */}
+              {socialProfiles.length > 0 && (
+                <div className="space-y-3 pt-6 border-t border-purple-500/20">
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    Impersonation Findings ({socialFindings.filter(f => f.status === 'new').length} new)
+                  </h3>
+                  <ImpersonationFindings findings={socialFindings} profileId={profile?.id} />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

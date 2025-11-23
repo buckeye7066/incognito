@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users } from 'lucide-react';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 
@@ -13,6 +13,7 @@ export default function Layout({ children, currentPageName }) {
 
   const navigation = [
     { name: 'Dashboard', path: 'Dashboard', icon: Shield },
+    { name: 'AI Insights', path: 'AIInsights', icon: Brain },
     { name: 'Vault', path: 'Vault', icon: Database },
     { name: 'Scans', path: 'Scans', icon: Scan },
     { name: 'Findings', path: 'Findings', icon: Eye },

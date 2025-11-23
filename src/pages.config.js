@@ -5,6 +5,7 @@ import Findings from './pages/Findings';
 import DeletionCenter from './pages/DeletionCenter';
 import Settings from './pages/Settings';
 import Profiles from './pages/Profiles';
+import AIInsights from './pages/AIInsights';
 import __Layout from './Layout.jsx';
 
 
@@ -16,6 +17,7 @@ export const PAGES = {
     "DeletionCenter": DeletionCenter,
     "Settings": Settings,
     "Profiles": Profiles,
+    "AIInsights": AIInsights,
 }
 
 export const pagesConfig = {

@@ -3,9 +3,10 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import StatCard from '../components/shared/StatCard';
 import RiskBadge from '../components/shared/RiskBadge';
-import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight } from 'lucide-react';
+import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
@@ -28,10 +29,16 @@ export default function Dashboard() {
     queryFn: () => base44.entities.DeletionRequest.list()
   });
 
+  const { data: allAIInsights = [] } = useQuery({
+    queryKey: ['aiInsights'],
+    queryFn: () => base44.entities.AIInsight.list()
+  });
+
   // Filter by active profile
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const aiInsights = allAIInsights.filter(i => !activeProfileId || i.profile_id === activeProfileId);
 
   const activeFindings = scanResults.filter(r => r.status === 'new' || r.status === 'monitoring');
   const highRiskFindings = scanResults.filter(r => r.risk_score >= 70);
@@ -45,6 +52,9 @@ export default function Dashboard() {
   const recentFindings = [...scanResults]
     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
     .slice(0, 5);
+
+  const criticalInsights = aiInsights.filter(i => i.severity === 'critical' || i.severity === 'high');
+  const unreadInsights = aiInsights.filter(i => !i.is_read);
 
   return (
     <div className="space-y-8">
@@ -92,6 +102,43 @@ export default function Dashboard() {
           trend={`${deletionRequests.filter(r => r.status === 'pending').length} pending`}
         />
       </div>
+
+      {/* AI Insights Alert */}
+      {criticalInsights.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-2xl p-6 border-2 border-amber-500/50 bg-amber-500/5"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+              <Brain className="w-6 h-6 text-amber-400 animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-xl font-bold text-white">AI Insights Available</h3>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
+                  {criticalInsights.length} Critical
+                </Badge>
+                {unreadInsights.length > 0 && (
+                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">
+                    {unreadInsights.length} Unread
+                  </Badge>
+                )}
+              </div>
+              <p className="text-purple-300 mb-3">
+                AI has detected critical patterns and generated actionable recommendations for your digital footprint.
+              </p>
+              <Link to={createPageUrl('AIInsights')}>
+                <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  View AI Insights
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Footprint Score */}
       <motion.div
@@ -176,7 +223,23 @@ export default function Dashboard() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Link to={createPageUrl('AIInsights')} className="block">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="glass-card rounded-xl p-6 hover:glow-border transition-all duration-300 cursor-pointer border-purple-500/30"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <Brain className="w-8 h-8 text-purple-400" />
+              {unreadInsights.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              )}
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-1">AI Insights</h3>
+            <p className="text-sm text-purple-300">Get AI recommendations</p>
+          </motion.div>
+        </Link>
+
         <Link to={createPageUrl('Vault')} className="block">
           <motion.div
             whileHover={{ scale: 1.02 }}

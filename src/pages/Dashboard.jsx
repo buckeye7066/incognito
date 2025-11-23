@@ -28,6 +28,7 @@ export default function Dashboard() {
 
   const activeFindings = scanResults.filter(r => r.status === 'new' || r.status === 'monitoring');
   const highRiskFindings = scanResults.filter(r => r.risk_score >= 70);
+  const darkWebFindings = scanResults.filter(r => r.metadata?.scan_type === 'dark_web');
   const completedRemovals = deletionRequests.filter(r => r.status === 'completed');
   
   const avgRiskScore = scanResults.length > 0 
@@ -47,7 +48,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           title="Identifiers Monitored"
           value={personalData.filter(p => p.monitoring_enabled).length}
@@ -63,9 +64,16 @@ export default function Dashboard() {
           trend={`${highRiskFindings.length} high risk`}
         />
         <StatCard
+          title="Dark Web Breaches"
+          value={darkWebFindings.length}
+          icon={AlertTriangle}
+          color="red"
+          trend={darkWebFindings.length > 0 ? 'Requires action' : 'None detected'}
+        />
+        <StatCard
           title="Avg Risk Score"
           value={avgRiskScore}
-          icon={AlertTriangle}
+          icon={TrendingDown}
           color={avgRiskScore >= 70 ? 'red' : avgRiskScore >= 40 ? 'amber' : 'green'}
           trend={avgRiskScore < 50 ? 'Looking good' : 'Needs attention'}
         />

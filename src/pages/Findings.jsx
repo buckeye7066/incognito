@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Findings() {
@@ -90,6 +91,12 @@ export default function Findings() {
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-xl font-bold text-white">{result.source_name}</h3>
                           <RiskBadge score={result.risk_score} />
+                          {result.metadata?.scan_type === 'dark_web' && (
+                            <Badge className="bg-red-500/20 text-red-300 border-red-500/40 flex items-center gap-1">
+                              <Shield className="w-3 h-3" />
+                              Dark Web
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-purple-300 text-sm mb-1">
                           {result.source_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -141,6 +148,26 @@ export default function Findings() {
                             </span>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Dark Web Specific Info */}
+                    {result.metadata?.scan_type === 'dark_web' && result.metadata?.recommendations && (
+                      <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                        <div className="flex items-start gap-2 mb-2">
+                          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm font-semibold text-red-300">Dark Web Breach Detected</p>
+                        </div>
+                        {result.metadata.recommendations.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-red-200 font-semibold">Recommended Actions:</p>
+                            <ul className="text-xs text-red-200 space-y-1 ml-4">
+                              {result.metadata.recommendations.map((rec, idx) => (
+                                <li key={idx} className="list-disc">{rec}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
 

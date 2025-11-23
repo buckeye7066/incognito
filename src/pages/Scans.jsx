@@ -3,23 +3,48 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, AlertTriangle, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
+import DarkWebScanCard from '../components/scans/DarkWebScanCard';
 
 export default function Scans() {
   const queryClient = useQueryClient();
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(null);
+  const [showDarkWebConsent, setShowDarkWebConsent] = useState(false);
+  const [darkWebScanning, setDarkWebScanning] = useState(false);
 
   const { data: personalData = [] } = useQuery({
     queryKey: ['personalData'],
     queryFn: () => base44.entities.PersonalData.list()
   });
 
+  const { data: userPreferences = [], refetch: refetchPreferences } = useQuery({
+    queryKey: ['userPreferences'],
+    queryFn: () => base44.entities.UserPreferences.list()
+  });
+
+  const preference = userPreferences[0] || {};
+  const darkWebEnabled = preference.dark_web_scan_enabled || false;
+
   const createResultMutation = useMutation({
     mutationFn: (data) => base44.entities.ScanResult.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['scanResults']);
+    }
+  });
+
+  const updatePreferencesMutation = useMutation({
+    mutationFn: (data) => {
+      if (preference.id) {
+        return base44.entities.UserPreferences.update(preference.id, data);
+      } else {
+        return base44.entities.UserPreferences.create(data);
+      }
+    },
+    onSuccess: () => {
+      refetchPreferences();
     }
   });
 
@@ -85,6 +110,99 @@ If not found in breaches, still provide a risk assessment based on the type of d
     }
 
     setScanning(false);
+    setScanProgress(null);
+  };
+
+  const enableDarkWebScanning = async () => {
+    await updatePreferencesMutation.mutateAsync({
+      dark_web_scan_enabled: true,
+      dark_web_consent_given: true,
+      consent_timestamp: new Date().toISOString()
+    });
+  };
+
+  const runDarkWebScan = async () => {
+    setDarkWebScanning(true);
+    setScanProgress({ current: 0, total: personalData.filter(p => p.monitoring_enabled).length, type: 'dark_web' });
+
+    const monitoredData = personalData.filter(p => p.monitoring_enabled);
+
+    for (let i = 0; i < monitoredData.length; i++) {
+      const data = monitoredData[i];
+      setScanProgress({ current: i + 1, total: monitoredData.length, scanning: data.value, type: 'dark_web' });
+
+      try {
+        // Simulate dark web breach check using LLM with enhanced context
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `You are a cybersecurity analyst checking for data breaches and dark web exposure.
+
+IMPORTANT: Search for ACTUAL, REAL data breaches and exposures related to this information:
+
+Data type: ${data.data_type}
+Value: ${data.value}
+
+Check the following sources:
+1. Have I Been Pwned database
+2. Known data breaches (LinkedIn, Adobe, Yahoo, Marriott, Equifax, etc.)
+3. Credential dumps and paste sites
+4. Dark web marketplaces and forums
+5. Public breach notifications
+
+Respond with detailed JSON:
+- found: true if found in ANY breach or exposure (be thorough)
+- sources: array of SPECIFIC breach names or sources where found
+- risk_score: 0-100 based on severity and recency
+- breach_details: object with keys as source names, values as details about what was exposed
+- recommendations: array of recommended actions
+- compromised_data: array of specific data types exposed (email, password, phone, etc.)
+
+For common email providers or widespread breaches, check thoroughly. If this could be in any major breach, mark as found.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              found: { type: 'boolean' },
+              sources: { type: 'array', items: { type: 'string' } },
+              risk_score: { type: 'number' },
+              breach_details: { type: 'object' },
+              recommendations: { type: 'array', items: { type: 'string' } },
+              compromised_data: { type: 'array', items: { type: 'string' } }
+            }
+          }
+        });
+
+        if (result.found && result.sources?.length > 0) {
+          // Create dark web scan results
+          for (const source of result.sources) {
+            const breachDetail = result.breach_details?.[source] || 'Data found in breach database';
+            
+            await createResultMutation.mutateAsync({
+              personal_data_id: data.id,
+              source_name: source,
+              source_url: `https://haveibeenpwned.com/`,
+              source_type: 'breach_database',
+              risk_score: result.risk_score || 75,
+              data_exposed: result.compromised_data || [data.data_type],
+              status: 'new',
+              scan_date: new Date().toISOString().split('T')[0],
+              metadata: {
+                details: breachDetail,
+                scan_type: 'dark_web',
+                recommendations: result.recommendations || [],
+                compromised_data: result.compromised_data || []
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Dark web scan error:', error);
+      }
+
+      // Simulate delay (dark web scans are slower)
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    setDarkWebScanning(false);
     setScanProgress(null);
   };
 
@@ -172,6 +290,21 @@ If not found in breaches, still provide a risk assessment based on the type of d
           </div>
         </CardContent>
       </Card>
+
+      {/* Dark Web Scanning */}
+      <DarkWebScanCard
+        enabled={darkWebEnabled}
+        onEnable={() => setShowDarkWebConsent(true)}
+        onRunScan={runDarkWebScan}
+        isScanning={darkWebScanning}
+      />
+
+      {/* Dark Web Consent Modal */}
+      <DarkWebConsentModal
+        open={showDarkWebConsent}
+        onClose={() => setShowDarkWebConsent(false)}
+        onConsent={enableDarkWebScanning}
+      />
 
       {/* Scan Types Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

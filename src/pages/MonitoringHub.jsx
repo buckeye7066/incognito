@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, Plus, RefreshCw, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
 import { motion } from 'framer-motion';
+import DisposableCredentialCard from '../components/monitoring/DisposableCredentialCard';
+import AIActivityAnalyzer from '../components/monitoring/AIActivityAnalyzer';
 
 export default function MonitoringHub() {
   const queryClient = useQueryClient();
@@ -29,6 +31,13 @@ export default function MonitoringHub() {
 
   const accounts = allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId);
 
+  const { data: allCredentials = [] } = useQuery({
+    queryKey: ['disposableCredentials'],
+    queryFn: () => base44.entities.DisposableCredential.list()
+  });
+
+  const credentials = allCredentials.filter(c => !activeProfileId || c.profile_id === activeProfileId);
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.MonitoredAccount.create(data),
     onSuccess: () => {
@@ -42,6 +51,13 @@ export default function MonitoringHub() {
     mutationFn: ({ id, data }) => base44.entities.MonitoredAccount.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['monitoredAccounts']);
+    }
+  });
+
+  const createCredentialMutation = useMutation({
+    mutationFn: (data) => base44.entities.DisposableCredential.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['disposableCredentials']);
     }
   });
 
@@ -82,6 +98,18 @@ export default function MonitoringHub() {
     outlook: Mail,
     icloud: Mail,
     phone_forwarding: Phone
+  };
+
+  const handleCreateCredential = async (credData) => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    await createCredentialMutation.mutateAsync({
+      ...credData,
+      profile_id: activeProfileId
+    });
   };
 
   return (
@@ -349,6 +377,15 @@ export default function MonitoringHub() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Disposable Credentials & AI Analyzer */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DisposableCredentialCard
+          credentials={credentials}
+          onCreate={handleCreateCredential}
+        />
+        <AIActivityAnalyzer profileId={activeProfileId} />
       </div>
     </div>
   );

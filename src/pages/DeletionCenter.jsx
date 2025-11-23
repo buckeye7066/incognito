@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import AutomatedTracking from '../components/deletion/AutomatedTracking';
 
 export default function DeletionCenter() {
   const queryClient = useQueryClient();
   const [selectedResult, setSelectedResult] = useState(null);
+  const [checkingResponses, setCheckingResponses] = useState(false);
   const [formData, setFormData] = useState({
     removal_method: 'email_request',
     contact_email: '',
@@ -31,6 +33,16 @@ export default function DeletionCenter() {
 
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+
+  const { data: allResponses = [] } = useQuery({
+    queryKey: ['deletionEmailResponses'],
+    queryFn: () => base44.entities.DeletionEmailResponse.list()
+  });
+
+  const responses = allResponses.filter(r => {
+    const req = deletionRequests.find(d => d.id === r.deletion_request_id);
+    return req && (!activeProfileId || req.profile_id === activeProfileId);
+  });
 
   const createRequestMutation = useMutation({
     mutationFn: (data) => base44.entities.DeletionRequest.create(data),
@@ -99,6 +111,25 @@ Best regards,
 [Your Name]`;
   };
 
+  const checkDeletionResponses = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    setCheckingResponses(true);
+    try {
+      const response = await base44.functions.invoke('monitorDeletionResponses', { profileId: activeProfileId });
+      alert(`Found ${response.data.responsesDetected} new responses from data brokers!`);
+      queryClient.invalidateQueries(['deletionEmailResponses']);
+      queryClient.invalidateQueries(['deletionRequests']);
+    } catch (error) {
+      alert('Failed to check responses: ' + error.message);
+    } finally {
+      setCheckingResponses(false);
+    }
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
@@ -117,10 +148,28 @@ Best regards,
   return (
     <div className="space-y-8 max-w-6xl">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-white mb-2">Deletion Center</h1>
-        <p className="text-purple-300">Request removal of your data from exposed sources</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Deletion Center</h1>
+          <p className="text-purple-300">Request removal of your data from exposed sources</p>
+        </div>
+        <Button
+          onClick={checkDeletionResponses}
+          disabled={checkingResponses}
+          variant="outline"
+          className="border-purple-500/50 text-purple-300"
+        >
+          <RefreshCw className={`w-5 h-5 mr-2 ${checkingResponses ? 'animate-spin' : ''}`} />
+          {checkingResponses ? 'Checking...' : 'Check Responses'}
+        </Button>
       </div>
+
+      {/* Automated Response Tracking */}
+      <AutomatedTracking
+        responses={responses}
+        onRefresh={checkDeletionResponses}
+        refreshing={checkingResponses}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Create Request */}

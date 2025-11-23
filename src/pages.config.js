@@ -7,6 +7,7 @@ import Settings from './pages/Settings';
 import Profiles from './pages/Profiles';
 import AIInsights from './pages/AIInsights';
 import Notifications from './pages/Notifications';
+import SpamTracker from './pages/SpamTracker';
 import __Layout from './Layout.jsx';
 
 
@@ -20,6 +21,7 @@ export const PAGES = {
     "Profiles": Profiles,
     "AIInsights": AIInsights,
     "Notifications": Notifications,
+    "SpamTracker": SpamTracker,
 }
 
 export const pagesConfig = {

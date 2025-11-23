@@ -262,6 +262,65 @@ Only report if there are genuinely NEW breaches. Be accurate.`,
         }
       }
 
+      // Spam pattern analysis
+      const { data: spamIncidents = [] } = await queryClient.fetchQuery({
+        queryKey: ['spamIncidents'],
+        queryFn: () => base44.entities.SpamIncident.list()
+      });
+
+      const profileSpam = spamIncidents.filter(s => s.profile_id === activeProfileId);
+
+      if (profileSpam.length > 0) {
+        const spamAnalysis = await base44.integrations.Core.InvokeLLM({
+          prompt: `Analyze spam patterns and identify likely data sources causing spam:
+
+Spam Incidents (Last 90 Days):
+${JSON.stringify(profileSpam.slice(0, 50).map(s => ({
+  type: s.incident_type,
+  category: s.category,
+  suspected_source: s.suspected_data_source,
+  date: s.date_received
+})))}
+
+Exposed Data Sources:
+${JSON.stringify(scanResults.slice(0, 20).map(r => ({
+  source: r.source_name,
+  type: r.source_type,
+  risk: r.risk_score
+})))}
+
+IDENTIFY:
+1. Which data broker/people finder sites are most likely causing the spam?
+2. What patterns exist in spam timing and type?
+3. Which data removals would have the highest impact on reducing spam?
+4. Specific recommendations to cut down on spam communications.`,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              likely_sources: { type: 'array', items: { type: 'string' } },
+              patterns: { type: 'array', items: { type: 'string' } },
+              priority_removals: { type: 'array', items: { type: 'string' } },
+              recommendations: { type: 'array', items: { type: 'string' } }
+            }
+          }
+        });
+
+        await createInsightMutation.mutateAsync({
+          profile_id: activeProfileId,
+          insight_type: 'mitigation_strategy',
+          title: 'Spam Reduction Strategy',
+          description: `AI has identified ${spamAnalysis.likely_sources?.length || 0} likely sources causing your spam. Priority action: ${spamAnalysis.priority_removals?.[0] || 'Remove data from high-traffic people finder sites'}`,
+          severity: 'high',
+          recommendations: spamAnalysis.recommendations || [],
+          confidence_score: 85,
+          metadata: {
+            likely_sources: spamAnalysis.likely_sources,
+            patterns: spamAnalysis.patterns,
+            priority_removals: spamAnalysis.priority_removals
+          }
+        });
+      }
+
       // 3. Mitigation Strategies
       const highRiskResults = scanResults.filter(r => r.risk_score >= 70);
       if (highRiskResults.length > 0) {

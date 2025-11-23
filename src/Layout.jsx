@@ -19,6 +19,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Scans', path: 'Scans', icon: Scan },
     { name: 'Findings', path: 'Findings', icon: Eye },
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
+    { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Profiles', path: 'Profiles', icon: Users },
     { name: 'Settings', path: 'Settings', icon: Settings }
   ];

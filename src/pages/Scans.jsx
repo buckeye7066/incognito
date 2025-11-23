@@ -1,0 +1,216 @@
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+export default function Scans() {
+  const queryClient = useQueryClient();
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(null);
+
+  const { data: personalData = [] } = useQuery({
+    queryKey: ['personalData'],
+    queryFn: () => base44.entities.PersonalData.list()
+  });
+
+  const createResultMutation = useMutation({
+    mutationFn: (data) => base44.entities.ScanResult.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['scanResults']);
+    }
+  });
+
+  const runScan = async () => {
+    setScanning(true);
+    setScanProgress({ current: 0, total: personalData.filter(p => p.monitoring_enabled).length });
+
+    const monitoredData = personalData.filter(p => p.monitoring_enabled);
+
+    for (let i = 0; i < monitoredData.length; i++) {
+      const data = monitoredData[i];
+      setScanProgress({ current: i + 1, total: monitoredData.length, scanning: data.value });
+
+      try {
+        // Simulate breach check using LLM with internet context
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt: `Check if the following personal information has been involved in any known data breaches or appears in public databases. 
+          
+Data type: ${data.data_type}
+Value: ${data.value}
+
+Respond with a JSON object containing:
+- found: boolean (true if found in breaches/public records)
+- sources: array of source names where found (if any)
+- risk_score: number 0-100 based on severity
+- details: brief description
+
+If not found in breaches, still provide a risk assessment based on the type of data.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              found: { type: 'boolean' },
+              sources: { type: 'array', items: { type: 'string' } },
+              risk_score: { type: 'number' },
+              details: { type: 'string' }
+            }
+          }
+        });
+
+        if (result.found && result.sources?.length > 0) {
+          // Create scan results for each source found
+          for (const source of result.sources) {
+            await createResultMutation.mutateAsync({
+              personal_data_id: data.id,
+              source_name: source,
+              source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + source)}`,
+              source_type: 'breach_database',
+              risk_score: result.risk_score || 50,
+              data_exposed: [data.data_type],
+              status: 'new',
+              scan_date: new Date().toISOString().split('T')[0],
+              metadata: { details: result.details }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Scan error:', error);
+      }
+
+      // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    setScanning(false);
+    setScanProgress(null);
+  };
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {/* Header */}
+      <div>
+        <h1 className="text-4xl font-bold text-white mb-2">Web Scanning</h1>
+        <p className="text-purple-300">Search for your data across breach databases and public records</p>
+      </div>
+
+      {/* Scan Control */}
+      <Card className="glass-card border-purple-500/30 glow-border">
+        <CardHeader className="border-b border-purple-500/20">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Search className="w-5 h-5 text-purple-400" />
+            Run New Scan
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50">
+              <div>
+                <p className="text-white font-semibold mb-1">Identifiers to Scan</p>
+                <p className="text-sm text-purple-300">
+                  {personalData.filter(p => p.monitoring_enabled).length} identifiers with monitoring enabled
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-white">
+                  {personalData.filter(p => p.monitoring_enabled).length}
+                </p>
+              </div>
+            </div>
+
+            {personalData.filter(p => p.monitoring_enabled).length === 0 ? (
+              <div className="text-center py-8">
+                <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                <p className="text-white font-semibold mb-2">No identifiers to scan</p>
+                <p className="text-sm text-purple-300">Add identifiers to your vault and enable monitoring first</p>
+              </div>
+            ) : (
+              <>
+                {!scanning && !scanProgress && (
+                  <Button
+                    onClick={runScan}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 py-6 text-lg"
+                  >
+                    <Search className="w-5 h-5 mr-2" />
+                    Start Comprehensive Scan
+                  </Button>
+                )}
+
+                {scanning && scanProgress && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-semibold">Scanning in progress...</span>
+                      <span className="text-purple-300">
+                        {scanProgress.current} / {scanProgress.total}
+                      </span>
+                    </div>
+
+                    <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(scanProgress.current / scanProgress.total) * 100}%` }}
+                        className="h-full bg-gradient-to-r from-purple-600 to-indigo-600"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-900/50">
+                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                      <span className="text-sm text-purple-300">
+                        Checking: {scanProgress.scanning}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Scan Types Info */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="glass-card border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
+              <Search className="w-6 h-6 text-purple-400" />
+            </div>
+            <h3 className="text-white font-semibold mb-2">Surface Web</h3>
+            <p className="text-sm text-purple-300">
+              Search engines, public directories, and people-finder sites
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-indigo-400" />
+            </div>
+            <h3 className="text-white font-semibold mb-2">Breach Databases</h3>
+            <p className="text-sm text-purple-300">
+              Known data breaches and compromised credentials
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-6 h-6 text-pink-400" />
+            </div>
+            <h3 className="text-white font-semibold mb-2">Public Records</h3>
+            <p className="text-sm text-purple-300">
+              Court filings, government records, and public documents
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

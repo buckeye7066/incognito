@@ -3,16 +3,20 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import StatCard from '../components/shared/StatCard';
 import RiskBadge from '../components/shared/RiskBadge';
-import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles } from 'lucide-react';
+import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
+import RiskTrendsChart from '../components/dashboard/RiskTrendsChart';
+import CorrelationRiskCard from '../components/dashboard/CorrelationRiskCard';
 
 export default function Dashboard() {
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const [analyzingRisk, setAnalyzingRisk] = useState(false);
+  const [correlations, setCorrelations] = useState(null);
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
@@ -39,6 +43,11 @@ export default function Dashboard() {
     queryFn: () => base44.entities.SpamIncident.list()
   });
 
+  const { data: allReports = [] } = useQuery({
+    queryKey: ['digitalFootprintReports'],
+    queryFn: () => base44.entities.DigitalFootprintReport.list()
+  });
+
   // Filter by active profile
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
@@ -62,12 +71,54 @@ export default function Dashboard() {
   const criticalInsights = aiInsights.filter(i => i.severity === 'critical' || i.severity === 'high');
   const unreadInsights = aiInsights.filter(i => !i.is_read);
 
+  const reports = allReports.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+
+  const handleAdvancedRiskAnalysis = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    setAnalyzingRisk(true);
+    try {
+      const response = await base44.functions.invoke('calculateAdvancedRiskScore', {
+        profileId: activeProfileId
+      });
+
+      setCorrelations(response.data.high_risk_combinations);
+      alert(`Advanced risk analysis complete! Found ${response.data.high_risk_combinations.length} high-risk data correlations.`);
+    } catch (error) {
+      alert('Risk analysis failed: ' + error.message);
+    } finally {
+      setAnalyzingRisk(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-white mb-2">Privacy Dashboard</h1>
-        <p className="text-purple-300">Monitor and minimize your digital footprint</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Privacy Dashboard</h1>
+          <p className="text-purple-300">Monitor and minimize your digital footprint</p>
+        </div>
+        <Button
+          onClick={handleAdvancedRiskAnalysis}
+          disabled={analyzingRisk}
+          className="bg-gradient-to-r from-orange-600 to-red-600"
+        >
+          {analyzingRisk ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Brain className="w-4 h-4 mr-2" />
+              Run Advanced Risk Analysis
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Stats Grid */}
@@ -158,40 +209,48 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {/* Footprint Score */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="glass-card rounded-2xl p-8 glow-border"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Your Digital Footprint Score</h2>
-            <p className="text-purple-300">Lower is better — track your progress over time</p>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold text-white mb-1">{avgRiskScore}</div>
-            <div className="flex items-center gap-2 text-green-400 text-sm">
-              <TrendingDown className="w-4 h-4" />
-              <span>Improving</span>
+      {/* Risk Trends and Correlations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Footprint Score */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card rounded-2xl p-8 glow-border"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Your Digital Footprint Score</h2>
+              <p className="text-purple-300">Lower is better — track your progress over time</p>
+            </div>
+            <div className="text-right">
+              <div className="text-5xl font-bold text-white mb-1">{avgRiskScore}</div>
+              <div className="flex items-center gap-2 text-green-400 text-sm">
+                <TrendingDown className="w-4 h-4" />
+                <span>Improving</span>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${avgRiskScore}%` }}
-            transition={{ duration: 1, ease: 'easeOut' }}
-            className={`h-full rounded-full ${
-              avgRiskScore >= 70 ? 'bg-gradient-to-r from-red-600 to-red-400' :
-              avgRiskScore >= 40 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
-              'bg-gradient-to-r from-green-600 to-green-400'
-            }`}
-          />
-        </div>
-      </motion.div>
+          
+          {/* Progress Bar */}
+          <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${avgRiskScore}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+              className={`h-full rounded-full ${
+                avgRiskScore >= 70 ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                avgRiskScore >= 40 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                'bg-gradient-to-r from-green-600 to-green-400'
+              }`}
+            />
+          </div>
+        </motion.div>
+
+        {correlations && <CorrelationRiskCard correlations={correlations} />}
+      </div>
+
+      {/* Risk Trends Chart */}
+      {reports.length > 0 && <RiskTrendsChart reports={reports} />}
 
       {/* Recent Findings */}
       <Card className="glass-card border-purple-500/20">

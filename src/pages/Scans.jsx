@@ -15,10 +15,14 @@ export default function Scans() {
   const [showDarkWebConsent, setShowDarkWebConsent] = useState(false);
   const [darkWebScanning, setDarkWebScanning] = useState(false);
 
-  const { data: personalData = [] } = useQuery({
+  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
     queryFn: () => base44.entities.PersonalData.list()
   });
+
+  const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
 
   const { data: userPreferences = [], refetch: refetchPreferences } = useQuery({
     queryKey: ['userPreferences'],
@@ -89,6 +93,7 @@ If not found in breaches, still provide a risk assessment based on the type of d
           // Create scan results for each source found
           for (const source of result.sources) {
             await createResultMutation.mutateAsync({
+              profile_id: activeProfileId,
               personal_data_id: data.id,
               source_name: source,
               source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + source)}`,
@@ -177,6 +182,7 @@ For common email providers or widespread breaches, check thoroughly. If this cou
             const breachDetail = result.breach_details?.[source] || 'Data found in breach database';
             
             await createResultMutation.mutateAsync({
+              profile_id: activeProfileId,
               personal_data_id: data.id,
               source_name: source,
               source_url: `https://haveibeenpwned.com/`,

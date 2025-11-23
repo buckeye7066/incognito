@@ -11,20 +11,27 @@ import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
 
 export default function Dashboard() {
-  const { data: personalData = [] } = useQuery({
+  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
     queryFn: () => base44.entities.PersonalData.list()
   });
 
-  const { data: scanResults = [] } = useQuery({
+  const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
     queryFn: () => base44.entities.ScanResult.list()
   });
 
-  const { data: deletionRequests = [] } = useQuery({
+  const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
     queryFn: () => base44.entities.DeletionRequest.list()
   });
+
+  // Filter by active profile
+  const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
+  const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
 
   const activeFindings = scanResults.filter(r => r.status === 'new' || r.status === 'monitoring');
   const highRiskFindings = scanResults.filter(r => r.risk_score >= 70);

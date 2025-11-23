@@ -35,10 +35,14 @@ export default function Vault() {
     notes: ''
   });
 
-  const { data: personalData = [], isLoading } = useQuery({
+  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { data: allPersonalData = [], isLoading } = useQuery({
     queryKey: ['personalData'],
     queryFn: () => base44.entities.PersonalData.list()
   });
+
+  const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.PersonalData.create(data),
@@ -72,7 +76,11 @@ export default function Vault() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (!activeProfileId) {
+      alert('Please select or create a profile first');
+      return;
+    }
+    createMutation.mutate({ ...formData, profile_id: activeProfileId });
   };
 
   const groupedData = DATA_TYPES.reduce((acc, type) => {

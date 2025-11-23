@@ -4,6 +4,7 @@ import Scans from './pages/Scans';
 import Findings from './pages/Findings';
 import DeletionCenter from './pages/DeletionCenter';
 import Settings from './pages/Settings';
+import Profiles from './pages/Profiles';
 import __Layout from './Layout.jsx';
 
 
@@ -14,6 +15,7 @@ export const PAGES = {
     "Findings": Findings,
     "DeletionCenter": DeletionCenter,
     "Settings": Settings,
+    "Profiles": Profiles,
 }
 
 export const pagesConfig = {

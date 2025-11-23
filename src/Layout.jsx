@@ -1,17 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users } from 'lucide-react';
+import ProfileSelector from './components/profiles/ProfileSelector';
+import ProfileModal from './components/profiles/ProfileModal';
 
 export default function Layout({ children, currentPageName }) {
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [activeProfile, setActiveProfile] = useState(null);
+
   const navigation = [
     { name: 'Dashboard', path: 'Dashboard', icon: Shield },
     { name: 'Vault', path: 'Vault', icon: Database },
     { name: 'Scans', path: 'Scans', icon: Scan },
     { name: 'Findings', path: 'Findings', icon: Eye },
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
+    { name: 'Profiles', path: 'Profiles', icon: Users },
     { name: 'Settings', path: 'Settings', icon: Settings }
   ];
+
+  const { data: profiles = [], refetch: refetchProfiles } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => base44.entities.Profile.list()
+  });
+
+  // Set active profile to default or first profile
+  useEffect(() => {
+    if (profiles.length > 0 && !activeProfile) {
+      const defaultProfile = profiles.find(p => p.is_default) || profiles[0];
+      setActiveProfile(defaultProfile);
+      localStorage.setItem('activeProfileId', defaultProfile.id);
+    }
+  }, [profiles, activeProfile]);
+
+  // Load active profile from localStorage
+  useEffect(() => {
+    const savedProfileId = localStorage.getItem('activeProfileId');
+    if (savedProfileId && profiles.length > 0) {
+      const savedProfile = profiles.find(p => p.id === savedProfileId);
+      if (savedProfile) {
+        setActiveProfile(savedProfile);
+      }
+    }
+  }, [profiles]);
+
+  const handleProfileChange = (profile) => {
+    setActiveProfile(profile);
+    localStorage.setItem('activeProfileId', profile.id);
+    // Force refresh of all queries to load new profile data
+    window.location.reload();
+  };
+
+  const handleCreateProfile = async (formData) => {
+    await base44.entities.Profile.create(formData);
+    refetchProfiles();
+    setShowProfileModal(false);
+  };
+
+  // Store active profile in window for access by other components
+  if (typeof window !== 'undefined') {
+    window.activeProfileId = activeProfile?.id;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
@@ -79,17 +130,11 @@ export default function Layout({ children, currentPageName }) {
           </nav>
 
           <div className="p-4 border-t border-purple-500/20">
-            <div className="glass-card rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white font-bold">
-                  U
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">User</p>
-                  <p className="text-xs text-purple-300">Protected</p>
-                </div>
-              </div>
-            </div>
+            <ProfileSelector
+              activeProfile={activeProfile}
+              onProfileChange={handleProfileChange}
+              onCreateNew={() => setShowProfileModal(true)}
+            />
           </div>
         </aside>
 
@@ -100,6 +145,13 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </main>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onSave={handleCreateProfile}
+      />
     </div>
   );
 }

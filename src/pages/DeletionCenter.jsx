@@ -17,15 +17,20 @@ export default function DeletionCenter() {
     notes: ''
   });
 
-  const { data: scanResults = [] } = useQuery({
+  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
     queryFn: () => base44.entities.ScanResult.list()
   });
 
-  const { data: deletionRequests = [] } = useQuery({
+  const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
     queryFn: () => base44.entities.DeletionRequest.list()
   });
+
+  const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
 
   const createRequestMutation = useMutation({
     mutationFn: (data) => base44.entities.DeletionRequest.create(data),
@@ -50,8 +55,13 @@ export default function DeletionCenter() {
 
   const handleCreateRequest = async () => {
     if (!selectedResult) return;
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
 
     await createRequestMutation.mutateAsync({
+      profile_id: activeProfileId,
       scan_result_id: selectedResult.id,
       removal_method: formData.removal_method,
       contact_email: formData.contact_email,

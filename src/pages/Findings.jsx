@@ -13,10 +13,14 @@ export default function Findings() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('all');
 
-  const { data: scanResults = [], isLoading } = useQuery({
+  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { data: allScanResults = [], isLoading } = useQuery({
     queryKey: ['scanResults'],
     queryFn: () => base44.entities.ScanResult.list()
   });
+
+  const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ScanResult.update(id, data),

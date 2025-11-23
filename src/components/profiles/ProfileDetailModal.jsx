@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash2, Eye, EyeOff, Shield, Users } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -59,6 +59,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddSocialForm, setShowAddSocialForm] = useState(false);
   const [showValues, setShowValues] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [formData, setFormData] = useState({
     data_type: '',
     value: '',
@@ -146,6 +147,87 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
     createSocialMutation.mutate({ ...socialFormData, profile_id: profile.id });
   };
 
+  const handleScanNow = async () => {
+    if (!profile?.id) return;
+    
+    const monitoredData = profileData.filter(d => d.monitoring_enabled);
+    
+    if (monitoredData.length === 0) {
+      alert('No monitored data to scan. Please add and enable monitoring for at least one identifier.');
+      return;
+    }
+
+    setScanning(true);
+    try {
+      const resultsCreated = [];
+      
+      for (const data of monitoredData) {
+        const prompt = `Scan for exposures of this data: ${data.data_type} = ${data.value}. 
+Search across people finder sites, data brokers, public records, and social media.
+For EACH distinct source where this data appears, provide:
+- source_name: exact name
+- source_url: full URL
+- source_type: people_finder, data_broker, public_record, or social_media
+- risk_score: 0-100
+- data_exposed: array of data types found
+Return JSON array of findings.`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              findings: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    source_name: { type: "string" },
+                    source_url: { type: "string" },
+                    source_type: { type: "string" },
+                    risk_score: { type: "number" },
+                    data_exposed: { type: "array", items: { type: "string" } }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (result.findings && result.findings.length > 0) {
+          for (const finding of result.findings) {
+            await base44.entities.ScanResult.create({
+              profile_id: profile.id,
+              personal_data_id: data.id,
+              source_name: finding.source_name,
+              source_url: finding.source_url,
+              source_type: finding.source_type,
+              risk_score: finding.risk_score,
+              data_exposed: finding.data_exposed,
+              status: 'new',
+              scan_date: new Date().toISOString().split('T')[0]
+            });
+            resultsCreated.push(finding);
+          }
+        }
+      }
+
+      await base44.entities.Profile.update(profile.id, {
+        last_scan_date: new Date().toISOString().split('T')[0]
+      });
+
+      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries(['profiles']);
+      
+      alert(`Scan complete! Found ${resultsCreated.length} exposures for this profile.`);
+    } catch (error) {
+      alert('Scan failed: ' + error.message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const maskValue = (value) => {
     if (!value) return '';
     if (value.length <= 4) return '•'.repeat(value.length);
@@ -173,16 +255,35 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="bg-slate-900 border-purple-500/50 text-white max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[profile.avatar_color]} flex items-center justify-center text-white font-bold shadow-lg`}>
-              {getInitials(profile.name)}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[profile.avatar_color]} flex items-center justify-center text-white font-bold shadow-lg`}>
+                {getInitials(profile.name)}
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold">{profile.name}</DialogTitle>
+                {profile.description && (
+                  <p className="text-purple-300 text-sm">{profile.description}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-2xl font-bold">{profile.name}</DialogTitle>
-              {profile.description && (
-                <p className="text-purple-300 text-sm">{profile.description}</p>
+            <Button
+              onClick={handleScanNow}
+              disabled={scanning}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              {scanning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  <Scan className="w-4 h-4 mr-2" />
+                  Scan Now
+                </>
               )}
-            </div>
+            </Button>
           </div>
         </DialogHeader>
 

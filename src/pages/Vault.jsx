@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
+import BreachCheckButton from '../components/vault/BreachCheckButton';
 
 const DATA_TYPES = [
   { value: 'full_name', label: 'Full Name', icon: '👤' },
@@ -114,6 +115,7 @@ export default function Vault() {
           <p className="text-purple-300">Encrypted storage for your personal identifiers</p>
         </div>
         <div className="flex gap-3">
+          <BreachCheckButton personalData={personalData} profileId={activeProfileId} />
           <Button
             variant="outline"
             onClick={() => setShowValues(!showValues)}

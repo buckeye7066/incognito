@@ -3,10 +3,11 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Search, CheckCircle2, AlertTriangle, Shield } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, AlertTriangle, Shield, Database } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import DarkWebScanCard from '../components/scans/DarkWebScanCard';
+import DataSourcesCard from '../components/scans/DataSourcesCard';
 
 export default function Scans() {
   const queryClient = useQueryClient();
@@ -63,46 +64,84 @@ export default function Scans() {
       setScanProgress({ current: i + 1, total: monitoredData.length, scanning: data.value });
 
       try {
-        // Simulate breach check using LLM with internet context
+        // Comprehensive multi-source scan
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Check if the following personal information has been involved in any known data breaches or appears in public databases. 
-          
-Data type: ${data.data_type}
+          prompt: `Perform a comprehensive scan across multiple data sources for this personal information:
+
+DATA TO SCAN:
+Type: ${data.data_type}
 Value: ${data.value}
 
-Respond with a JSON object containing:
-- found: boolean (true if found in breaches/public records)
-- sources: array of source names where found (if any)
-- risk_score: number 0-100 based on severity
-- details: brief description
+SCAN THE FOLLOWING SOURCES:
+1. PEOPLE FINDER SITES: Spokeo, BeenVerified, Intelius, PeopleFinders, WhitePages
+2. DATA BROKERS: Acxiom, Epsilon, Oracle Data Cloud, LiveRamp
+3. PUBLIC RECORDS: Property records, business registries, voter registration
+4. GOVERNMENT DATABASES: USA.gov public data, state databases, license records
+5. LEGAL RECORDS: PACER federal court records, public legal filings
+6. BREACH DATABASES: Have I Been Pwned, DeHashed, LeakCheck
+7. OSINT SOURCES: Archive.org cached pages, Google dorking results
 
-If not found in breaches, still provide a risk assessment based on the type of data.`,
+For each source where data is found, provide:
+- Source name (be specific)
+- What data was exposed
+- Risk assessment
+- Last updated/cached date if available
+
+Use internet search to verify current breach status and public record availability. 
+          
+IMPORTANT: Be thorough and specific. Check real sources, not hypothetical ones.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: 'object',
             properties: {
               found: { type: 'boolean' },
-              sources: { type: 'array', items: { type: 'string' } },
+              sources: { 
+                type: 'array', 
+                items: { 
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string' },
+                    data_exposed: { type: 'array', items: { type: 'string' } },
+                    last_updated: { type: 'string' }
+                  }
+                }
+              },
               risk_score: { type: 'number' },
-              details: { type: 'string' }
+              details: { type: 'string' },
+              osint_findings: { type: 'array', items: { type: 'string' } }
             }
           }
         });
 
         if (result.found && result.sources?.length > 0) {
           // Create scan results for each source found
-          for (const source of result.sources) {
+          for (const sourceObj of result.sources) {
+            const sourceName = typeof sourceObj === 'string' ? sourceObj : sourceObj.name;
+            const sourceType = sourceObj.type || 'other';
+            const dataExposed = sourceObj.data_exposed || [data.data_type];
+            
+            // Map source type to enum
+            const sourceTypeEnum = ['breach_database', 'people_finder', 'public_record', 'data_broker'].includes(sourceType) 
+              ? sourceType 
+              : 'other';
+            
             await createResultMutation.mutateAsync({
               profile_id: activeProfileId,
               personal_data_id: data.id,
-              source_name: source,
-              source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + source)}`,
-              source_type: 'breach_database',
+              source_name: sourceName,
+              source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + sourceName)}`,
+              source_type: sourceTypeEnum,
               risk_score: result.risk_score || 50,
-              data_exposed: [data.data_type],
+              data_exposed: dataExposed,
               status: 'new',
               scan_date: new Date().toISOString().split('T')[0],
-              metadata: { details: result.details }
+              metadata: { 
+                details: result.details,
+                last_updated: sourceObj.last_updated,
+                osint_findings: result.osint_findings,
+                scan_type: 'comprehensive'
+              }
             });
           }
         }
@@ -312,6 +351,9 @@ For common email providers or widespread breaches, check thoroughly. If this cou
         onConsent={enableDarkWebScanning}
       />
 
+      {/* Data Sources Coverage */}
+      <DataSourcesCard expanded={true} />
+
       {/* Scan Types Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="glass-card border-purple-500/20">
@@ -319,9 +361,9 @@ For common email providers or widespread breaches, check thoroughly. If this cou
             <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4">
               <Search className="w-6 h-6 text-purple-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Surface Web</h3>
+            <h3 className="text-white font-semibold mb-2">People Finder Sites</h3>
             <p className="text-sm text-purple-300">
-              Search engines, public directories, and people-finder sites
+              BeenVerified, Intelius, Spokeo, WhitePages, and similar services
             </p>
           </CardContent>
         </Card>
@@ -329,11 +371,11 @@ For common email providers or widespread breaches, check thoroughly. If this cou
         <Card className="glass-card border-purple-500/20">
           <CardContent className="p-6">
             <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4">
-              <AlertTriangle className="w-6 h-6 text-indigo-400" />
+              <Database className="w-6 h-6 text-indigo-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Breach Databases</h3>
+            <h3 className="text-white font-semibold mb-2">Data Brokers</h3>
             <p className="text-sm text-purple-300">
-              Known data breaches and compromised credentials
+              Acxiom, Epsilon, Oracle Data Cloud, and commercial data aggregators
             </p>
           </CardContent>
         </Card>
@@ -343,9 +385,9 @@ For common email providers or widespread breaches, check thoroughly. If this cou
             <div className="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-6 h-6 text-pink-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Public Records</h3>
+            <h3 className="text-white font-semibold mb-2">Public & Legal Records</h3>
             <p className="text-sm text-purple-300">
-              Court filings, government records, and public documents
+              PACER, court filings, government databases, property records
             </p>
           </CardContent>
         </Card>

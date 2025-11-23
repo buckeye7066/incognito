@@ -113,6 +113,54 @@ export default function Settings() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white mb-1">Breach Monitoring</p>
+              <p className="text-sm text-purple-300">Check identifiers against breach databases</p>
+            </div>
+            <Switch 
+              checked={preference.breach_monitoring_enabled !== false}
+              onCheckedChange={(checked) => handleToggle('breach_monitoring_enabled', checked)}
+            />
+          </div>
+
+          {preference.breach_monitoring_enabled !== false && (
+            <>
+              <div className="flex items-center justify-between pt-4 border-t border-purple-500/20">
+                <div>
+                  <p className="font-medium text-white mb-1">Auto Breach Check</p>
+                  <p className="text-sm text-purple-300">Automatically check for breaches on a schedule</p>
+                </div>
+                <Switch 
+                  checked={preference.auto_breach_check_enabled || false}
+                  onCheckedChange={(checked) => handleToggle('auto_breach_check_enabled', checked)}
+                />
+              </div>
+
+              {preference.auto_breach_check_enabled && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-white mb-1">Breach Check Frequency</p>
+                    <p className="text-sm text-purple-300">How often to check for new breaches</p>
+                  </div>
+                  <Select 
+                    value={preference.breach_check_frequency || 'weekly'}
+                    onValueChange={(value) => handleToggle('breach_check_frequency', value)}
+                  >
+                    <SelectTrigger className="w-40 bg-slate-900/50 border-purple-500/30 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -249,6 +297,17 @@ export default function Settings() {
             <Switch 
               checked={preference.notifications_high_risk !== false}
               onCheckedChange={(checked) => handleToggle('notifications_high_risk', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white mb-1">Breach Alerts</p>
+              <p className="text-sm text-purple-300">Notify when identifiers appear in data breaches</p>
+            </div>
+            <Switch 
+              checked={preference.notifications_breach_alerts !== false}
+              onCheckedChange={(checked) => handleToggle('notifications_breach_alerts', checked)}
             />
           </div>
 

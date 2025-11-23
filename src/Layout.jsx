@@ -18,6 +18,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Vault', path: 'Vault', icon: Database },
     { name: 'Scans', path: 'Scans', icon: Scan },
     { name: 'Findings', path: 'Findings', icon: Eye },
+    { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
     { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },

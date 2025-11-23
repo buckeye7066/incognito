@@ -9,6 +9,7 @@ import AIInsights from './pages/AIInsights';
 import Notifications from './pages/Notifications';
 import SpamTracker from './pages/SpamTracker';
 import MonitoringHub from './pages/MonitoringHub';
+import SocialMediaHub from './pages/SocialMediaHub';
 import __Layout from './Layout.jsx';
 
 
@@ -24,6 +25,7 @@ export const PAGES = {
     "Notifications": Notifications,
     "SpamTracker": SpamTracker,
     "MonitoringHub": MonitoringHub,
+    "SocialMediaHub": SocialMediaHub,
 }
 
 export const pagesConfig = {

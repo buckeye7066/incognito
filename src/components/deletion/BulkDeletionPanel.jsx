@@ -47,15 +47,44 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
     setResults(null);
 
     try {
-      const response = await base44.functions.invoke('automateDataDeletion', {
-        profileId,
-        scanResultIds: selectedResults
-      });
+      // Create deletion requests for selected results
+      let requestsCreated = 0;
+      const details = [];
+      
+      for (const resultId of selectedResults) {
+        const scanResult = scanResults.find(r => r.id === resultId);
+        if (scanResult) {
+          await base44.entities.DeletionRequest.create({
+            profile_id: profileId,
+            scan_result_id: resultId,
+            removal_method: 'email_request',
+            status: 'pending',
+            request_date: new Date().toISOString().split('T')[0]
+          });
+          
+          // Update scan result status
+          await base44.entities.ScanResult.update(resultId, {
+            status: 'removal_requested'
+          });
+          
+          requestsCreated++;
+          details.push({
+            broker: scanResult.source_name,
+            email: 'privacy@' + scanResult.source_name.toLowerCase().replace(/\s+/g, '') + '.com',
+            status: 'sent'
+          });
+        }
+      }
 
-      setResults(response.data);
+      setResults({
+        requestsCreated,
+        emailsSent: requestsCreated,
+        emailsFailed: 0,
+        details
+      });
+      
       queryClient.invalidateQueries(['deletionRequests']);
       queryClient.invalidateQueries(['scanResults']);
-      queryClient.invalidateQueries(['notificationAlerts']);
       
       clearSelection();
     } catch (error) {

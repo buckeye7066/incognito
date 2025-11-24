@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 
@@ -144,6 +144,140 @@ Provide:
     } finally {
       setLoadingLegal(null);
     }
+  };
+
+  const printLegalInfo = (finding, legalData) => {
+    const printWindow = window.open('', '_blank');
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Legal Action Information - ${finding.source_name}</title>
+        <style>
+          body {
+            font-family: 'Times New Roman', serif;
+            margin: 40px;
+            color: #000;
+            line-height: 1.6;
+          }
+          h1 { font-size: 24px; margin-bottom: 10px; }
+          h2 { font-size: 18px; margin-top: 30px; margin-bottom: 10px; border-bottom: 2px solid #000; }
+          h3 { font-size: 16px; margin-top: 20px; margin-bottom: 8px; }
+          p { margin: 8px 0; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .section { margin-bottom: 25px; }
+          .law-item { margin-left: 20px; margin-bottom: 15px; }
+          .warning { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+          ol { margin-left: 20px; }
+          li { margin-bottom: 8px; }
+          @media print {
+            body { margin: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>LEGAL ACTION INFORMATION</h1>
+          <p><strong>Data Breach/Exposure Report</strong></p>
+          <p>Generated: ${today}</p>
+        </div>
+
+        <div class="section">
+          <h2>BREACH DETAILS</h2>
+          <p><strong>Source/Company:</strong> ${finding.source_name}</p>
+          <p><strong>Source Type:</strong> ${finding.source_type?.replace(/_/g, ' ').toUpperCase()}</p>
+          <p><strong>Risk Score:</strong> ${finding.risk_score}/100</p>
+          <p><strong>Data Exposed:</strong> ${finding.data_exposed?.join(', ') || 'Unknown'}</p>
+          <p><strong>Detection Date:</strong> ${finding.scan_date || 'Unknown'}</p>
+        </div>
+
+        <div class="section">
+          <h2>COMPANY INFORMATION</h2>
+          <p><strong>Legal Name:</strong> ${legalData.company_legal_name}</p>
+        </div>
+
+        ${legalData.breach_authentication ? `
+        <div class="section warning">
+          <h3>🔍 VERIFY BREACH AUTHENTICITY</h3>
+          <p>${legalData.breach_authentication}</p>
+        </div>
+        ` : ''}
+
+        ${legalData.breach_scope_verification ? `
+        <div class="section warning">
+          <h3>📊 DETERMINE BREACH SCOPE</h3>
+          <p>${legalData.breach_scope_verification}</p>
+        </div>
+        ` : ''}
+
+        ${legalData.applicable_laws?.length > 0 ? `
+        <div class="section">
+          <h2>⚖️ APPLICABLE LAWS</h2>
+          ${legalData.applicable_laws.map((law, idx) => `
+            <div class="law-item">
+              <p><strong>${idx + 1}. ${law.law_name}</strong></p>
+              <p>${law.why_applicable}</p>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <h2>LEGAL BASIS FOR ACTION</h2>
+          <p>${legalData.legal_basis}</p>
+        </div>
+
+        <div class="section">
+          <h2>POTENTIAL DAMAGES</h2>
+          <p>${legalData.potential_damages}</p>
+        </div>
+
+        ${legalData.statute_deadline ? `
+        <div class="section warning">
+          <h3>⏰ FILING DEADLINE</h3>
+          <p>${legalData.statute_deadline}</p>
+        </div>
+        ` : ''}
+
+        ${legalData.existing_class_action ? `
+        <div class="section">
+          <h2>⚖️ CLASS ACTION AVAILABLE</h2>
+          <p>${legalData.class_action_details}</p>
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <h2>👨‍⚖️ RECOMMENDED ATTORNEY (CLEVELAND, TN)</h2>
+          <p><strong>Name:</strong> ${legalData.attorney_name}</p>
+          <p><strong>Firm:</strong> ${legalData.attorney_firm}</p>
+          <p><strong>Phone:</strong> ${legalData.attorney_phone}</p>
+          <p><strong>Email:</strong> ${legalData.attorney_email}</p>
+        </div>
+
+        ${legalData.legally_required_steps?.length > 0 ? `
+        <div class="section">
+          <h2>⚠️ LEGALLY REQUIRED STEPS</h2>
+          <ol>
+            ${legalData.legally_required_steps.map(step => `<li>${step}</li>`).join('')}
+          </ol>
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <p style="margin-top: 40px; font-size: 12px; color: #666;">
+            <em>This document is for informational purposes only and does not constitute legal advice. 
+            Please consult with a qualified attorney before taking any legal action.</em>
+          </p>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
   };
 
   const analyzeWithAI = async (finding) => {
@@ -485,9 +619,20 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                     {/* Legal Information Display */}
                     {legalInfo[result.id] && (
                       <div className="mb-4 p-4 rounded-lg bg-blue-900/20 border border-blue-600/30 space-y-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Scale className="w-5 h-5 text-blue-400" />
-                          <h4 className="font-semibold text-blue-300">Legal Action Information</h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Scale className="w-5 h-5 text-blue-400" />
+                            <h4 className="font-semibold text-blue-300">Legal Action Information</h4>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printLegalInfo(result, legalInfo[result.id])}
+                            className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                          >
+                            <Printer className="w-4 h-4 mr-2" />
+                            Print
+                          </Button>
                         </div>
 
                         <div className="space-y-2 text-sm text-gray-300">

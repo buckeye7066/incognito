@@ -240,7 +240,14 @@ Provide:
           <h2>III. RESPONSIBLE PARTY INFORMATION</h2>
           <p><strong>Company Legal Name:</strong> ${legalData.company_legal_name}</p>
           <p><strong>Business Type:</strong> ${finding.source_type?.replace(/_/g, ' ')}</p>
-          <p style="margin-top: 15px;"><em>Note: Full company address, registered agent, and corporate structure details should be obtained through legal discovery.</em></p>
+          ${legalData.company_contact ? `
+            <div class="highlight" style="margin-top: 15px;">
+              <p><strong>Contact Information for Notifications:</strong></p>
+              ${legalData.company_contact.email ? `<p>Email: ${legalData.company_contact.email}</p>` : ''}
+              ${legalData.company_contact.fax ? `<p>Fax: ${legalData.company_contact.fax}</p>` : ''}
+              ${legalData.company_contact.address ? `<p>Address: ${legalData.company_contact.address}</p>` : ''}
+            </div>
+          ` : ''}
         </div>
 
         ${legalData.applicable_laws?.length > 0 ? `
@@ -295,11 +302,16 @@ Provide:
 
         ${legalData.legally_required_steps?.length > 0 ? `
         <div class="section">
-          <h2>X. REQUIRED LEGAL COMPLIANCE STEPS</h2>
-          <p><em>Steps you are legally obligated to take:</em></p>
-          <ol>
-            ${legalData.legally_required_steps.map(step => `<li>${step}</li>`).join('')}
-          </ol>
+          <h2>X. LEGALLY REQUIRED STEPS</h2>
+          <p><em>Actions you must take to comply with applicable laws:</em></p>
+          ${legalData.legally_required_steps.map((step, idx) => `
+            <div style="margin: 15px 0; padding: 15px; border: 1px solid #ccc; background: #fafafa;">
+              <p style="font-weight: bold; font-size: 14px;">${idx + 1}. ${step.step_title || step}</p>
+              ${step.explanation ? `<p style="margin-top: 8px;"><strong>What this means:</strong> ${step.explanation}</p>` : ''}
+              ${step.contact_info ? `<p style="margin-top: 8px;"><strong>Contact Information:</strong> ${step.contact_info}</p>` : ''}
+              ${step.how_to_complete ? `<p style="margin-top: 8px;"><strong>How to Complete:</strong> ${step.how_to_complete}</p>` : ''}
+            </div>
+          `).join('')}
         </div>
         ` : ''}
 
@@ -307,10 +319,10 @@ Provide:
           <h2>RECOMMENDED LEGAL COUNSEL</h2>
           <p style="font-size: 16px;"><strong>${legalData.attorney_name}</strong></p>
           <p><strong>Law Firm:</strong> ${legalData.attorney_firm}</p>
-          <p><strong>Location:</strong> Cleveland, TN</p>
+          <p><strong>Location:</strong> ${legalData.attorney_location || 'Tennessee'}</p>
           <p><strong>Phone:</strong> <span style="font-size: 16px;">${legalData.attorney_phone}</span></p>
           <p><strong>Email:</strong> ${legalData.attorney_email}</p>
-          <p style="margin-top: 15px;"><em>Recommendation based on practice area and location. Client should verify credentials and experience.</em></p>
+          <p style="margin-top: 15px;"><em>Attorney selected based on data breach/privacy law experience. Client should verify credentials.</em></p>
         </div>
 
         <div class="section">

@@ -307,14 +307,13 @@ Provide:
       `}
 
       CRITICAL INSTRUCTIONS:
-      - ONLY return includes_me=true if the exposed data in the finding EXACTLY MATCHES one or more of MY personal data values listed above
+      - Return includes_me=true if ANY of MY personal data values match what's in the finding, even if just ONE identifier matches
       - Compare the ACTUAL VALUES in the finding details against MY values
-      - Do NOT assume data belongs to me just because the data types match
-      - The breach/leak may contain OTHER PEOPLE'S data - only identify it as mine if values match
-      - For my_data_found, return ONLY the values that actually match MY data in readable format like "SSN: 123-45-6789"
-      - If the exposed data doesn't match my values, return includes_me=false even if the data types are similar
+      - The breach may mix MY data with OTHER PEOPLE'S data - if even one of my values appears, it's a HIT
+      - For my_data_found, return ONLY MY values that actually match in readable format like "SSN: 123-45-6789"
+      - In the explanation, clearly state which values are MINE and note if other data belongs to someone else
 
-      Return JSON with: includes_me (boolean), my_data_found (array of strings with only MY matched values), explanation (string explaining why it does or doesn't include my data)`;
+      Return JSON with: includes_me (boolean - true if ANY of my values match), my_data_found (array of strings with only MY matched values), explanation (string explaining which data is mine and which belongs to others)`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

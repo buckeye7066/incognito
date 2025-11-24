@@ -699,20 +699,6 @@ Provide:
 
                         <div className="space-y-2 text-sm text-gray-300">
                           <p><strong>Company:</strong> {legalInfo[result.id].company_legal_name}</p>
-                          
-                          {legalInfo[result.id].breach_authentication && (
-                            <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30">
-                              <p className="text-amber-300 font-semibold mb-1">🔍 Verify Breach Authenticity</p>
-                              <p className="text-xs">{legalInfo[result.id].breach_authentication}</p>
-                            </div>
-                          )}
-
-                          {legalInfo[result.id].breach_scope_verification && (
-                            <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30">
-                              <p className="text-amber-300 font-semibold mb-1">📊 Determine Breach Scope</p>
-                              <p className="text-xs">{legalInfo[result.id].breach_scope_verification}</p>
-                            </div>
-                          )}
 
                           {legalInfo[result.id].applicable_laws && legalInfo[result.id].applicable_laws.length > 0 && (
                             <div className="p-3 rounded bg-red-500/10 border border-red-500/30">

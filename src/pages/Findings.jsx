@@ -21,7 +21,20 @@ export default function Findings() {
     queryFn: () => base44.entities.ScanResult.list()
   });
 
+  const { data: allSearchQueries = [] } = useQuery({
+    queryKey: ['searchQueryFindings'],
+    queryFn: () => base44.entities.SearchQueryFinding.list()
+  });
+
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
+
+  // Combine leaks and inquiries
+  const leaks = scanResults.map(r => ({ ...r, type: 'leak' }));
+  const inquiries = searchQueries.map(q => ({ ...q, type: 'inquiry' }));
+  const allFindings = [...leaks, ...inquiries].sort((a, b) => 
+    new Date(b.created_date || b.detected_date) - new Date(a.created_date || a.detected_date)
+  );
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ScanResult.update(id, data),
@@ -37,11 +50,22 @@ export default function Findings() {
     }
   });
 
-  const filteredResults = scanResults.filter(result => {
+  const filteredResults = allFindings.filter(result => {
     if (filter === 'all') return true;
-    if (filter === 'high_risk') return result.risk_score >= 70;
-    if (filter === 'medium_risk') return result.risk_score >= 40 && result.risk_score < 70;
-    if (filter === 'low_risk') return result.risk_score < 40;
+    if (filter === 'leaks') return result.type === 'leak';
+    if (filter === 'inquiries') return result.type === 'inquiry';
+    if (filter === 'high_risk') {
+      if (result.type === 'leak') return result.risk_score >= 70;
+      if (result.type === 'inquiry') return result.risk_level === 'critical' || result.risk_level === 'high';
+    }
+    if (filter === 'medium_risk') {
+      if (result.type === 'leak') return result.risk_score >= 40 && result.risk_score < 70;
+      if (result.type === 'inquiry') return result.risk_level === 'medium';
+    }
+    if (filter === 'low_risk') {
+      if (result.type === 'leak') return result.risk_score < 40;
+      if (result.type === 'inquiry') return result.risk_level === 'low';
+    }
     return result.status === filter;
   });
 
@@ -64,15 +88,30 @@ export default function Findings() {
       <div className="glass-card rounded-xl p-4">
         <Tabs value={filter} onValueChange={setFilter}>
           <TabsList className="bg-slate-900/50">
-            <TabsTrigger value="all">All ({scanResults.length})</TabsTrigger>
+            <TabsTrigger value="all">All ({allFindings.length})</TabsTrigger>
+            <TabsTrigger value="leaks">
+              🔓 Leaks ({leaks.length})
+            </TabsTrigger>
+            <TabsTrigger value="inquiries">
+              🔍 Inquiries ({inquiries.length})
+            </TabsTrigger>
             <TabsTrigger value="high_risk">
-              High Risk ({scanResults.filter(r => r.risk_score >= 70).length})
+              High Risk ({allFindings.filter(f => 
+                (f.type === 'leak' && f.risk_score >= 70) || 
+                (f.type === 'inquiry' && (f.risk_level === 'critical' || f.risk_level === 'high'))
+              ).length})
             </TabsTrigger>
             <TabsTrigger value="medium_risk">
-              Medium ({scanResults.filter(r => r.risk_score >= 40 && r.risk_score < 70).length})
+              Medium ({allFindings.filter(f => 
+                (f.type === 'leak' && f.risk_score >= 40 && f.risk_score < 70) || 
+                (f.type === 'inquiry' && f.risk_level === 'medium')
+              ).length})
             </TabsTrigger>
             <TabsTrigger value="low_risk">
-              Low ({scanResults.filter(r => r.risk_score < 40).length})
+              Low ({allFindings.filter(f => 
+                (f.type === 'leak' && f.risk_score < 40) || 
+                (f.type === 'inquiry' && f.risk_level === 'low')
+              ).length})
             </TabsTrigger>
             <TabsTrigger value="new">New</TabsTrigger>
             <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
@@ -92,27 +131,58 @@ export default function Findings() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 layout
               >
-                <Card className="glass-card border-purple-500/20 hover:glow-border transition-all duration-300">
+                <Card className="glass-card border-red-600/20 hover:glow-border transition-all duration-300">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-bold text-white">{result.source_name}</h3>
-                          <RiskBadge score={result.risk_score} />
-                          {result.metadata?.scan_type === 'dark_web' && (
+                          <Badge className={result.type === 'leak' ? 'bg-red-900/40 text-red-200' : 'bg-amber-900/40 text-amber-200'}>
+                            {result.type === 'leak' ? '🔓 LEAK' : '🔍 INQUIRY'}
+                          </Badge>
+                          <h3 className="text-xl font-bold text-white">
+                            {result.type === 'leak' ? result.source_name : result.query_detected}
+                          </h3>
+                          {result.type === 'leak' ? (
+                            <RiskBadge score={result.risk_score} />
+                          ) : (
+                            <Badge className={`
+                              ${result.risk_level === 'critical' ? 'bg-red-600/20 text-red-300 border-red-600/40' : ''}
+                              ${result.risk_level === 'high' ? 'bg-orange-600/20 text-orange-300 border-orange-600/40' : ''}
+                              ${result.risk_level === 'medium' ? 'bg-amber-600/20 text-amber-300 border-amber-600/40' : ''}
+                              ${result.risk_level === 'low' ? 'bg-green-600/20 text-green-300 border-green-600/40' : ''}
+                            `}>
+                              {result.risk_level?.toUpperCase()}
+                            </Badge>
+                          )}
+                          {result.type === 'leak' && result.metadata?.scan_type === 'dark_web' && (
                             <Badge className="bg-red-500/20 text-red-300 border-red-500/40 flex items-center gap-1">
                               <Shield className="w-3 h-3" />
                               Dark Web
                             </Badge>
                           )}
                         </div>
-                        <p className="text-purple-300 text-sm mb-1">
-                          {result.source_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </p>
-                        {result.scan_date && (
-                          <p className="text-purple-400 text-xs">
-                            Discovered: {new Date(result.scan_date).toLocaleDateString()}
-                          </p>
+                        {result.type === 'leak' ? (
+                          <>
+                            <p className="text-gray-300 text-sm mb-1">
+                              {result.source_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                            {result.scan_date && (
+                              <p className="text-gray-400 text-xs">
+                                Discovered: {new Date(result.scan_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-gray-300 text-sm mb-1">
+                              {result.search_platform} • {result.searcher_identity || 'Anonymous'}
+                            </p>
+                            {result.detected_date && (
+                              <p className="text-gray-400 text-xs">
+                                Detected: {new Date(result.detected_date).toLocaleDateString()} {new Date(result.detected_date).toLocaleTimeString()}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -143,9 +213,9 @@ export default function Findings() {
                       </div>
                     )}
 
-                    {result.data_exposed && result.data_exposed.length > 0 && (
+                    {result.type === 'leak' && result.data_exposed && result.data_exposed.length > 0 && (
                       <div className="mb-4">
-                        <p className="text-xs text-purple-400 mb-2">Exposed Data:</p>
+                        <p className="text-xs text-gray-400 mb-2">Exposed Data:</p>
                         <div className="flex flex-wrap gap-2">
                           {result.data_exposed.map((data, idx) => (
                             <span
@@ -159,8 +229,39 @@ export default function Findings() {
                       </div>
                     )}
 
+                    {result.type === 'inquiry' && result.matched_data_types && result.matched_data_types.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-400 mb-2">Data They Searched For:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {result.matched_data_types.map((data, idx) => (
+                            <span
+                              key={idx}
+                              className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs border border-amber-500/40"
+                            >
+                              {data.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.type === 'inquiry' && (result.geographic_origin || result.searcher_ip) && (
+                      <div className="mb-4 p-3 rounded-lg bg-amber-900/20 border border-amber-600/30">
+                        {result.geographic_origin && (
+                          <p className="text-xs text-amber-300 mb-1">
+                            <strong>Location:</strong> {result.geographic_origin}
+                          </p>
+                        )}
+                        {result.searcher_ip && (
+                          <p className="text-xs text-amber-300">
+                            <strong>IP:</strong> {result.searcher_ip}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Dark Web Specific Info */}
-                    {result.metadata?.scan_type === 'dark_web' && result.metadata?.recommendations && (
+                    {result.type === 'leak' && result.metadata?.scan_type === 'dark_web' && result.metadata?.recommendations && (
                       <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
                         <div className="flex items-start gap-2 mb-2">
                           <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -180,45 +281,74 @@ export default function Findings() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleStatusChange(result.id, 'monitoring')}
-                        disabled={result.status === 'monitoring'}
-                        className="border-purple-500/50 text-purple-300"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Monitor
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleStatusChange(result.id, 'ignored')}
-                        disabled={result.status === 'ignored'}
-                        className="border-purple-500/50 text-purple-300"
-                      >
-                        <EyeOff className="w-4 h-4 mr-2" />
-                        Ignore
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          handleStatusChange(result.id, 'removal_requested');
-                          // Navigate to deletion center
-                          window.location.href = '/DeletionCenter';
-                        }}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600"
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Request Removal
-                      </Button>
-                    </div>
+                    {result.type === 'leak' ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStatusChange(result.id, 'monitoring')}
+                          disabled={result.status === 'monitoring'}
+                          className="border-red-500/50 text-gray-300"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Monitor
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStatusChange(result.id, 'ignored')}
+                          disabled={result.status === 'ignored'}
+                          className="border-red-500/50 text-gray-300"
+                        >
+                          <EyeOff className="w-4 h-4 mr-2" />
+                          Ignore
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            handleStatusChange(result.id, 'removal_requested');
+                            window.location.href = '/DeletionCenter';
+                          }}
+                          className="bg-gradient-to-r from-red-600 to-orange-600"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Request Removal
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newStatus = result.status === 'reviewed' ? 'new' : 'reviewed';
+                            base44.entities.SearchQueryFinding.update(result.id, { status: newStatus });
+                            queryClient.invalidateQueries(['searchQueryFindings']);
+                          }}
+                          className="border-amber-500/50 text-gray-300"
+                        >
+                          {result.status === 'reviewed' ? 'Mark Unreviewed' : 'Mark Reviewed'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            base44.entities.SearchQueryFinding.update(result.id, { status: 'dismissed' });
+                            queryClient.invalidateQueries(['searchQueryFindings']);
+                          }}
+                          disabled={result.status === 'dismissed'}
+                          className="border-red-500/50 text-gray-300"
+                        >
+                          <EyeOff className="w-4 h-4 mr-2" />
+                          Dismiss
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Status Badge */}
-                    <div className="mt-4 pt-4 border-t border-purple-500/10">
-                      <span className="text-xs text-purple-400">
-                        Status: <span className="text-purple-200 font-semibold">
+                    <div className="mt-4 pt-4 border-t border-red-500/10">
+                      <span className="text-xs text-gray-400">
+                        Status: <span className="text-gray-200 font-semibold">
                           {result.status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </span>
                       </span>

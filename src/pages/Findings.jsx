@@ -92,8 +92,7 @@ Finding Details:
 
 Provide:
 1. COMPANY_INFO: Full legal name, headquarters address, registered agent
-2. BREACH_AUTHENTICATION: How to verify this breach is authentic and determine its true scope
-3. APPLICABLE_LAWS: ONLY list laws that ACTUALLY APPLY to this specific breach based on: the data types exposed, the company's jurisdiction, the breach nature, and the victim's location (TN). For EACH law, explain WHY it applies.
+2. APPLICABLE_LAWS: ONLY list laws that ACTUALLY APPLY to this specific breach based on: the data types exposed, the company's jurisdiction, the breach nature, and the victim's location (TN). For EACH law, explain WHY it applies.
 4. LEGAL_BASIS: Specific legal grounds for action
 5. DAMAGES: Potential damages (actual, statutory, punitive)
 6. STATUTE_LIMITATIONS: Filing deadlines
@@ -109,8 +108,6 @@ Provide:
           type: 'object',
           properties: {
             company_legal_name: { type: 'string' },
-            breach_authentication: { type: 'string' },
-            breach_scope_verification: { type: 'string' },
             applicable_laws: {
               type: 'array',
               items: {
@@ -222,20 +219,6 @@ Provide:
           <p><strong>Business Type:</strong> ${finding.source_type?.replace(/_/g, ' ')}</p>
           <p style="margin-top: 15px;"><em>Note: Full company address, registered agent, and corporate structure details should be obtained through legal discovery.</em></p>
         </div>
-
-        ${legalData.breach_authentication || legalData.breach_scope_verification ? `
-        <div class="section warning">
-          <h2>IV. BREACH VERIFICATION REQUIRED</h2>
-          ${legalData.breach_authentication ? `
-            <h3>Authentication Steps:</h3>
-            <p>${legalData.breach_authentication}</p>
-          ` : ''}
-          ${legalData.breach_scope_verification ? `
-            <h3>Scope Determination:</h3>
-            <p>${legalData.breach_scope_verification}</p>
-          ` : ''}
-        </div>
-        ` : ''}
 
         ${legalData.applicable_laws?.length > 0 ? `
         <div class="section">

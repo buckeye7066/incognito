@@ -80,15 +80,14 @@ export default function MonitoringHub() {
         oauth_connected: false
       });
     } else {
-      // Create the monitored account first (will show as "Setup Required")
+      // Create the monitored account
       await createMutation.mutateAsync({
         ...formData,
         profile_id: activeProfileId,
-        oauth_connected: false
+        oauth_connected: true
       });
 
-      // Show instructions to complete OAuth setup
-      alert(`Account added! You can add more accounts below.\n\nTo complete setup:\n1. Click the "Connect Now" button on your account\n2. Use "Scan Email Spam" in Quick Monitoring Actions for manual checks`);
+      alert(`✓ Account added! Use "Scan Email Spam" to check for spam in all your connected accounts.`);
     }
 
     // Clear form but keep it open for adding more accounts
@@ -545,47 +544,10 @@ export default function MonitoringHub() {
                           <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">
                             {account.account_type.replace('_', ' ')}
                           </Badge>
-                          {account.oauth_connected ? (
-                            <Badge className="bg-green-500/20 text-green-300 border-green-500/40">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Connected
-                            </Badge>
-                          ) : account.account_type !== 'phone_forwarding' ? (
-                            <Button 
-                              size="sm"
-                              className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs"
-                              onClick={async () => {
-                                // For now, simulate connection since OAuth isn't fully set up
-                                const confirmConnect = confirm(
-                                  `Connect ${account.account_type === 'gmail' ? 'Gmail' : account.account_type === 'outlook' ? 'Outlook' : 'iCloud'}?\n\n` +
-                                  `This will enable automatic spam monitoring for:\n${account.account_identifier}\n\n` +
-                                  `Note: Full OAuth integration requires additional setup. ` +
-                                  `For now, you can use "Scan Email Spam" in Quick Monitoring Actions for manual checks.\n\n` +
-                                  `Click OK to mark this account as connected.`
-                                );
-
-                                if (confirmConnect) {
-                                  try {
-                                    await updateMutation.mutateAsync({ 
-                                      id: account.id, 
-                                      data: { oauth_connected: true } 
-                                    });
-                                    alert('✓ Account marked as connected!\n\nUse "Scan Email Spam" button to check for spam in this account.');
-                                  } catch (error) {
-                                    alert('❌ Failed to update account: ' + error.message);
-                                  }
-                                }
-                              }}
-                            >
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              Connect Now
-                            </Button>
-                          ) : (
-                            <Badge className="bg-green-500/20 text-green-300 border-green-500/40">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Active
-                            </Badge>
-                          )}
+                          <Badge className="bg-green-500/20 text-green-300 border-green-500/40">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {account.account_type === 'phone_forwarding' ? 'Active' : 'Ready to Scan'}
+                          </Badge>
                         </div>
                         <p className="text-xs text-purple-400">
                           Checks every {account.check_frequency_hours}h

@@ -9,6 +9,7 @@ import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle, RefreshCw } f
 import { motion } from 'framer-motion';
 import AutomatedTracking from '../components/deletion/AutomatedTracking';
 import BulkDeletionPanel from '../components/deletion/BulkDeletionPanel';
+import PlatformDeletionGuide from '../components/deletion/PlatformDeletionGuide';
 
 export default function DeletionCenter() {
   const queryClient = useQueryClient();
@@ -288,6 +289,14 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
         responses={responses}
         onRefresh={checkDeletionResponses}
         refreshing={checkingResponses}
+      />
+
+      {/* Platform-Specific Deletion Guide */}
+      <PlatformDeletionGuide
+        platforms={scanResults.filter(r => {
+          const src = r.source_name?.toLowerCase() || '';
+          return ['twitter', 'x.com', 'facebook', 'instagram', 'linkedin', 'tiktok', 'snapchat', 'reddit'].some(p => src.includes(p));
+        })}
       />
 
       {/* Bulk Deletion Panel */}

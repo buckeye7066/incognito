@@ -27,8 +27,21 @@ Deno.serve(async (req) => {
 
     const deletionRequests = [];
     const emailsSent = [];
+    const skippedPlatforms = [];
+
+    // Social media platforms that require their own tools
+    const socialMediaPlatforms = ['twitter', 'x.com', 'facebook', 'instagram', 'linkedin', 'tiktok', 'snapchat', 'reddit', 'youtube'];
 
     for (const scanResult of scanResults) {
+      // Skip social media platforms - they need platform-specific tools
+      const sourceLower = scanResult.source_name.toLowerCase();
+      if (socialMediaPlatforms.some(platform => sourceLower.includes(platform))) {
+        skippedPlatforms.push({
+          broker: scanResult.source_name,
+          reason: 'Requires platform-specific deletion tool (see guide)'
+        });
+        continue;
+      }
       // Generate deletion request using AI
       const prompt = `Generate a professional GDPR/CCPA data deletion request email for:
       
@@ -129,7 +142,9 @@ Return JSON.`;
       requestsCreated: deletionRequests.length,
       emailsSent: emailsSent.filter(e => e.status === 'sent').length,
       emailsFailed: emailsSent.filter(e => e.status === 'failed').length,
-      details: emailsSent
+      skippedPlatforms: skippedPlatforms.length,
+      details: emailsSent,
+      skipped: skippedPlatforms
     });
 
   } catch (error) {

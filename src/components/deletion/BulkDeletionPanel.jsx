@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Loader2, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Trash2, Loader2, Zap, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -177,6 +177,9 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
               <p>✓ {results.emailsSent} emails sent successfully</p>
               {results.emailsFailed > 0 && (
                 <p className="text-amber-300">⚠ {results.emailsFailed} emails failed</p>
+              )}
+              {results.skippedPlatforms > 0 && (
+                <p className="text-blue-300">ℹ {results.skippedPlatforms} platform(s) require manual deletion (see guide below)</p>
               )}
             </div>
             {results.details && results.details.length > 0 && (

@@ -1,11 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, Mail, Brain } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function AutomatedTracking({ responses, onRefresh, refreshing }) {
+export default function AutomatedTracking({ responses, onRefresh, refreshing, profileId }) {
+  const [autoCheck, setAutoCheck] = React.useState(false);
+  const [lastCheck, setLastCheck] = React.useState(null);
+
+  useEffect(() => {
+    if (!autoCheck) return;
+
+    const interval = setInterval(() => {
+      onRefresh();
+      setLastCheck(new Date());
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [autoCheck, onRefresh]);
   const getResponseIcon = (type) => {
     switch (type) {
       case 'confirmation':
@@ -43,18 +58,43 @@ export default function AutomatedTracking({ responses, onRefresh, refreshing }) 
           <CardTitle className="text-white flex items-center gap-2">
             <Brain className="w-5 h-5 text-purple-400" />
             Automated Response Tracking
+            {responses && responses.length > 0 && (
+              <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">
+                {responses.length} new
+              </Badge>
+            )}
           </CardTitle>
-          <Button
-            onClick={onRefresh}
-            disabled={refreshing}
-            size="sm"
-            variant="outline"
-            className="border-purple-500/50 text-purple-300"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Check Emails
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={autoCheck}
+                onCheckedChange={setAutoCheck}
+                id="auto-check"
+              />
+              <Label htmlFor="auto-check" className="text-xs text-purple-300 cursor-pointer">
+                Auto (5min)
+              </Label>
+            </div>
+            <Button
+              onClick={() => {
+                onRefresh();
+                setLastCheck(new Date());
+              }}
+              disabled={refreshing}
+              size="sm"
+              variant="outline"
+              className="border-purple-500/50 text-purple-300"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Check Now
+            </Button>
+          </div>
         </div>
+        {lastCheck && (
+          <p className="text-xs text-purple-400 mt-2">
+            Last checked: {lastCheck.toLocaleTimeString()}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="p-6 space-y-4">
         <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30">

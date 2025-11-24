@@ -290,14 +290,14 @@ Provide:
       1. Does this finding include MY personal data?
       2. If yes, what specific data of mine is included?
 
-      MY PERSONAL DATA:
+      MY PERSONAL DATA (these are MY actual values):
       ${myData.map(d => `- ${d.data_type}: ${d.value}`).join('\n')}
 
-      FINDING:
+      FINDING DETAILS:
       Type: ${finding.type}
       ${finding.type === 'leak' ? `
       Source: ${finding.source_name}
-      Exposed Data: ${finding.data_exposed?.join(', ') || 'Unknown'}
+      Exposed Data Types: ${finding.data_exposed?.join(', ') || 'Unknown'}
       Details: ${finding.metadata?.details || 'None'}
       ` : `
       Search Query: ${finding.query_detected}
@@ -306,9 +306,15 @@ Provide:
       Searcher: ${finding.searcher_identity || 'Anonymous'}
       `}
 
-      IMPORTANT: For my_data_found, return the ACTUAL VALUES in a readable format like "SSN: 123-45-6789" or "Email: john@example.com", NOT just the data type names.
+      CRITICAL INSTRUCTIONS:
+      - ONLY return includes_me=true if the exposed data in the finding EXACTLY MATCHES one or more of MY personal data values listed above
+      - Compare the ACTUAL VALUES in the finding details against MY values
+      - Do NOT assume data belongs to me just because the data types match
+      - The breach/leak may contain OTHER PEOPLE'S data - only identify it as mine if values match
+      - For my_data_found, return ONLY the values that actually match MY data in readable format like "SSN: 123-45-6789"
+      - If the exposed data doesn't match my values, return includes_me=false even if the data types are similar
 
-      Return JSON with: includes_me (boolean), my_data_found (array of strings with actual values), explanation (string)`;
+      Return JSON with: includes_me (boolean), my_data_found (array of strings with only MY matched values), explanation (string explaining why it does or doesn't include my data)`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

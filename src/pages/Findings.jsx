@@ -80,29 +80,44 @@ export default function Findings() {
   const getLegalAction = async (finding) => {
     setLoadingLegal(finding.id);
     try {
-      const prompt = `Provide comprehensive legal action information for a data breach/leak incident:
+      const prompt = `You are a legal research assistant. Provide COMPLETE and DETAILED legal action information for this data breach. DO NOT leave any fields empty - research and provide real information.
 
-Finding Details:
-- Source/Company: ${finding.source_name}
-- Source Type: ${finding.source_type}
-- Data Exposed: ${finding.data_exposed?.join(', ') || 'Unknown'}
-- Risk Score: ${finding.risk_score}/100
-- Detected Date: ${finding.scan_date}
-- Location: Cleveland, TN
+DATA BREACH DETAILS:
+- Company/Source: ${finding.source_name}
+- Type: ${finding.source_type}
+- Data Exposed: ${finding.data_exposed?.join(', ') || 'email addresses, personal information'}
+- Risk Level: ${finding.risk_score}/100
+- Discovered: ${finding.scan_date || 'Recently'}
+- Victim Location: Cleveland, Tennessee
 
-Provide:
-1. COMPANY_INFO: Full legal name, headquarters address, registered agent, and contact info (email, fax, physical address for sending notices)
-2. APPLICABLE_LAWS: ONLY list laws that ACTUALLY APPLY to this specific breach based on: the data types exposed, the company's jurisdiction, the breach nature, and the victim's location (TN). For EACH law, explain WHY it applies.
-3. LEGAL_BASIS: Specific legal grounds for action
-4. DAMAGES: Potential damages (actual, statutory, punitive)
-5. STATUTE_LIMITATIONS: Filing deadlines
-6. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
-7. ATTORNEY: Find a real, verified attorney who handles data breach/privacy cases. Start with Cleveland, TN area but expand to Chattanooga, Knoxville, Nashville, or broader Tennessee/Southeast if needed. Must include: name, firm, phone, email.
-8. LEGALLY_REQUIRED_STEPS: For EACH required step, provide:
-   - Clear explanation of what the step means in plain language
-   - Specific contact info (email, fax, physical address) if notification is required
-   - Step-by-step pathway to complete the action
-   - Any forms, templates, or specific procedures needed`;
+REQUIRED INFORMATION (provide ALL of these with real, researched data):
+
+1. COMPANY: Research "${finding.source_name}" and provide their full legal name. If unknown, state the name as provided.
+
+2. COMPANY CONTACT: Find or estimate contact info for sending legal notices:
+   - Email (privacy@, legal@, or general contact)
+   - Fax number if available
+   - Physical/mailing address
+
+3. APPLICABLE LAWS: List 2-4 laws that apply to this breach in Tennessee. Include federal laws (like FCRA if credit data, HIPAA if health data) and Tennessee state laws. Explain why each applies.
+
+4. LEGAL BASIS: Explain the legal grounds for action in 2-3 sentences.
+
+5. POTENTIAL DAMAGES: Describe what damages could be recovered (statutory minimums, actual damages, etc.)
+
+6. STATUTE OF LIMITATIONS: Provide the filing deadline based on Tennessee law.
+
+7. CLASS ACTION: Search if there's an existing class action against ${finding.source_name}. If yes, provide details. If unknown, say "No known class action at this time."
+
+8. ATTORNEY: Find a REAL attorney in Tennessee who handles data breach cases. Search in this order: Cleveland TN, Chattanooga TN, Knoxville TN, Nashville TN. Provide actual name, firm, phone, email. If you cannot find one, provide a Tennessee Bar referral service contact.
+
+9. LEGALLY REQUIRED STEPS: Provide 2-4 steps the victim must take. For EACH step include:
+   - step_title: Brief title
+   - explanation: What this means in plain English
+   - contact_info: Email, phone, fax, or address needed
+   - how_to_complete: Step-by-step instructions
+
+IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or say "unknown" unless absolutely necessary.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

@@ -12,11 +12,14 @@ import { createPageUrl } from '../utils';
 import { motion } from 'framer-motion';
 import RiskTrendsChart from '../components/dashboard/RiskTrendsChart';
 import CorrelationRiskCard from '../components/dashboard/CorrelationRiskCard';
+import FindingDetailModal from '../components/dashboard/FindingDetailModal';
 
 export default function Dashboard() {
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
   const [analyzingRisk, setAnalyzingRisk] = useState(false);
   const [correlations, setCorrelations] = useState(null);
+  const [selectedFinding, setSelectedFinding] = useState(null);
+  const [showFindingModal, setShowFindingModal] = useState(false);
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
@@ -99,6 +102,11 @@ export default function Dashboard() {
     } finally {
       setAnalyzingRisk(false);
     }
+  };
+
+  const handleFindingClick = (finding) => {
+    setSelectedFinding(finding);
+    setShowFindingModal(true);
   };
 
   return (
@@ -286,7 +294,8 @@ export default function Dashboard() {
                   key={finding.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-purple-500/10 hover:border-purple-500/30 transition-colors"
+                  onClick={() => handleFindingClick(finding)}
+                  className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer hover:bg-slate-800/50"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -364,6 +373,16 @@ export default function Dashboard() {
           </motion.div>
         </Link>
       </div>
+
+      {/* Finding Detail Modal */}
+      <FindingDetailModal
+        finding={selectedFinding}
+        open={showFindingModal}
+        onClose={() => {
+          setShowFindingModal(false);
+          setSelectedFinding(null);
+        }}
+      />
     </div>
   );
 }

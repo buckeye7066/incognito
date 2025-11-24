@@ -544,25 +544,32 @@ export default function MonitoringHub() {
                               Connected
                             </Badge>
                           ) : account.account_type !== 'phone_forwarding' ? (
-                            <Badge 
-                              className="bg-amber-500/20 text-amber-300 border-amber-500/40 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                            <Button 
+                              size="sm"
+                              className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs"
                               onClick={async () => {
                                 try {
-                                  if (account.account_type === 'gmail') {
-                                    alert('Gmail OAuth: Please authorize access to your Gmail inbox to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
-                                  } else if (account.account_type === 'outlook') {
-                                    alert('Outlook OAuth: Please authorize access to your Outlook inbox to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
-                                  } else if (account.account_type === 'icloud') {
-                                    alert('iCloud OAuth: Please authorize access to your iCloud Mail to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
+                                  // Trigger OAuth connection
+                                  const response = await base44.functions.invoke('connectEmailOAuth', {
+                                    accountId: account.id,
+                                    accountType: account.account_type
+                                  });
+                                  
+                                  if (response.data.success) {
+                                    await updateMutation.mutateAsync({ 
+                                      id: account.id, 
+                                      data: { oauth_connected: true } 
+                                    });
+                                    alert('Email account connected successfully! Automatic spam monitoring is now active.');
                                   }
                                 } catch (error) {
-                                  alert('Setup failed: ' + error.message);
+                                  alert('Connection failed: ' + error.message);
                                 }
                               }}
                             >
                               <AlertCircle className="w-3 h-3 mr-1" />
-                              Setup Required - Click to Connect
-                            </Badge>
+                              Connect Now
+                            </Button>
                           ) : (
                             <Badge className="bg-green-500/20 text-green-300 border-green-500/40">
                               <CheckCircle className="w-3 h-3 mr-1" />

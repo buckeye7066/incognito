@@ -543,10 +543,30 @@ export default function MonitoringHub() {
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Connected
                             </Badge>
-                          ) : (
-                            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
+                          ) : account.account_type !== 'phone_forwarding' ? (
+                            <Badge 
+                              className="bg-amber-500/20 text-amber-300 border-amber-500/40 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                              onClick={async () => {
+                                try {
+                                  if (account.account_type === 'gmail') {
+                                    alert('Gmail OAuth: Please authorize access to your Gmail inbox to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
+                                  } else if (account.account_type === 'outlook') {
+                                    alert('Outlook OAuth: Please authorize access to your Outlook inbox to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
+                                  } else if (account.account_type === 'icloud') {
+                                    alert('iCloud OAuth: Please authorize access to your iCloud Mail to enable automatic spam monitoring.\n\nNote: Full OAuth integration is coming soon. For now, you can use the "Scan Email Spam" button in Quick Monitoring Actions to manually check for spam.');
+                                  }
+                                } catch (error) {
+                                  alert('Setup failed: ' + error.message);
+                                }
+                              }}
+                            >
                               <AlertCircle className="w-3 h-3 mr-1" />
-                              Setup Required
+                              Setup Required - Click to Connect
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-green-500/20 text-green-300 border-green-500/40">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Active
                             </Badge>
                           )}
                         </div>

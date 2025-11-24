@@ -578,7 +578,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                         size="sm"
                         onClick={() => analyzeWithAI(result)}
                         disabled={analyzingId === result.id}
-                        className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10"
+                        className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                       >
                         {analyzingId === result.id ? (
                           <>
@@ -599,7 +599,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                           size="sm"
                           onClick={() => getLegalAction(result)}
                           disabled={loadingLegal === result.id}
-                          className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           {loadingLegal === result.id ? (
                             <>
@@ -628,7 +628,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                             variant="outline"
                             size="sm"
                             onClick={() => printLegalInfo(result, legalInfo[result.id])}
-                            className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                            className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                           >
                             <Printer className="w-4 h-4 mr-2" />
                             Print
@@ -713,7 +713,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                           size="sm"
                           onClick={() => handleStatusChange(result.id, 'monitoring')}
                           disabled={result.status === 'monitoring'}
-                          className="border-red-500/50 text-gray-300"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           <Eye className="w-4 h-4 mr-2" />
                           Monitor
@@ -723,7 +723,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                           size="sm"
                           onClick={() => handleStatusChange(result.id, 'ignored')}
                           disabled={result.status === 'ignored'}
-                          className="border-red-500/50 text-gray-300"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           <EyeOff className="w-4 h-4 mr-2" />
                           Ignore
@@ -750,7 +750,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                             base44.entities.SearchQueryFinding.update(result.id, { status: newStatus });
                             queryClient.invalidateQueries(['searchQueryFindings']);
                           }}
-                          className="border-amber-500/50 text-gray-300"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           {result.status === 'reviewed' ? 'Mark Unreviewed' : 'Mark Reviewed'}
                         </Button>
@@ -762,7 +762,7 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                             queryClient.invalidateQueries(['searchQueryFindings']);
                           }}
                           disabled={result.status === 'dismissed'}
-                          className="border-red-500/50 text-gray-300"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           <EyeOff className="w-4 h-4 mr-2" />
                           Dismiss

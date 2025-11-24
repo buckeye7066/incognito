@@ -295,7 +295,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-bold text-white">Recent Findings</CardTitle>
             <Link to={createPageUrl('Findings')}>
-              <Button variant="ghost" className="text-purple-300 hover:text-white">
+              <Button variant="ghost" className="bg-gray-700 border border-gray-600 text-gray-200 hover:bg-gray-600">
                 View All <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>

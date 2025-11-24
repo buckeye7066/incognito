@@ -277,7 +277,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
           onClick={checkDeletionResponses}
           disabled={checkingResponses}
           variant="outline"
-          className="border-purple-500/50 text-purple-300"
+          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
         >
           <RefreshCw className={`w-5 h-5 mr-2 ${checkingResponses ? 'animate-spin' : ''}`} />
           {checkingResponses ? 'Checking...' : 'Check Responses'}
@@ -383,7 +383,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                         navigator.clipboard.writeText(emailTemplate);
                         alert('✓ Email template copied!\n\nPaste into your email and fill in [Your Name], [Your Email], etc.');
                       }}
-                      className="border-purple-500/50 text-purple-300"
+                      className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                     >
                       <Mail className="w-4 h-4 mr-2" />
                       Copy Email
@@ -396,7 +396,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                         navigator.clipboard.writeText(faxTemplate);
                         alert('✓ Fax template copied!\n\nPrint and fax, or paste into online fax service.\nFill in [Your Name], fax number, etc.');
                       }}
-                      className="border-blue-500/50 text-blue-300"
+                      className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                     >
                       <FileText className="w-4 h-4 mr-2" />
                       Copy Fax
@@ -474,7 +474,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                               id: request.id,
                               data: { status: 'in_progress' }
                             })}
-                            className="border-purple-500/50 text-purple-300"
+                            className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                           >
                             Mark In Progress
                           </Button>
@@ -488,7 +488,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                                 completion_date: new Date().toISOString().split('T')[0]
                               }
                             })}
-                            className="border-green-500/50 text-green-300"
+                            className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                           >
                             Mark Complete
                           </Button>

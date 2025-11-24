@@ -90,7 +90,11 @@ PREDICT AND FOREWARN:
 4. What preventive actions should be taken NOW to avoid future exposure?
 5. Are there any indicators that suggest imminent data breach activity?
 
-Be specific and actionable. Focus on PREVENTION not reaction.`,
+CRITICAL: For EACH preventive action, provide a SPECIFIC PATHWAY to accomplish it:
+- Step 1: [exact first action]
+- Step 2: [next specific step]
+- Step 3: [final outcome]
+Include tools, websites, or services needed. Make pathways actionable and clear.`,
         add_context_from_internet: true,
         response_json_schema: {
           type: 'object',
@@ -98,7 +102,17 @@ Be specific and actionable. Focus on PREVENTION not reaction.`,
             high_risk_identifiers: { type: 'array', items: { type: 'string' } },
             emerging_threats: { type: 'array', items: { type: 'string' } },
             threat_indicators: { type: 'array', items: { type: 'string' } },
-            preventive_actions: { type: 'array', items: { type: 'string' } },
+            preventive_actions: { 
+              type: 'array', 
+              items: { 
+                type: 'object',
+                properties: {
+                  action: { type: 'string' },
+                  pathway: { type: 'array', items: { type: 'string' } },
+                  tools_needed: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            },
             confidence: { type: 'number' },
             timeframe: { type: 'string' }
           }
@@ -125,12 +139,13 @@ Be specific and actionable. Focus on PREVENTION not reaction.`,
           title: 'Exposure Forewarning Alert',
           description: `AI analysis predicts high exposure risk for the following identifiers: ${forewarningAnalysis.high_risk_identifiers.join(', ')}. ${forewarningAnalysis.emerging_threats?.[0] || 'Take immediate preventive action.'}`,
           severity: 'high',
-          recommendations: forewarningAnalysis.preventive_actions || [],
+          recommendations: forewarningAnalysis.preventive_actions?.map(a => a.action) || [],
           confidence_score: forewarningAnalysis.confidence || 80,
           metadata: {
             emerging_threats: forewarningAnalysis.emerging_threats,
             threat_indicators: forewarningAnalysis.threat_indicators,
-            timeframe: forewarningAnalysis.timeframe
+            timeframe: forewarningAnalysis.timeframe,
+            action_pathways: forewarningAnalysis.preventive_actions
           }
         });
       }
@@ -152,13 +167,26 @@ Identify:
 3. High-risk source types
 4. Correlation between data types and exposure frequency
 
-Provide actionable insights with specific recommendations.`,
+CRITICAL: For each recommendation, provide a clear PATHWAY:
+- What to do first
+- Where to go or what tool to use
+- Exact steps to complete the action
+Make recommendations actionable with specific instructions.`,
         response_json_schema: {
           type: 'object',
           properties: {
             patterns: { type: 'array', items: { type: 'string' } },
             insights: { type: 'array', items: { type: 'string' } },
-            recommendations: { type: 'array', items: { type: 'string' } },
+            recommendations: { 
+              type: 'array', 
+              items: { 
+                type: 'object',
+                properties: {
+                  recommendation: { type: 'string' },
+                  steps: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            },
             confidence: { type: 'number' }
           }
         }
@@ -172,9 +200,12 @@ Provide actionable insights with specific recommendations.`,
             title: 'Pattern Detected in Data Exposures',
             description: insight,
             severity: 'medium',
-            recommendations: patternAnalysis.recommendations || [],
+            recommendations: patternAnalysis.recommendations?.map(r => r.recommendation) || [],
             confidence_score: patternAnalysis.confidence || 85,
-            data_points: scanResults.map(r => r.id)
+            data_points: scanResults.map(r => r.id),
+            metadata: {
+              action_pathways: patternAnalysis.recommendations
+            }
           });
         }
       }
@@ -192,13 +223,27 @@ Predict:
 1. Likelihood of future breaches affecting monitored identifiers
 2. Emerging threats based on current exposure patterns
 3. Data types most at risk in the next 3-6 months
-4. Preventive measures to implement now`,
+4. Preventive measures to implement now
+
+CRITICAL: For each preventive measure, include the PATHWAY:
+Step 1: [first specific action]
+Step 2: [where to do it / what tool]
+Step 3: [completion criteria]`,
         response_json_schema: {
           type: 'object',
           properties: {
             predictions: { type: 'array', items: { type: 'string' } },
             emerging_threats: { type: 'array', items: { type: 'string' } },
-            preventive_measures: { type: 'array', items: { type: 'string' } },
+            preventive_measures: { 
+              type: 'array', 
+              items: { 
+                type: 'object',
+                properties: {
+                  measure: { type: 'string' },
+                  pathway: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            },
             confidence: { type: 'number' }
           }
         }
@@ -211,10 +256,11 @@ Predict:
           title: 'Future Risk Prediction',
           description: riskPrediction.predictions[0],
           severity: 'high',
-          recommendations: riskPrediction.preventive_measures || [],
+          recommendations: riskPrediction.preventive_measures?.map(m => m.measure) || [],
           confidence_score: riskPrediction.confidence || 75,
           metadata: {
-            emerging_threats: riskPrediction.emerging_threats
+            emerging_threats: riskPrediction.emerging_threats,
+            action_pathways: riskPrediction.preventive_measures
           }
         });
       }

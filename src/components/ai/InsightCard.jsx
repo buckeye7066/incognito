@@ -65,15 +65,38 @@ export default function InsightCard({ insight, onClick }) {
               )}
 
               {insight.recommendations && insight.recommendations.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-purple-400">Quick Actions:</p>
-                  <ul className="text-sm text-purple-200 space-y-1">
-                    {insight.recommendations.slice(0, 2).map((rec, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-purple-400 flex-shrink-0">•</span>
-                        <span className="line-clamp-1">{rec}</span>
-                      </li>
-                    ))}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-purple-400">Actionable Pathways:</p>
+                  <ul className="text-sm text-purple-200 space-y-2">
+                    {insight.recommendations.slice(0, 2).map((rec, idx) => {
+                      const pathway = insight.metadata?.action_pathways?.[idx];
+                      return (
+                        <li key={idx} className="space-y-1">
+                          <div className="flex items-start gap-2">
+                            <span className="text-purple-400 flex-shrink-0">→</span>
+                            <span className="font-medium">{rec}</span>
+                          </div>
+                          {pathway?.pathway && (
+                            <div className="ml-5 pl-3 border-l-2 border-purple-500/30 space-y-0.5">
+                              {pathway.pathway.slice(0, 2).map((step, i) => (
+                                <div key={i} className="text-xs text-purple-300">
+                                  {i + 1}. {step}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {pathway?.steps && (
+                            <div className="ml-5 pl-3 border-l-2 border-purple-500/30 space-y-0.5">
+                              {pathway.steps.slice(0, 2).map((step, i) => (
+                                <div key={i} className="text-xs text-purple-300">
+                                  {i + 1}. {step}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

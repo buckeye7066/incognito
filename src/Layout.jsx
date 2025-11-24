@@ -70,46 +70,46 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-950 to-slate-900">
       <style>{`
         :root {
-          --primary: 147 51 234;
-          --primary-dark: 126 34 206;
-          --accent: 168 85 247;
-          --danger: 239 68 68;
+          --primary: 187 0 0;
+          --primary-dark: 139 0 0;
+          --accent: 102 102 102;
+          --danger: 187 0 0;
           --warning: 251 191 36;
           --success: 34 197 94;
           --bg-dark: 15 23 42;
           --bg-darker: 2 6 23;
         }
-        
+
         body {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        
+
         .glass-card {
-          background: rgba(30, 27, 75, 0.4);
+          background: rgba(30, 27, 35, 0.6);
           backdrop-filter: blur(20px);
-          border: 1px solid rgba(139, 92, 246, 0.2);
+          border: 1px solid rgba(187, 0, 0, 0.3);
         }
-        
+
         .glow-border {
-          box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+          box-shadow: 0 0 20px rgba(187, 0, 0, 0.4);
         }
       `}</style>
 
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-64 glass-card border-r border-purple-500/20 flex flex-col">
-          <div className="p-6 border-b border-purple-500/20">
+        <aside className="w-64 glass-card border-r border-red-600/30 flex flex-col">
+          <div className="p-6 border-b border-red-600/30">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-gray-700 flex items-center justify-center">
                   <Shield className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-white">Incognito</h1>
-                  <p className="text-xs text-purple-300">Privacy Guardian</p>
+                  <p className="text-xs text-gray-400">Privacy Guardian</p>
                 </div>
               </div>
               <NotificationBell activeProfileId={activeProfile?.id} />
@@ -126,8 +126,8 @@ export default function Layout({ children, currentPageName }) {
                   to={createPageUrl(item.path)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white glow-border'
-                      : 'text-purple-200 hover:bg-purple-900/30 hover:text-white'
+                      ? 'bg-gradient-to-r from-red-600 to-gray-700 text-white glow-border'
+                      : 'text-gray-300 hover:bg-red-900/30 hover:text-white'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -137,7 +137,7 @@ export default function Layout({ children, currentPageName }) {
             })}
           </nav>
 
-          <div className="p-4 border-t border-purple-500/20">
+          <div className="p-4 border-t border-red-600/30">
             <ProfileSelector
               activeProfile={activeProfile}
               onProfileChange={handleProfileChange}

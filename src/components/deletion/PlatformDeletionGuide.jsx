@@ -122,8 +122,16 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
     const storedCreds = user?.platform_credentials?.[platformKey];
     
     if (!storedCreds && !showCredentials) {
-      setShowCredentials(guide.name);
-      return;
+      const choice = confirm(`AI can help delete your ${guide.name} account in two ways:\n\n✓ WITH LOGIN: AI automates the full deletion process\n✓ WITHOUT LOGIN: AI generates step-by-step instructions\n\nClick OK to provide login credentials, or Cancel for AI instructions only.`);
+      
+      if (choice) {
+        setShowCredentials(guide.name);
+        return;
+      } else {
+        // Generate AI guide without credentials
+        await generateAIGuide(guide);
+        return;
+      }
     }
 
     setAutomating(guide.name);
@@ -152,6 +160,52 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
           message: 'Automation failed: ' + error.message 
         }
       });
+    } finally {
+      setAutomating(null);
+    }
+  };
+
+  const generateAIGuide = async (guide) => {
+    setAutomating(guide.name);
+    try {
+      const aiGuide = await base44.integrations.Core.InvokeLLM({
+        prompt: `Generate a detailed, personalized step-by-step guide for permanently deleting a ${guide.name} account.
+
+Include:
+1. How to navigate to account deletion (exact menu paths)
+2. What to click at each step (button names, links)
+3. Data download options before deletion
+4. Important warnings (deletion timeframes, what gets deleted, recovery options)
+5. Screenshots descriptions of what to look for
+6. Common issues and how to solve them
+
+Make it extremely clear and easy to follow for someone who doesn't know the platform well.`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            steps: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            warnings: {
+              type: 'array',
+              items: { type: 'string' }
+            },
+            estimated_time: { type: 'string' },
+            data_download_tip: { type: 'string' }
+          }
+        }
+      });
+
+      setResults({
+        [guide.name]: {
+          success: true,
+          message: 'AI-generated deletion guide ready',
+          aiGuide
+        }
+      });
+    } catch (error) {
+      alert('Failed to generate AI guide: ' + error.message);
     } finally {
       setAutomating(null);
     }
@@ -209,12 +263,60 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
               </div>
 
               {result && (
-                <div className={`p-3 rounded-lg text-xs ${
-                  result.success 
-                    ? 'bg-green-500/10 border border-green-500/30 text-green-200'
-                    : 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
-                }`}>
-                  {result.message}
+                <div className="space-y-3">
+                  <div className={`p-3 rounded-lg text-xs ${
+                    result.success 
+                      ? 'bg-green-500/10 border border-green-500/30 text-green-200'
+                      : 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
+                  }`}>
+                    {result.message}
+                  </div>
+
+                  {result.aiGuide && (
+                    <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-indigo-200">🤖 AI Deletion Guide</p>
+                        <span className="text-xs text-indigo-300">Est. {result.aiGuide.estimated_time}</span>
+                      </div>
+
+                      {result.aiGuide.data_download_tip && (
+                        <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
+                          <p className="text-xs text-blue-200">
+                            💾 <strong>Download First:</strong> {result.aiGuide.data_download_tip}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-indigo-200">Steps to Follow:</p>
+                        <ol className="list-decimal list-inside space-y-2 text-xs text-indigo-100">
+                          {result.aiGuide.steps.map((step, i) => (
+                            <li key={i} className="pl-2">{step}</li>
+                          ))}
+                        </ol>
+                      </div>
+
+                      {result.aiGuide.warnings && result.aiGuide.warnings.length > 0 && (
+                        <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30">
+                          <p className="text-xs font-semibold text-amber-200 mb-1">⚠ Important Warnings:</p>
+                          <ul className="text-xs text-amber-100 space-y-1">
+                            {result.aiGuide.warnings.map((warning, i) => (
+                              <li key={i}>• {warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(guide.deletionUrl, '_blank')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600"
+                      >
+                        <ExternalLink className="w-3 h-3 mr-2" />
+                        Open {guide.name} & Follow This Guide →
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 

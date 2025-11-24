@@ -31,6 +31,11 @@ export default function Dashboard() {
     queryFn: () => base44.entities.ScanResult.list()
   });
 
+  const { data: allSearchQueries = [] } = useQuery({
+    queryKey: ['searchQueryFindings'],
+    queryFn: () => base44.entities.SearchQueryFinding.list()
+  });
+
   const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
     queryFn: () => base44.entities.DeletionRequest.list()
@@ -61,6 +66,7 @@ export default function Dashboard() {
   // Filter by active profile
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
   const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const aiInsights = allAIInsights.filter(i => !activeProfileId || i.profile_id === activeProfileId);
   const spamIncidents = allSpamIncidents.filter(i => !activeProfileId || i.profile_id === activeProfileId);
@@ -74,9 +80,12 @@ export default function Dashboard() {
     ? Math.round(scanResults.reduce((sum, r) => sum + (r.risk_score || 0), 0) / scanResults.length)
     : 0;
 
-  const recentFindings = [...scanResults]
-    .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
-    .slice(0, 5);
+  // Combine leaks and inquiries for Recent Findings
+  const recentLeaks = scanResults.map(r => ({ ...r, type: 'leak' }));
+  const recentInquiries = searchQueries.map(q => ({ ...q, type: 'inquiry' }));
+  const recentFindings = [...recentLeaks, ...recentInquiries]
+    .sort((a, b) => new Date(b.created_date || b.detected_date) - new Date(a.created_date || a.detected_date))
+    .slice(0, 8);
 
   const criticalInsights = aiInsights.filter(i => i.severity === 'critical' || i.severity === 'high');
   const unreadInsights = aiInsights.filter(i => !i.is_read);
@@ -299,14 +308,35 @@ export default function Dashboard() {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-white">{finding.source_name}</h3>
-                      <RiskBadge score={finding.risk_score} size="sm" />
+                      <h3 className="font-semibold text-white">
+                        {finding.type === 'leak' ? finding.source_name : finding.query_detected}
+                      </h3>
+                      {finding.type === 'leak' ? (
+                        <RiskBadge score={finding.risk_score} size="sm" />
+                      ) : (
+                        <Badge className={`
+                          ${finding.risk_level === 'critical' ? 'bg-red-600/20 text-red-300 border-red-600/40' : ''}
+                          ${finding.risk_level === 'high' ? 'bg-orange-600/20 text-orange-300 border-orange-600/40' : ''}
+                          ${finding.risk_level === 'medium' ? 'bg-amber-600/20 text-amber-300 border-amber-600/40' : ''}
+                          ${finding.risk_level === 'low' ? 'bg-green-600/20 text-green-300 border-green-600/40' : ''}
+                        `}>
+                          {finding.risk_level?.toUpperCase()} INQUIRY
+                        </Badge>
+                      )}
+                      <Badge className={finding.type === 'leak' ? 'bg-red-900/40 text-red-200' : 'bg-amber-900/40 text-amber-200'}>
+                        {finding.type === 'leak' ? '🔓 LEAK' : '🔍 INQUIRY'}
+                      </Badge>
                     </div>
-                    <p className="text-sm text-purple-300">{finding.source_type?.replace(/_/g, ' ')}</p>
+                    <p className="text-sm text-gray-300">
+                      {finding.type === 'leak' 
+                        ? finding.source_type?.replace(/_/g, ' ')
+                        : `${finding.search_platform} - ${finding.searcher_identity || 'Unknown'}`
+                      }
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-purple-400">
-                      {new Date(finding.created_date).toLocaleDateString()}
+                    <p className="text-xs text-gray-400">
+                      {new Date(finding.created_date || finding.detected_date).toLocaleDateString()}
                     </p>
                   </div>
                 </motion.div>

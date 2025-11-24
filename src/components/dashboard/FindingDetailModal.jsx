@@ -11,11 +11,38 @@ export default function FindingDetailModal({ finding, open, onClose }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
 
+  const isLeak = finding?.type === 'leak';
+  const isInquiry = finding?.type === 'inquiry';
+
   const handleAIAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a cybersecurity analyst explaining data exposure findings to a non-technical user. Analyze this finding in plain, conversational language:
+      const prompt = isInquiry ? 
+        `You are a cybersecurity analyst explaining search query detections to a non-technical user. Analyze this inquiry in plain, conversational language:
+
+Inquiry Details:
+- Search Platform: ${finding.search_platform}
+- Query Detected: ${finding.query_detected}
+- Matched Data: ${finding.matched_data_types?.join(', ') || 'Unknown'}
+- Searcher Identity: ${finding.searcher_identity || 'Anonymous'}
+- IP Address: ${finding.searcher_ip || 'Unknown'}
+- Device Info: ${finding.device_info || 'Unknown'}
+- Location: ${finding.geographic_origin || 'Unknown'}
+- Risk Level: ${finding.risk_level}
+- Detected: ${finding.detected_date}
+- Context: ${finding.search_context || 'Unknown'}
+
+Provide a plain language explanation covering:
+1. WHERE was this search performed? (What platform, what location?)
+2. WHEN was this search detected?
+3. WHO searched for you? (Be as specific as possible based on available data)
+4. WHAT information were they looking for? (What data types matched?)
+5. WHY should you be concerned? (Intent analysis - is this normal or suspicious?)
+6. WHAT should you do about it? (Simple, clear action steps)
+
+Write as if you're talking to a friend. No jargon. Be conversational but informative.`
+        :
+        `You are a cybersecurity analyst explaining data exposure findings to a non-technical user. Analyze this finding in plain, conversational language:
 
 Finding Details:
 - Source: ${finding.source_name}
@@ -33,7 +60,10 @@ Provide a plain language explanation covering:
 4. WHY is this concerning? (What could someone do with this information?)
 5. WHAT should the user do about it? (Simple, clear action steps)
 
-Write as if you're talking to a friend. No jargon. Be conversational but informative.`,
+Write as if you're talking to a friend. No jargon. Be conversational but informative.`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
         add_context_from_internet: true,
         response_json_schema: {
           type: 'object',
@@ -63,8 +93,27 @@ Write as if you're talking to a friend. No jargon. Be conversational but informa
       <DialogContent className="max-w-3xl bg-slate-900 border-red-600/30 text-white max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-            <span>{finding.source_name}</span>
-            <RiskBadge score={finding.risk_score} />
+            <Badge className={isLeak ? 'bg-red-900/40 text-red-200' : 'bg-amber-900/40 text-amber-200'}>
+              {isLeak ? '🔓 DATA LEAK' : '🔍 SEARCH INQUIRY'}
+            </Badge>
+            {isLeak ? (
+              <>
+                <span>{finding.source_name}</span>
+                <RiskBadge score={finding.risk_score} />
+              </>
+            ) : (
+              <>
+                <span className="text-lg">{finding.query_detected}</span>
+                <Badge className={`
+                  ${finding.risk_level === 'critical' ? 'bg-red-600/20 text-red-300 border-red-600/40' : ''}
+                  ${finding.risk_level === 'high' ? 'bg-orange-600/20 text-orange-300 border-orange-600/40' : ''}
+                  ${finding.risk_level === 'medium' ? 'bg-amber-600/20 text-amber-300 border-amber-600/40' : ''}
+                  ${finding.risk_level === 'low' ? 'bg-green-600/20 text-green-300 border-green-600/40' : ''}
+                `}>
+                  {finding.risk_level?.toUpperCase()}
+                </Badge>
+              </>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -72,44 +121,104 @@ Write as if you're talking to a friend. No jargon. Be conversational but informa
           {/* Basic Details */}
           <Card className="glass-card border-red-600/20">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2 text-gray-300">
-                <Globe className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-medium">Source Type:</span>
-                <span className="text-sm">{finding.source_type?.replace(/_/g, ' ')}</span>
-              </div>
+              {isLeak && (
+                <>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Globe className="w-4 h-4 text-red-400" />
+                    <span className="text-sm font-medium">Source Type:</span>
+                    <span className="text-sm">{finding.source_type?.replace(/_/g, ' ')}</span>
+                  </div>
 
-              {finding.source_url && (
-                <div className="flex items-center gap-2 text-gray-300">
-                  <MapPin className="w-4 h-4 text-red-400" />
-                  <span className="text-sm font-medium">URL:</span>
-                  <a 
-                    href={finding.source_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-400 hover:underline truncate"
-                  >
-                    {finding.source_url}
-                  </a>
-                </div>
+                  {finding.source_url && (
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <MapPin className="w-4 h-4 text-red-400" />
+                      <span className="text-sm font-medium">URL:</span>
+                      <a 
+                        href={finding.source_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-400 hover:underline truncate"
+                      >
+                        {finding.source_url}
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Clock className="w-4 h-4 text-red-400" />
+                    <span className="text-sm font-medium">Detected:</span>
+                    <span className="text-sm">{new Date(finding.scan_date || finding.created_date).toLocaleDateString()}</span>
+                  </div>
+
+                  {finding.data_exposed && finding.data_exposed.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-300 mb-2">Data Exposed:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {finding.data_exposed.map((data, idx) => (
+                          <Badge key={idx} className="bg-red-600/20 text-red-300 border-red-600/40">
+                            {data}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              <div className="flex items-center gap-2 text-gray-300">
-                <Clock className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-medium">Detected:</span>
-                <span className="text-sm">{new Date(finding.scan_date || finding.created_date).toLocaleDateString()}</span>
-              </div>
-
-              {finding.data_exposed && finding.data_exposed.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-gray-300 mb-2">Data Exposed:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {finding.data_exposed.map((data, idx) => (
-                      <Badge key={idx} className="bg-red-600/20 text-red-300 border-red-600/40">
-                        {data}
-                      </Badge>
-                    ))}
+              {isInquiry && (
+                <>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Globe className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-medium">Search Platform:</span>
+                    <span className="text-sm">{finding.search_platform}</span>
                   </div>
-                </div>
+
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <User className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-medium">Searcher:</span>
+                    <span className="text-sm">{finding.searcher_identity || 'Anonymous'}</span>
+                  </div>
+
+                  {finding.geographic_origin && (
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <MapPin className="w-4 h-4 text-amber-400" />
+                      <span className="text-sm font-medium">Location:</span>
+                      <span className="text-sm">{finding.geographic_origin}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-medium">Detected:</span>
+                    <span className="text-sm">{new Date(finding.detected_date).toLocaleDateString()} {new Date(finding.detected_date).toLocaleTimeString()}</span>
+                  </div>
+
+                  {finding.matched_data_types && finding.matched_data_types.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-300 mb-2">Data They Searched For:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {finding.matched_data_types.map((data, idx) => (
+                          <Badge key={idx} className="bg-amber-600/20 text-amber-300 border-amber-600/40">
+                            {data}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {finding.searcher_ip && (
+                    <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-600/30">
+                      <p className="text-xs text-amber-300">
+                        <strong>IP Address:</strong> {finding.searcher_ip}
+                      </p>
+                      {finding.device_info && (
+                        <p className="text-xs text-amber-300 mt-1">
+                          <strong>Device:</strong> {finding.device_info}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

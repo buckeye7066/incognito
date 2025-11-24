@@ -93,13 +93,14 @@ Finding Details:
 Provide:
 1. COMPANY_INFO: Full legal name, headquarters address, registered agent
 2. BREACH_AUTHENTICATION: How to verify this breach is authentic and determine its true scope
-3. LEGAL_BASIS: Specific legal grounds for action
-4. DAMAGES: Potential damages (actual, statutory, punitive)
-5. STATUTE_LIMITATIONS: Filing deadlines
-6. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
-7. ATTORNEY: Cleveland, TN attorney name, firm, phone, email (real, verified)
-8. LEGALLY_REQUIRED_STEPS: ONLY steps you are LEGALLY REQUIRED to take (not optional actions)
-9. COSTS: Fees and potential recovery`;
+3. APPLICABLE_LAWS: ONLY list laws that ACTUALLY APPLY to this specific breach based on: the data types exposed, the company's jurisdiction, the breach nature, and the victim's location (TN). For EACH law, explain WHY it applies.
+4. LEGAL_BASIS: Specific legal grounds for action
+5. DAMAGES: Potential damages (actual, statutory, punitive)
+6. STATUTE_LIMITATIONS: Filing deadlines
+7. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
+8. ATTORNEY: Cleveland, TN attorney name, firm, phone, email (real, verified)
+9. LEGALLY_REQUIRED_STEPS: ONLY steps you are LEGALLY REQUIRED to take (not optional actions)
+10. COSTS: Fees and potential recovery`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -110,6 +111,16 @@ Provide:
             company_legal_name: { type: 'string' },
             breach_authentication: { type: 'string' },
             breach_scope_verification: { type: 'string' },
+            applicable_laws: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  law_name: { type: 'string' },
+                  why_applicable: { type: 'string' }
+                }
+              }
+            },
             existing_class_action: { type: 'boolean' },
             class_action_details: { type: 'string' },
             attorney_name: { type: 'string' },
@@ -493,6 +504,20 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                             <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30">
                               <p className="text-amber-300 font-semibold mb-1">📊 Determine Breach Scope</p>
                               <p className="text-xs">{legalInfo[result.id].breach_scope_verification}</p>
+                            </div>
+                          )}
+
+                          {legalInfo[result.id].applicable_laws && legalInfo[result.id].applicable_laws.length > 0 && (
+                            <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
+                              <p className="text-red-300 font-semibold mb-2">⚖️ Applicable Laws</p>
+                              <div className="space-y-2">
+                                {legalInfo[result.id].applicable_laws.map((law, idx) => (
+                                  <div key={idx} className="text-xs">
+                                    <p className="font-semibold text-red-200">{law.law_name}</p>
+                                    <p className="text-gray-300 mt-0.5">{law.why_applicable}</p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                           

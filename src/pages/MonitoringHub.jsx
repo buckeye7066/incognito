@@ -18,6 +18,8 @@ export default function MonitoringHub() {
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [monitoring, setMonitoring] = useState(false);
+  const [darkWebScanning, setDarkWebScanning] = useState(false);
+  const [socialMediaScanning, setSocialMediaScanning] = useState(false);
   const [formData, setFormData] = useState({
     account_type: 'gmail',
     account_identifier: '',
@@ -85,13 +87,162 @@ export default function MonitoringHub() {
 
     setMonitoring(true);
     try {
-      const response = await base44.functions.invoke('monitorEmails', { profileId: activeProfileId });
-      alert(`Monitoring complete! Found ${response.data.totalSpamFound} new spam emails.`);
+      // Get personal data for this profile
+      const allData = await base44.entities.PersonalData.list();
+      const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
+
+      if (profileData.length === 0) {
+        alert('No personal data to monitor. Please add data to your profile first.');
+        setMonitoring(false);
+        return;
+      }
+
+      // Monitor emails for spam using profile data
+      let totalSpam = 0;
+      for (const data of profileData) {
+        if (data.data_type === 'email') {
+          const prompt = `Search for spam emails or suspicious activity related to this email: ${data.value}. 
+          Check spam folders, phishing attempts, and suspicious senders.
+          Return findings as JSON array.`;
+
+          const result = await base44.integrations.Core.InvokeLLM({
+            prompt,
+            add_context_from_internet: true,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                spam_found: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      source: { type: "string" },
+                      category: { type: "string" },
+                      description: { type: "string" }
+                    }
+                  }
+                }
+              }
+            }
+          });
+
+          if (result.spam_found && result.spam_found.length > 0) {
+            for (const spam of result.spam_found) {
+              await base44.entities.SpamIncident.create({
+                profile_id: activeProfileId,
+                incident_type: 'email',
+                source_identifier: spam.source,
+                category: spam.category || 'other',
+                date_received: new Date().toISOString().split('T')[0],
+                content_summary: spam.description
+              });
+              totalSpam++;
+            }
+          }
+        }
+      }
+
+      alert(`Monitoring complete! Found ${totalSpam} spam incident(s) related to your profile data.`);
       queryClient.invalidateQueries(['spamIncidents']);
     } catch (error) {
       alert('Monitoring failed: ' + error.message);
     } finally {
       setMonitoring(false);
+    }
+  };
+
+  const runDarkWebScan = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    setDarkWebScanning(true);
+    try {
+      const allData = await base44.entities.PersonalData.list();
+      const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
+
+      if (profileData.length === 0) {
+        alert('No personal data to monitor. Please add data to your profile first.');
+        setDarkWebScanning(false);
+        return;
+      }
+
+      let findingsCount = 0;
+      for (const data of profileData) {
+        const prompt = `Search dark web breach databases and monitoring sources for this identifier: ${data.data_type} = ${data.value}.
+        Check: breach databases (HIBP, DeHashed), credential dumps, paste sites, dark web marketplaces.
+        For each finding, provide: source_name, risk_score, data_exposed, details.
+        Return JSON array of findings.`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              findings: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    source_name: { type: "string" },
+                    risk_score: { type: "number" },
+                    data_exposed: { type: "array", items: { type: "string" } },
+                    details: { type: "string" }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (result.findings && result.findings.length > 0) {
+          for (const finding of result.findings) {
+            await base44.entities.ScanResult.create({
+              profile_id: activeProfileId,
+              personal_data_id: data.id,
+              source_name: finding.source_name,
+              source_type: 'breach_database',
+              risk_score: finding.risk_score,
+              data_exposed: finding.data_exposed,
+              status: 'new',
+              scan_date: new Date().toISOString().split('T')[0],
+              metadata: {
+                scan_type: 'dark_web',
+                details: finding.details
+              }
+            });
+            findingsCount++;
+          }
+        }
+      }
+
+      alert(`Dark web scan complete! Found ${findingsCount} exposure(s) of your profile data.`);
+      queryClient.invalidateQueries(['scanResults']);
+    } catch (error) {
+      alert('Dark web scan failed: ' + error.message);
+    } finally {
+      setDarkWebScanning(false);
+    }
+  };
+
+  const runSocialMediaScan = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    setSocialMediaScanning(true);
+    try {
+      const response = await base44.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+      alert(response.data.message);
+      queryClient.invalidateQueries(['socialMediaMentions']);
+      queryClient.invalidateQueries(['socialMediaFindings']);
+    } catch (error) {
+      alert('Social media scan failed: ' + error.message);
+    } finally {
+      setSocialMediaScanning(false);
     }
   };
 
@@ -123,27 +274,57 @@ export default function MonitoringHub() {
             <Smartphone className="w-10 h-10 text-purple-400" />
             Monitoring Hub
           </h1>
-          <p className="text-purple-300">Actively monitor emails and phones for spam</p>
+          <p className="text-purple-300">Monitor your profile data across emails, dark web, and social media</p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={runMonitoring}
-            disabled={monitoring || accounts.length === 0}
-            variant="outline"
-            className="border-purple-500/50 text-purple-300"
-          >
-            <RefreshCw className={`w-5 h-5 mr-2 ${monitoring ? 'animate-spin' : ''}`} />
-            {monitoring ? 'Checking...' : 'Check Now'}
-          </Button>
-          <Button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Account
-          </Button>
-        </div>
+        <Button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-gradient-to-r from-purple-600 to-indigo-600"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Add Account
+        </Button>
       </div>
+
+      {/* Quick Scan Actions */}
+      <Card className="glass-card border-purple-500/30">
+        <CardHeader className="border-b border-purple-500/20">
+          <CardTitle className="text-white">Quick Monitoring Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button
+              onClick={runMonitoring}
+              disabled={monitoring}
+              variant="outline"
+              className="h-24 border-purple-500/50 text-purple-300 flex-col gap-2"
+            >
+              <Mail className={`w-8 h-8 ${monitoring ? 'animate-pulse' : ''}`} />
+              <span>{monitoring ? 'Scanning Emails...' : 'Scan Email Spam'}</span>
+            </Button>
+            <Button
+              onClick={runDarkWebScan}
+              disabled={darkWebScanning}
+              variant="outline"
+              className="h-24 border-red-500/50 text-red-300 flex-col gap-2"
+            >
+              <AlertCircle className={`w-8 h-8 ${darkWebScanning ? 'animate-pulse' : ''}`} />
+              <span>{darkWebScanning ? 'Scanning Dark Web...' : 'Dark Web Scan'}</span>
+            </Button>
+            <Button
+              onClick={runSocialMediaScan}
+              disabled={socialMediaScanning}
+              variant="outline"
+              className="h-24 border-blue-500/50 text-blue-300 flex-col gap-2"
+            >
+              <RefreshCw className={`w-8 h-8 ${socialMediaScanning ? 'animate-spin' : ''}`} />
+              <span>{socialMediaScanning ? 'Scanning Social Media...' : 'Social Media Scan'}</span>
+            </Button>
+          </div>
+          <p className="text-xs text-purple-400 mt-4 text-center">
+            All scans are filtered to only find mentions and exposures of YOUR profile data
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Setup Instructions */}
       <Card className="glass-card border-purple-500/30">

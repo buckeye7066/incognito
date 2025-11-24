@@ -297,6 +297,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
           const src = r.source_name?.toLowerCase() || '';
           return ['twitter', 'x.com', 'facebook', 'instagram', 'linkedin', 'tiktok', 'snapchat', 'reddit'].some(p => src.includes(p));
         })}
+        profileId={activeProfileId}
       />
 
       {/* Bulk Deletion Panel */}

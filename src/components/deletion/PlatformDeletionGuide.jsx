@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 
 const PLATFORM_GUIDES = {
   'X (formerly Twitter)': {
@@ -77,18 +80,66 @@ const PLATFORM_GUIDES = {
   }
 };
 
-export default function PlatformDeletionGuide({ platforms = [] }) {
+export default function PlatformDeletionGuide({ platforms = [], profileId }) {
+  const [automating, setAutomating] = useState(null);
+  const [showCredentials, setShowCredentials] = useState(null);
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [results, setResults] = useState({});
+
   const matchedGuides = platforms
     .map(p => {
       const sourceName = p.source_name || '';
-      return Object.values(PLATFORM_GUIDES).find(guide => 
+      const guide = Object.values(PLATFORM_GUIDES).find(guide => 
         sourceName.toLowerCase().includes(guide.name.toLowerCase()) ||
         sourceName.toLowerCase().includes(guide.name.split(' ')[0].toLowerCase())
       );
+      return guide ? { ...guide, scanResult: p } : null;
     })
     .filter(Boolean);
 
   if (matchedGuides.length === 0) return null;
+
+  const handleAIAutomation = async (guide) => {
+    if (!profileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    const platform = guide.name;
+    setAutomating(platform);
+    setResults({});
+
+    try {
+      const response = await base44.functions.invoke('automatedPlatformDeletion', {
+        profileId,
+        platform,
+        credentials: showCredentials === platform ? credentials : null
+      });
+
+      setResults({ 
+        [platform]: {
+          success: response.data.status === 'completed',
+          message: response.data.message,
+          status: response.data.status,
+          loginRequired: response.data.loginRequired
+        }
+      });
+
+      if (response.data.loginRequired && !showCredentials) {
+        setShowCredentials(platform);
+      }
+
+    } catch (error) {
+      setResults({ 
+        [platform]: { 
+          success: false, 
+          message: 'Automation failed: ' + error.message 
+        }
+      });
+    } finally {
+      setAutomating(null);
+    }
+  };
 
   return (
     <Card className="glass-card border-blue-500/30">
@@ -106,42 +157,116 @@ export default function PlatformDeletionGuide({ platforms = [] }) {
           </p>
         </div>
 
-        {matchedGuides.map((guide, idx) => (
-          <div key={idx} className="p-4 rounded-lg bg-slate-800/50 border border-purple-500/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-white">{guide.name}</h3>
-            </div>
+        {matchedGuides.map((guide, idx) => {
+          const result = results[guide.name];
+          const isAutomating = automating === guide.name;
+          
+          return (
+            <div key={idx} className="p-4 rounded-lg bg-slate-800/50 border border-purple-500/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-white">{guide.name}</h3>
+                {result?.success && (
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                )}
+              </div>
 
-            <div className="space-y-2 text-xs text-purple-300">
-              {guide.instructions.map((instruction, i) => (
-                <p key={i}>• {instruction}</p>
-              ))}
-            </div>
+              {result && (
+                <div className={`p-3 rounded-lg text-xs ${
+                  result.success 
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-200'
+                    : 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
+                }`}>
+                  {result.message}
+                </div>
+              )}
 
-            <div className="flex flex-wrap gap-2">
-              {guide.downloadUrl && (
+              {showCredentials === guide.name && !result && (
+                <div className="space-y-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <p className="text-xs text-blue-200 mb-2">🔐 Login required for automation:</p>
+                  <div>
+                    <Label className="text-xs text-purple-200">Username/Email</Label>
+                    <Input
+                      type="text"
+                      value={credentials.username}
+                      onChange={(e) => setCredentials({...credentials, username: e.target.value})}
+                      className="h-8 text-xs bg-slate-900/50 border-purple-500/30 text-white"
+                      placeholder="username@example.com"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-purple-200">Password</Label>
+                    <Input
+                      type="password"
+                      value={credentials.password}
+                      onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                      className="h-8 text-xs bg-slate-900/50 border-purple-500/30 text-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleAIAutomation(guide)}
+                    disabled={!credentials.username || !credentials.password}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600"
+                  >
+                    <Zap className="w-3 h-3 mr-2" />
+                    Start Automation
+                  </Button>
+                </div>
+              )}
+
+              {!result && (
+                <div className="space-y-2 text-xs text-purple-300">
+                  {guide.instructions.map((instruction, i) => (
+                    <p key={i}>• {instruction}</p>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleAIAutomation(guide)}
+                  disabled={isAutomating}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                >
+                  {isAutomating ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      AI Automating...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 mr-2" />
+                      AI Auto-Delete
+                    </>
+                  )}
+                </Button>
+
+                {guide.downloadUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(guide.downloadUrl, '_blank')}
+                    className="border-green-500/50 text-green-300 hover:bg-green-500/10"
+                  >
+                    <ExternalLink className="w-3 h-3 mr-2" />
+                    Download Data
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(guide.downloadUrl, '_blank')}
-                  className="border-green-500/50 text-green-300 hover:bg-green-500/10"
+                  onClick={() => window.open(guide.deletionUrl, '_blank')}
+                  className="border-red-500/50 text-red-300 hover:bg-red-500/10"
                 >
                   <ExternalLink className="w-3 h-3 mr-2" />
-                  Download Data
+                  Manual Delete
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(guide.deletionUrl, '_blank')}
-                className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-              >
-                <ExternalLink className="w-3 h-3 mr-2" />
-                Delete Account
-              </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );

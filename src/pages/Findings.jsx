@@ -287,26 +287,28 @@ Provide:
       const myData = allPersonalData.filter(d => d.profile_id === activeProfileId);
 
       const prompt = `Analyze this finding and determine:
-1. Does this finding include MY personal data?
-2. If yes, what specific data of mine is included?
+      1. Does this finding include MY personal data?
+      2. If yes, what specific data of mine is included?
 
-MY PERSONAL DATA:
-${myData.map(d => `- ${d.data_type}: ${d.value}`).join('\n')}
+      MY PERSONAL DATA:
+      ${myData.map(d => `- ${d.data_type}: ${d.value}`).join('\n')}
 
-FINDING:
-Type: ${finding.type}
-${finding.type === 'leak' ? `
-Source: ${finding.source_name}
-Exposed Data: ${finding.data_exposed?.join(', ') || 'Unknown'}
-Details: ${finding.metadata?.details || 'None'}
-` : `
-Search Query: ${finding.query_detected}
-Platform: ${finding.search_platform}
-Matched Data Types: ${finding.matched_data_types?.join(', ') || 'Unknown'}
-Searcher: ${finding.searcher_identity || 'Anonymous'}
-`}
+      FINDING:
+      Type: ${finding.type}
+      ${finding.type === 'leak' ? `
+      Source: ${finding.source_name}
+      Exposed Data: ${finding.data_exposed?.join(', ') || 'Unknown'}
+      Details: ${finding.metadata?.details || 'None'}
+      ` : `
+      Search Query: ${finding.query_detected}
+      Platform: ${finding.search_platform}
+      Matched Data Types: ${finding.matched_data_types?.join(', ') || 'Unknown'}
+      Searcher: ${finding.searcher_identity || 'Anonymous'}
+      `}
 
-Return JSON with: includes_me (boolean), my_data_found (array of strings), explanation (string)`;
+      IMPORTANT: For my_data_found, return the ACTUAL VALUES in a readable format like "SSN: 123-45-6789" or "Email: john@example.com", NOT just the data type names.
+
+      Return JSON with: includes_me (boolean), my_data_found (array of strings with actual values), explanation (string)`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

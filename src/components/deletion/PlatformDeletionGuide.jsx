@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle } from 'lucide-react';
+import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle, Brain } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 const PLATFORM_GUIDES = {
@@ -169,17 +169,18 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
     setAutomating(guide.name);
     try {
       const aiGuide = await base44.integrations.Core.InvokeLLM({
-        prompt: `Generate a detailed, personalized step-by-step guide for permanently deleting a ${guide.name} account.
+        prompt: `Generate a detailed guide AND automation script for permanently deleting a ${guide.name} account.
 
-Include:
-1. How to navigate to account deletion (exact menu paths)
-2. What to click at each step (button names, links)
-3. Data download options before deletion
-4. Important warnings (deletion timeframes, what gets deleted, recovery options)
-5. Screenshots descriptions of what to look for
-6. Common issues and how to solve them
+Create:
+1. Step-by-step manual instructions
+2. A JavaScript browser console script that automates the clicks after user logs in
+3. The script should navigate menus, click buttons, and handle confirmations
+4. Include safety checks and clear console messages
+5. Data download tips
+6. Important warnings
 
-Make it extremely clear and easy to follow for someone who doesn't know the platform well.`,
+The automation script should be copy-pasteable JavaScript that runs in the browser console.
+URL to start from: ${guide.deletionUrl}`,
         response_json_schema: {
           type: 'object',
           properties: {
@@ -187,6 +188,8 @@ Make it extremely clear and easy to follow for someone who doesn't know the plat
               type: 'array',
               items: { type: 'string' }
             },
+            automation_script: { type: 'string' },
+            script_instructions: { type: 'string' },
             warnings: {
               type: 'array',
               items: { type: 'string' }
@@ -200,7 +203,7 @@ Make it extremely clear and easy to follow for someone who doesn't know the plat
       setResults({
         [guide.name]: {
           success: true,
-          message: 'AI-generated deletion guide ready',
+          message: 'AI automation ready - log in manually, then run the script',
           aiGuide
         }
       });
@@ -275,9 +278,44 @@ Make it extremely clear and easy to follow for someone who doesn't know the plat
                   {result.aiGuide && (
                     <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/30 space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-indigo-200">🤖 AI Deletion Guide</p>
+                        <p className="text-sm font-semibold text-indigo-200">🤖 AI Automation Available</p>
                         <span className="text-xs text-indigo-300">Est. {result.aiGuide.estimated_time}</span>
                       </div>
+
+                      {result.aiGuide.automation_script && (
+                        <div className="p-3 rounded-lg bg-purple-500/20 border border-purple-500/40 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-purple-200">⚡ Auto-Delete Script</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(result.aiGuide.automation_script);
+                                alert('✓ Script copied! Follow the instructions below.');
+                              }}
+                              className="h-6 text-xs border-purple-500/50 text-purple-300"
+                            >
+                              Copy Script
+                            </Button>
+                          </div>
+                          <div className="p-2 rounded bg-slate-900/50 border border-slate-700">
+                            <p className="text-xs text-purple-200 font-mono break-all">
+                              {result.aiGuide.automation_script.substring(0, 100)}...
+                            </p>
+                          </div>
+                          <div className="text-xs text-purple-200 space-y-1">
+                            <p className="font-semibold">How to use:</p>
+                            <p>{result.aiGuide.script_instructions}</p>
+                            <ol className="list-decimal list-inside space-y-1 mt-2 text-purple-300">
+                              <li>Click button below to open {guide.name}</li>
+                              <li>Log in manually with your credentials</li>
+                              <li>Press F12 to open browser console</li>
+                              <li>Paste the copied script and press Enter</li>
+                              <li>AI will automate the rest! ✨</li>
+                            </ol>
+                          </div>
+                        </div>
+                      )}
 
                       {result.aiGuide.data_download_tip && (
                         <div className="p-2 rounded bg-blue-500/10 border border-blue-500/30">
@@ -288,7 +326,7 @@ Make it extremely clear and easy to follow for someone who doesn't know the plat
                       )}
 
                       <div className="space-y-2">
-                        <p className="text-xs font-semibold text-indigo-200">Steps to Follow:</p>
+                        <p className="text-xs font-semibold text-indigo-200">Manual Steps (if script fails):</p>
                         <ol className="list-decimal list-inside space-y-2 text-xs text-indigo-100">
                           {result.aiGuide.steps.map((step, i) => (
                             <li key={i} className="pl-2">{step}</li>
@@ -310,10 +348,10 @@ Make it extremely clear and easy to follow for someone who doesn't know the plat
                       <Button
                         size="sm"
                         onClick={() => window.open(guide.deletionUrl, '_blank')}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600"
+                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600"
                       >
-                        <ExternalLink className="w-3 h-3 mr-2" />
-                        Open {guide.name} & Follow This Guide →
+                        <Zap className="w-3 h-3 mr-2" />
+                        Open {guide.name}, Login & Run Script →
                       </Button>
                     </div>
                   )}

@@ -154,7 +154,7 @@ Provide:
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Legal Action Information - ${finding.source_name}</title>
+        <title>Legal Consultation Package - ${finding.source_name} Data Breach</title>
         <style>
           body {
             font-family: 'Times New Roman', serif;
@@ -162,16 +162,19 @@ Provide:
             color: #000;
             line-height: 1.6;
           }
-          h1 { font-size: 24px; margin-bottom: 10px; }
-          h2 { font-size: 18px; margin-top: 30px; margin-bottom: 10px; border-bottom: 2px solid #000; }
+          h1 { font-size: 24px; margin-bottom: 10px; text-align: center; }
+          h2 { font-size: 18px; margin-top: 30px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
           h3 { font-size: 16px; margin-top: 20px; margin-bottom: 8px; }
           p { margin: 8px 0; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .section { margin-bottom: 25px; }
+          .header { text-align: center; margin-bottom: 40px; border-bottom: 3px solid #000; padding-bottom: 20px; }
+          .section { margin-bottom: 30px; page-break-inside: avoid; }
+          .client-info { border: 2px solid #000; padding: 15px; margin: 20px 0; background: #f9f9f9; }
           .law-item { margin-left: 20px; margin-bottom: 15px; }
           .warning { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+          .highlight { background: #ffffcc; padding: 10px; border: 1px solid #ccc; margin: 10px 0; }
           ol { margin-left: 20px; }
           li { margin-bottom: 8px; }
+          .footer { margin-top: 50px; border-top: 2px solid #000; padding-top: 20px; font-size: 10px; }
           @media print {
             body { margin: 20px; }
           }
@@ -179,97 +182,166 @@ Provide:
       </head>
       <body>
         <div class="header">
-          <h1>LEGAL ACTION INFORMATION</h1>
-          <p><strong>Data Breach/Exposure Report</strong></p>
-          <p>Generated: ${today}</p>
+          <h1>ATTORNEY CONSULTATION PACKAGE</h1>
+          <p><strong>Data Breach Legal Action Information</strong></p>
+          <p>Prepared: ${today}</p>
+        </div>
+
+        <div class="section client-info">
+          <h2>CLIENT INFORMATION (Please Complete Before Attorney Meeting)</h2>
+          <p><strong>Client Name:</strong> _____________________________________________</p>
+          <p><strong>Address:</strong> _____________________________________________</p>
+          <p><strong>City, State, ZIP:</strong> _____________________________________________</p>
+          <p><strong>Phone:</strong> ______________________ <strong>Email:</strong> ______________________</p>
+          <p><strong>Date of Birth:</strong> ______________________ <strong>SSN (last 4):</strong> _________</p>
         </div>
 
         <div class="section">
-          <h2>BREACH DETAILS</h2>
-          <p><strong>Source/Company:</strong> ${finding.source_name}</p>
+          <h2>I. INCIDENT SUMMARY</h2>
+          <p><strong>Breach Source:</strong> ${finding.source_name}</p>
           <p><strong>Source Type:</strong> ${finding.source_type?.replace(/_/g, ' ').toUpperCase()}</p>
-          <p><strong>Risk Score:</strong> ${finding.risk_score}/100</p>
-          <p><strong>Data Exposed:</strong> ${finding.data_exposed?.join(', ') || 'Unknown'}</p>
-          <p><strong>Detection Date:</strong> ${finding.scan_date || 'Unknown'}</p>
+          <p><strong>Date Discovered:</strong> ${finding.scan_date || 'Unknown'}</p>
+          <p><strong>Risk Assessment:</strong> ${finding.risk_score}/100 ${finding.risk_score >= 70 ? '(CRITICAL)' : finding.risk_score >= 40 ? '(HIGH)' : '(MODERATE)'}</p>
+          ${finding.source_url ? `<p><strong>Source URL:</strong> ${finding.source_url}</p>` : ''}
         </div>
 
         <div class="section">
-          <h2>COMPANY INFORMATION</h2>
-          <p><strong>Legal Name:</strong> ${legalData.company_legal_name}</p>
+          <h2>II. PERSONAL DATA COMPROMISED</h2>
+          <div class="highlight">
+            <p><strong>The following personal information was exposed in this breach:</strong></p>
+            <ul>
+              ${finding.data_exposed?.map(data => `<li>${data.replace(/_/g, ' ').toUpperCase()}</li>`).join('') || '<li>Unknown data types</li>'}
+            </ul>
+          </div>
+          ${finding.metadata?.details ? `<p><strong>Additional Details:</strong> ${finding.metadata.details}</p>` : ''}
         </div>
 
-        ${legalData.breach_authentication ? `
-        <div class="section warning">
-          <h3>🔍 VERIFY BREACH AUTHENTICITY</h3>
-          <p>${legalData.breach_authentication}</p>
+        <div class="section">
+          <h2>III. RESPONSIBLE PARTY INFORMATION</h2>
+          <p><strong>Company Legal Name:</strong> ${legalData.company_legal_name}</p>
+          <p><strong>Business Type:</strong> ${finding.source_type?.replace(/_/g, ' ')}</p>
+          <p style="margin-top: 15px;"><em>Note: Full company address, registered agent, and corporate structure details should be obtained through legal discovery.</em></p>
         </div>
-        ` : ''}
 
-        ${legalData.breach_scope_verification ? `
+        ${legalData.breach_authentication || legalData.breach_scope_verification ? `
         <div class="section warning">
-          <h3>📊 DETERMINE BREACH SCOPE</h3>
-          <p>${legalData.breach_scope_verification}</p>
+          <h2>IV. BREACH VERIFICATION REQUIRED</h2>
+          ${legalData.breach_authentication ? `
+            <h3>Authentication Steps:</h3>
+            <p>${legalData.breach_authentication}</p>
+          ` : ''}
+          ${legalData.breach_scope_verification ? `
+            <h3>Scope Determination:</h3>
+            <p>${legalData.breach_scope_verification}</p>
+          ` : ''}
         </div>
         ` : ''}
 
         ${legalData.applicable_laws?.length > 0 ? `
         <div class="section">
-          <h2>⚖️ APPLICABLE LAWS</h2>
+          <h2>V. APPLICABLE LEGAL FRAMEWORK</h2>
+          <p><strong>The following laws provide basis for legal action:</strong></p>
           ${legalData.applicable_laws.map((law, idx) => `
             <div class="law-item">
               <p><strong>${idx + 1}. ${law.law_name}</strong></p>
-              <p>${law.why_applicable}</p>
+              <p><em>Applicability:</em> ${law.why_applicable}</p>
             </div>
           `).join('')}
         </div>
         ` : ''}
 
         <div class="section">
-          <h2>LEGAL BASIS FOR ACTION</h2>
+          <h2>VI. LEGAL BASIS FOR ACTION</h2>
           <p>${legalData.legal_basis}</p>
         </div>
 
         <div class="section">
-          <h2>POTENTIAL DAMAGES</h2>
+          <h2>VII. DAMAGES ANALYSIS</h2>
           <p>${legalData.potential_damages}</p>
+          <div class="highlight" style="margin-top: 15px;">
+            <p><strong>For Attorney Discussion:</strong></p>
+            <ul>
+              <li>Document all actual damages (identity theft costs, credit monitoring, etc.)</li>
+              <li>Gather evidence of emotional distress</li>
+              <li>Track time spent resolving breach-related issues</li>
+              <li>Preserve all correspondence with the company</li>
+            </ul>
+          </div>
         </div>
 
         ${legalData.statute_deadline ? `
         <div class="section warning">
-          <h3>⏰ FILING DEADLINE</h3>
-          <p>${legalData.statute_deadline}</p>
+          <h2>⏰ VIII. TIME-SENSITIVE INFORMATION</h2>
+          <h3>STATUTE OF LIMITATIONS:</h3>
+          <p><strong>${legalData.statute_deadline}</strong></p>
+          <p style="color: red; font-weight: bold;">ACTION REQUIRED: Consult with attorney immediately to preserve your rights.</p>
         </div>
         ` : ''}
 
         ${legalData.existing_class_action ? `
         <div class="section">
-          <h2>⚖️ CLASS ACTION AVAILABLE</h2>
+          <h2>IX. CLASS ACTION LITIGATION</h2>
+          <p><strong>Status:</strong> Active class action lawsuit exists</p>
           <p>${legalData.class_action_details}</p>
+          <p style="margin-top: 10px;"><em>Attorney should evaluate whether joining the class action or pursuing individual litigation is more advantageous.</em></p>
         </div>
         ` : ''}
 
-        <div class="section">
-          <h2>👨‍⚖️ RECOMMENDED ATTORNEY (CLEVELAND, TN)</h2>
-          <p><strong>Name:</strong> ${legalData.attorney_name}</p>
-          <p><strong>Firm:</strong> ${legalData.attorney_firm}</p>
-          <p><strong>Phone:</strong> ${legalData.attorney_phone}</p>
-          <p><strong>Email:</strong> ${legalData.attorney_email}</p>
-        </div>
-
         ${legalData.legally_required_steps?.length > 0 ? `
         <div class="section">
-          <h2>⚠️ LEGALLY REQUIRED STEPS</h2>
+          <h2>X. REQUIRED LEGAL COMPLIANCE STEPS</h2>
+          <p><em>Steps you are legally obligated to take:</em></p>
           <ol>
             ${legalData.legally_required_steps.map(step => `<li>${step}</li>`).join('')}
           </ol>
         </div>
         ` : ''}
 
+        <div class="section" style="border: 3px solid #000; padding: 20px; background: #f0f0f0;">
+          <h2>RECOMMENDED LEGAL COUNSEL</h2>
+          <p style="font-size: 16px;"><strong>${legalData.attorney_name}</strong></p>
+          <p><strong>Law Firm:</strong> ${legalData.attorney_firm}</p>
+          <p><strong>Location:</strong> Cleveland, TN</p>
+          <p><strong>Phone:</strong> <span style="font-size: 16px;">${legalData.attorney_phone}</span></p>
+          <p><strong>Email:</strong> ${legalData.attorney_email}</p>
+          <p style="margin-top: 15px;"><em>Recommendation based on practice area and location. Client should verify credentials and experience.</em></p>
+        </div>
+
         <div class="section">
-          <p style="margin-top: 40px; font-size: 12px; color: #666;">
-            <em>This document is for informational purposes only and does not constitute legal advice. 
-            Please consult with a qualified attorney before taking any legal action.</em>
-          </p>
+          <h2>XI. DOCUMENTS TO BRING TO ATTORNEY CONSULTATION</h2>
+          <ul>
+            <li>☐ This legal consultation package</li>
+            <li>☐ Government-issued photo ID</li>
+            <li>☐ Any breach notification letters received</li>
+            <li>☐ Credit reports showing fraudulent activity (if applicable)</li>
+            <li>☐ Documentation of financial losses</li>
+            <li>☐ Records of time spent resolving the breach</li>
+            <li>☐ All correspondence with ${finding.source_name}</li>
+            <li>☐ Police reports (if identity theft occurred)</li>
+            <li>☐ Credit monitoring statements</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2>XII. QUESTIONS TO ASK YOUR ATTORNEY</h2>
+          <ol>
+            <li>What is the likelihood of success in pursuing legal action?</li>
+            <li>What are the expected costs and fee structure?</li>
+            <li>What is the typical timeline for this type of case?</li>
+            <li>Should I join a class action or pursue individual litigation?</li>
+            <li>What documentation should I start gathering immediately?</li>
+            <li>Are there any actions I should avoid that could harm my case?</li>
+            <li>What is the potential range of damages I could recover?</li>
+          </ol>
+        </div>
+
+        <div class="footer">
+          <p><strong>LEGAL DISCLAIMER:</strong></p>
+          <p>This document is for informational purposes only and does not constitute legal advice, create an attorney-client relationship, 
+          or serve as a substitute for consultation with a qualified attorney. The information provided is based on publicly available 
+          data and AI analysis and should be independently verified. All legal decisions should be made in consultation with licensed 
+          legal counsel familiar with your specific circumstances and applicable jurisdiction.</p>
+          <p style="margin-top: 10px;"><strong>Document prepared:</strong> ${today}</p>
         </div>
       </body>
       </html>

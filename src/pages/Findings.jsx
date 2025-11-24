@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2 } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 
@@ -15,6 +15,8 @@ export default function Findings() {
   const [filter, setFilter] = useState('all');
   const [analyzingId, setAnalyzingId] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState({});
+  const [loadingLegal, setLoadingLegal] = useState(null);
+  const [legalInfo, setLegalInfo] = useState({});
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -73,6 +75,63 @@ export default function Findings() {
 
   const handleStatusChange = (id, newStatus) => {
     updateMutation.mutate({ id, data: { status: newStatus } });
+  };
+
+  const getLegalAction = async (finding) => {
+    setLoadingLegal(finding.id);
+    try {
+      const prompt = `Provide comprehensive legal action information for a data breach/leak incident:
+
+Finding Details:
+- Source/Company: ${finding.source_name}
+- Source Type: ${finding.source_type}
+- Data Exposed: ${finding.data_exposed?.join(', ') || 'Unknown'}
+- Risk Score: ${finding.risk_score}/100
+- Detected Date: ${finding.scan_date}
+- Location: Cleveland, TN
+
+Provide:
+1. COMPANY_INFO: Full legal name, headquarters address, registered agent
+2. BREACH_TYPE: Classify the breach and applicable laws violated
+3. LEGAL_BASIS: Specific legal grounds for action
+4. DAMAGES: Potential damages (actual, statutory, punitive)
+5. EVIDENCE_NEEDED: Required documentation
+6. STATUTE_LIMITATIONS: Filing deadlines
+7. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
+8. ATTORNEY: Cleveland, TN attorney name, firm, phone, email (real, verified)
+9. NEXT_STEPS: Step-by-step process
+10. COSTS: Fees and potential recovery`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            company_legal_name: { type: 'string' },
+            existing_class_action: { type: 'boolean' },
+            class_action_details: { type: 'string' },
+            attorney_name: { type: 'string' },
+            attorney_firm: { type: 'string' },
+            attorney_phone: { type: 'string' },
+            attorney_email: { type: 'string' },
+            legal_basis: { type: 'string' },
+            potential_damages: { type: 'string' },
+            next_steps: { type: 'array', items: { type: 'string' } },
+            statute_deadline: { type: 'string' }
+          }
+        }
+      });
+
+      setLegalInfo(prev => ({
+        ...prev,
+        [finding.id]: result
+      }));
+    } catch (error) {
+      alert('Failed to retrieve legal information: ' + error.message);
+    } finally {
+      setLoadingLegal(null);
+    }
   };
 
   const analyzeWithAI = async (finding) => {
@@ -387,7 +446,80 @@ Return JSON with: includes_me (boolean), my_data_found (array of strings), expla
                           </>
                         )}
                       </Button>
+
+                      {result.type === 'leak' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => getLegalAction(result)}
+                          disabled={loadingLegal === result.id}
+                          className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10"
+                        >
+                          {loadingLegal === result.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Scale className="w-4 h-4 mr-2" />
+                              Legal Action
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
+
+                    {/* Legal Information Display */}
+                    {legalInfo[result.id] && (
+                      <div className="mb-4 p-4 rounded-lg bg-blue-900/20 border border-blue-600/30 space-y-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Scale className="w-5 h-5 text-blue-400" />
+                          <h4 className="font-semibold text-blue-300">Legal Action Information</h4>
+                        </div>
+
+                        <div className="space-y-2 text-sm text-gray-300">
+                          <p><strong>Company:</strong> {legalInfo[result.id].company_legal_name}</p>
+                          
+                          {legalInfo[result.id].existing_class_action && (
+                            <div className="p-3 rounded bg-purple-500/10 border border-purple-500/30">
+                              <p className="text-purple-300 font-semibold mb-1">⚖️ Class Action Available</p>
+                              <p className="text-xs">{legalInfo[result.id].class_action_details}</p>
+                            </div>
+                          )}
+
+                          <div className="p-3 rounded bg-green-500/10 border border-green-500/30">
+                            <p className="text-green-300 font-semibold mb-1">👨‍⚖️ Attorney (Cleveland, TN)</p>
+                            <p className="text-xs"><strong>Name:</strong> {legalInfo[result.id].attorney_name}</p>
+                            <p className="text-xs"><strong>Firm:</strong> {legalInfo[result.id].attorney_firm}</p>
+                            <p className="text-xs"><strong>Phone:</strong> <a href={`tel:${legalInfo[result.id].attorney_phone}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_phone}</a></p>
+                            <p className="text-xs"><strong>Email:</strong> <a href={`mailto:${legalInfo[result.id].attorney_email}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_email}</a></p>
+                          </div>
+
+                          <p><strong>Legal Basis:</strong> {legalInfo[result.id].legal_basis}</p>
+                          <p><strong>Potential Damages:</strong> {legalInfo[result.id].potential_damages}</p>
+                          
+                          {legalInfo[result.id].statute_deadline && (
+                            <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
+                              <p className="text-red-300 text-xs">
+                                <strong>⏰ Filing Deadline:</strong> {legalInfo[result.id].statute_deadline}
+                              </p>
+                            </div>
+                          )}
+
+                          {legalInfo[result.id].next_steps && legalInfo[result.id].next_steps.length > 0 && (
+                            <div>
+                              <p className="font-semibold mb-1">📋 Next Steps:</p>
+                              <ol className="list-decimal list-inside space-y-1 text-xs pl-2">
+                                {legalInfo[result.id].next_steps.map((step, idx) => (
+                                  <li key={idx}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {result.type === 'leak' ? (
                       <div className="flex flex-wrap gap-2">

@@ -85,6 +85,16 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
   const [showCredentials, setShowCredentials] = useState(null);
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [results, setResults] = useState({});
+  const [user, setUser] = useState(null);
+
+  // Load user credentials
+  React.useEffect(() => {
+    const loadUser = async () => {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+    };
+    loadUser();
+  }, []);
 
   const matchedGuides = platforms
     .map(p => {
@@ -105,19 +115,29 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
       return;
     }
 
-    const platform = guide.name;
-    setAutomating(platform);
+    const platform = guide.name.toLowerCase().replace(/\s+/g, '');
+    const platformKey = platform.replace('(formerlytwitter)', '').replace('twitter', 'twitter');
+    
+    // Check if credentials exist
+    const storedCreds = user?.platform_credentials?.[platformKey];
+    
+    if (!storedCreds && !showCredentials) {
+      setShowCredentials(guide.name);
+      return;
+    }
+
+    setAutomating(guide.name);
     setResults({});
 
     try {
       const response = await base44.functions.invoke('automatedPlatformDeletion', {
         profileId,
-        platform,
-        credentials: showCredentials === platform ? credentials : null
+        platform: guide.name,
+        credentials: storedCreds || credentials
       });
 
       setResults({ 
-        [platform]: {
+        [guide.name]: {
           success: response.data.status === 'completed',
           message: response.data.message,
           status: response.data.status,
@@ -125,13 +145,9 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
         }
       });
 
-      if (response.data.loginRequired && !showCredentials) {
-        setShowCredentials(platform);
-      }
-
     } catch (error) {
       setResults({ 
-        [platform]: { 
+        [guide.name]: { 
           success: false, 
           message: 'Automation failed: ' + error.message 
         }
@@ -139,6 +155,28 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
     } finally {
       setAutomating(null);
     }
+  };
+
+  const handleSaveCredentials = async (guide) => {
+    const platformKey = guide.name.toLowerCase().replace(/\s+/g, '').replace('(formerlytwitter)', '').replace('x', 'twitter');
+    
+    const updatedCreds = {
+      ...(user?.platform_credentials || {}),
+      [platformKey]: credentials
+    };
+
+    await base44.auth.updateMe({
+      platform_credentials: updatedCreds
+    });
+
+    // Reload user
+    const updatedUser = await base44.auth.me();
+    setUser(updatedUser);
+    setShowCredentials(null);
+    setCredentials({ username: '', password: '' });
+
+    // Start automation
+    handleAIAutomation(guide);
   };
 
   return (
@@ -182,7 +220,7 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
 
               {showCredentials === guide.name && !result && (
                 <div className="space-y-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                  <p className="text-xs text-blue-200 mb-2">🔐 Login required for automation:</p>
+                  <p className="text-xs text-blue-200 mb-2">🔐 Login credentials for {guide.name}:</p>
                   <div>
                     <Label className="text-xs text-purple-200">Username/Email</Label>
                     <Input
@@ -203,15 +241,26 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
                       placeholder="••••••••"
                     />
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleAIAutomation(guide)}
-                    disabled={!credentials.username || !credentials.password}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600"
-                  >
-                    <Zap className="w-3 h-3 mr-2" />
-                    Start Automation
-                  </Button>
+                  <p className="text-xs text-purple-400">✓ Credentials will be securely encrypted and saved</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowCredentials(null)}
+                      className="flex-1 border-purple-500/50 text-purple-300"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveCredentials(guide)}
+                      disabled={!credentials.username || !credentials.password}
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600"
+                    >
+                      <Zap className="w-3 h-3 mr-2" />
+                      Save & Automate
+                    </Button>
+                  </div>
                 </div>
               )}
 

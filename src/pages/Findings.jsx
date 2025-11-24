@@ -6,13 +6,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 
 export default function Findings() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('all');
+  const [analyzingId, setAnalyzingId] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState({});
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -71,6 +73,57 @@ export default function Findings() {
 
   const handleStatusChange = (id, newStatus) => {
     updateMutation.mutate({ id, data: { status: newStatus } });
+  };
+
+  const analyzeWithAI = async (finding) => {
+    setAnalyzingId(finding.id);
+    try {
+      const allPersonalData = await base44.entities.PersonalData.list();
+      const myData = allPersonalData.filter(d => d.profile_id === activeProfileId);
+
+      const prompt = `Analyze this finding and determine:
+1. Does this finding include MY personal data?
+2. If yes, what specific data of mine is included?
+
+MY PERSONAL DATA:
+${myData.map(d => `- ${d.data_type}: ${d.value}`).join('\n')}
+
+FINDING:
+Type: ${finding.type}
+${finding.type === 'leak' ? `
+Source: ${finding.source_name}
+Exposed Data: ${finding.data_exposed?.join(', ') || 'Unknown'}
+Details: ${finding.metadata?.details || 'None'}
+` : `
+Search Query: ${finding.query_detected}
+Platform: ${finding.search_platform}
+Matched Data Types: ${finding.matched_data_types?.join(', ') || 'Unknown'}
+Searcher: ${finding.searcher_identity || 'Anonymous'}
+`}
+
+Return JSON with: includes_me (boolean), my_data_found (array of strings), explanation (string)`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            includes_me: { type: "boolean" },
+            my_data_found: { type: "array", items: { type: "string" } },
+            explanation: { type: "string" }
+          }
+        }
+      });
+
+      setAiAnalysis(prev => ({
+        ...prev,
+        [finding.id]: result
+      }));
+    } catch (error) {
+      alert('AI analysis failed: ' + error.message);
+    } finally {
+      setAnalyzingId(null);
+    }
   };
 
   return (
@@ -280,7 +333,62 @@ export default function Findings() {
                       </div>
                     )}
 
+                    {/* AI Analysis */}
+                    {aiAnalysis[result.id] && (
+                      <div className={`mb-4 p-4 rounded-lg border ${
+                        aiAnalysis[result.id].includes_me 
+                          ? 'bg-red-500/10 border-red-500/30' 
+                          : 'bg-green-500/10 border-green-500/30'
+                      }`}>
+                        <div className="flex items-start gap-2 mb-2">
+                          <Brain className={`w-5 h-5 ${aiAnalysis[result.id].includes_me ? 'text-red-400' : 'text-green-400'} flex-shrink-0 mt-0.5`} />
+                          <div>
+                            <p className={`text-sm font-semibold ${aiAnalysis[result.id].includes_me ? 'text-red-300' : 'text-green-300'}`}>
+                              {aiAnalysis[result.id].includes_me ? '⚠️ This includes YOUR data' : '✓ This does NOT include your data'}
+                            </p>
+                            <p className={`text-xs mt-1 ${aiAnalysis[result.id].includes_me ? 'text-red-200' : 'text-green-200'}`}>
+                              {aiAnalysis[result.id].explanation}
+                            </p>
+                            {aiAnalysis[result.id].includes_me && aiAnalysis[result.id].my_data_found?.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs text-red-300 font-semibold mb-1">Your data found:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {aiAnalysis[result.id].my_data_found.map((data, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 rounded bg-red-600/30 text-red-200 text-xs">
+                                      {data}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => analyzeWithAI(result)}
+                        disabled={analyzingId === result.id}
+                        className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10"
+                      >
+                        {analyzingId === result.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="w-4 h-4 mr-2" />
+                            Does it include me?
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     {result.type === 'leak' ? (
                       <div className="flex flex-wrap gap-2">
                         <Button

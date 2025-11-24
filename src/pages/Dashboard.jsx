@@ -160,6 +160,7 @@ export default function Dashboard() {
           icon={Shield}
           color="purple"
           trend={`${personalData.length} total in vault`}
+          href={createPageUrl('Vault')}
         />
         <StatCard
           title="Active Findings"
@@ -167,6 +168,7 @@ export default function Dashboard() {
           icon={Eye}
           color="amber"
           trend={`${highRiskFindings.length} high risk`}
+          href={createPageUrl('Findings')}
         />
         <StatCard
           title="Dark Web Breaches"
@@ -174,6 +176,7 @@ export default function Dashboard() {
           icon={AlertTriangle}
           color="red"
           trend={darkWebFindings.length > 0 ? 'Requires action' : 'None detected'}
+          href={createPageUrl('Findings')}
         />
         <StatCard
           title="Avg Risk Score"
@@ -181,6 +184,7 @@ export default function Dashboard() {
           icon={TrendingDown}
           color={avgRiskScore >= 70 ? 'red' : avgRiskScore >= 40 ? 'amber' : 'green'}
           trend={avgRiskScore < 50 ? 'Looking good' : 'Needs attention'}
+          href={createPageUrl('Scans')}
         />
         <StatCard
           title="Successful Removals"
@@ -188,6 +192,7 @@ export default function Dashboard() {
           icon={Trash2}
           color="green"
           trend={`${deletionRequests.filter(r => r.status === 'pending').length} pending`}
+          href={createPageUrl('DeletionCenter')}
         />
         <StatCard
           title="Spam (30 Days)"
@@ -200,6 +205,7 @@ export default function Dashboard() {
           icon={Shield}
           color="amber"
           trend={`${spamIncidents.length} total logged`}
+          href={createPageUrl('SpamTracker')}
         />
       </div>
 

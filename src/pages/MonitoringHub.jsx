@@ -72,11 +72,24 @@ export default function MonitoringHub() {
       return;
     }
 
-    await createMutation.mutateAsync({
-      ...formData,
-      profile_id: activeProfileId,
-      oauth_connected: formData.account_type !== 'phone_forwarding'
-    });
+    // For email accounts, we need OAuth - for phone forwarding, just save it
+    if (formData.account_type === 'phone_forwarding') {
+      await createMutation.mutateAsync({
+        ...formData,
+        profile_id: activeProfileId,
+        oauth_connected: false
+      });
+    } else {
+      // Create the monitored account first (will show as "Setup Required")
+      await createMutation.mutateAsync({
+        ...formData,
+        profile_id: activeProfileId,
+        oauth_connected: false
+      });
+      
+      // Show instructions to complete OAuth setup
+      alert(`Account added! To complete setup:\n\n1. Click the "Setup Required" badge on your account\n2. Authorize access to your ${formData.account_type}\n3. This is a one-time, secure OAuth connection\n\nNote: Full OAuth integration coming soon. For now, use "Scan Email Spam" in Quick Monitoring Actions.`);
+    }
   };
 
   const runMonitoring = async () => {

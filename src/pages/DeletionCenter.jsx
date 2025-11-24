@@ -89,27 +89,145 @@ export default function DeletionCenter() {
     });
   };
 
-  const generateTemplate = (result) => {
-    return `Subject: Data Removal Request - ${result?.source_name || 'Your Service'}
+  const generateTemplate = (result, format = 'email') => {
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const companyName = result?.source_name || 'Data Broker';
+    
+    if (format === 'fax') {
+      return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                                    FAX TRANSMISSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Dear Data Protection Officer,
+TO:         ${companyName} - Data Privacy Officer / Legal Department
+FAX:        [ENTER FAX NUMBER HERE]
+FROM:       [Your Full Name]
+DATE:       ${today}
+PAGES:      2 (including cover)
+RE:         URGENT: Data Removal Request Under CCPA/GDPR
 
-I am writing to request the removal of my personal data from your database under applicable privacy laws (GDPR Article 17, CCPA Section 1798.105).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Source: ${result?.source_name || 'N/A'}
-Date Discovered: ${result?.scan_date ? new Date(result.scan_date).toLocaleDateString() : 'N/A'}
+                           DATA REMOVAL REQUEST LETTER
 
-I hereby request that you:
-1. Confirm what personal data you hold about me
-2. Delete all of my personal data from your systems
-3. Confirm completion of this request within 30 days
+${today}
 
-Please acknowledge receipt of this request and provide a timeline for completion.
+${companyName}
+Attention: Data Privacy Officer / Legal Department
+[Company Address - if known]
 
-Thank you for your prompt attention to this matter.
+RE: IMMEDIATE DATA REMOVAL REQUEST UNDER CCPA/GDPR
 
-Best regards,
-[Your Name]`;
+Dear Sir or Madam:
+
+I am writing to formally request the immediate and permanent removal of all my personal 
+information from your database, website, and any affiliated systems.
+
+AFFECTED SOURCE INFORMATION:
+• Company/Website: ${companyName}
+• URL/Location: ${result?.source_url || 'See attached documentation'}
+• Source Type: ${result?.source_type?.replace(/_/g, ' ').toUpperCase() || 'Data Broker/Public Records'}
+
+LEGAL BASIS FOR REQUEST:
+I am exercising my rights under:
+✓ California Consumer Privacy Act (CCPA) - Right to Deletion (§1798.105)
+✓ General Data Protection Regulation (GDPR) - Article 17 (Right to Erasure)
+✓ Other applicable state and federal privacy laws
+
+REQUESTED ACTIONS:
+1. Remove all personal data associated with my identity from your systems
+2. Cease any further collection, use, or sale of my personal information
+3. Notify all third parties with whom you've shared my data to delete it
+4. Provide written confirmation of complete data removal within 30 days
+
+PERSONAL INFORMATION TO BE REMOVED:
+${result?.data_exposed?.map(d => `• ${d.replace(/_/g, ' ')}`).join('\n') || '• All personal information on file'}
+
+I do NOT consent to the retention, use, or sale of my personal information for any purpose.
+
+COMPLIANCE DEADLINE:
+Please respond within 10 business days confirming receipt and provide a timeline for 
+complete removal. Failure to comply may result in filing a complaint with the appropriate 
+regulatory authorities.
+
+VERIFICATION:
+Please contact me at the email/phone number below to verify my identity if needed.
+
+Contact Information:
+Email: [Your Email]
+Phone: [Your Phone]
+
+I expect full compliance with this request. Thank you for your immediate attention.
+
+Sincerely,
+
+_______________________________
+[Your Printed Name]
+[Your Signature - if mailing/faxing]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONFIDENTIAL: This fax contains confidential information intended only for the recipient.
+If received in error, please destroy and notify sender immediately.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    }
+    
+    // Email format
+    return `SUBJECT: URGENT: Data Removal Request Under CCPA/GDPR - [Your Name]
+
+────────────────────────────────────────────────────────────────
+
+${today}
+
+To: Data Privacy Officer / Legal Department
+${companyName}
+
+RE: IMMEDIATE DATA REMOVAL REQUEST
+
+Dear Sir or Madam,
+
+I am writing to formally request the immediate and permanent removal of all my personal information from your database, website, and any affiliated systems.
+
+AFFECTED SOURCE INFORMATION:
+• Company/Website: ${companyName}
+• URL/Location: ${result?.source_url || 'Not specified'}
+• Source Type: ${result?.source_type?.replace(/_/g, ' ').toUpperCase() || 'Data Broker/Public Records'}
+
+LEGAL BASIS FOR REQUEST:
+I am exercising my rights under:
+✓ California Consumer Privacy Act (CCPA) - Right to Deletion (§1798.105)
+✓ General Data Protection Regulation (GDPR) - Article 17 (Right to Erasure)  
+✓ Other applicable state and federal privacy laws
+
+REQUESTED ACTIONS:
+1. Remove all personal data associated with my identity from your systems
+2. Cease any further collection, use, or sale of my personal information
+3. Notify all third parties with whom you've shared my data to delete it
+4. Provide written confirmation of complete data removal within 30 days
+
+PERSONAL INFORMATION TO BE REMOVED:
+${result?.data_exposed?.map(d => `• ${d.replace(/_/g, ' ')}`).join('\n') || '• All personal information on file'}
+
+I do NOT consent to the retention, use, or sale of my personal information for any purpose.
+
+COMPLIANCE DEADLINE:
+Please respond within 10 business days confirming receipt and provide a timeline for complete removal. Failure to comply may result in filing a complaint with the appropriate regulatory authorities including the California Attorney General and relevant data protection authorities.
+
+VERIFICATION:
+If you need to verify my identity, please contact me at:
+• Email: [Your Email Address]
+• Phone: [Your Phone Number]
+
+I expect full compliance with this request and look forward to your prompt confirmation.
+
+Sincerely,
+
+[Your Full Name]
+[Your Address - optional]
+[Your Email]
+[Your Phone]
+
+────────────────────────────────────────────────────────────────
+IMPORTANT: This is a formal legal request. Please retain for your records.`;
   };
 
   const checkDeletionResponses = async () => {
@@ -245,17 +363,34 @@ Best regards,
                     readOnly
                     className="bg-slate-900/50 border-purple-500/30 text-white font-mono text-sm h-48"
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generateTemplate(selectedResult));
-                    }}
-                    className="border-purple-500/50 text-purple-300"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Copy Template
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const emailTemplate = generateTemplate(selectedResult, 'email');
+                        navigator.clipboard.writeText(emailTemplate);
+                        alert('✓ Email template copied!\n\nPaste into your email and fill in [Your Name], [Your Email], etc.');
+                      }}
+                      className="border-purple-500/50 text-purple-300"
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Copy Email
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const faxTemplate = generateTemplate(selectedResult, 'fax');
+                        navigator.clipboard.writeText(faxTemplate);
+                        alert('✓ Fax template copied!\n\nPrint and fax, or paste into online fax service.\nFill in [Your Name], fax number, etc.');
+                      }}
+                      className="border-blue-500/50 text-blue-300"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Copy Fax
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

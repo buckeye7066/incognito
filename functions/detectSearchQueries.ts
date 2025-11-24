@@ -57,6 +57,15 @@ For each detected search query that matches this person's data, provide:
 - geographic_origin: specific location (City, State, Country format)
 - ai_analysis: your analysis of intent and risk
 
+CRITICAL MATCHING RULE: Only report a search query as a positive hit if AT LEAST TWO (2) different identifiers match. For example:
+- ✓ VALID: Query contains full_name + address
+- ✓ VALID: Query contains email + phone
+- ✓ VALID: Query contains full_name + dob
+- ✗ INVALID: Query contains only full_name
+- ✗ INVALID: Query contains only email
+
+This prevents false positives from common name searches.
+
 IMPORTANT: For searcher_identity, try to identify if it's:
 - A known person's name
 - A social media username
@@ -64,7 +73,7 @@ IMPORTANT: For searcher_identity, try to identify if it's:
 - A company/organization
 - "Anonymous" if truly untraceable
 
-Return JSON with findings array. Only include real, detected searches with confidence >= 70%.`;
+Return JSON with findings array. Only include real, detected searches with confidence >= 70% AND at least 2 identifiers matched.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
@@ -98,8 +107,13 @@ Return JSON with findings array. Only include real, detected searches with confi
 
     const findings = result.findings || [];
     
+    // Filter findings: require at least 2 identifiers matched
+    const validFindings = findings.filter(f => 
+      f.matched_data_types && f.matched_data_types.length >= 2
+    );
+    
     // Create finding records
-    for (const finding of findings) {
+    for (const finding of validFindings) {
       await base44.asServiceRole.entities.SearchQueryFinding.create({
         profile_id: profileId,
         search_platform: finding.search_platform,
@@ -133,11 +147,11 @@ Return JSON with findings array. Only include real, detected searches with confi
 
     return Response.json({
       success: true,
-      findingsCount: findings.length,
-      findings,
-      message: findings.length > 0
-        ? `Detected ${findings.length} search quer${findings.length === 1 ? 'y' : 'ies'} related to your data`
-        : 'No search queries detected at this time'
+      findingsCount: validFindings.length,
+      findings: validFindings,
+      message: validFindings.length > 0
+        ? `Detected ${validFindings.length} search quer${validFindings.length === 1 ? 'y' : 'ies'} with 2+ identifier matches`
+        : 'No search queries detected at this time (requires 2+ identifier match)'
     });
 
   } catch (error) {

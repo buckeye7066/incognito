@@ -41,9 +41,19 @@ ${personalData.map(d => `${d.data_type}: ${d.value}`).join('\n')}
 Legitimate Social Profiles:
 ${socialProfiles.map(s => `${s.platform}: @${s.username}`).join('\n')}
 
+CRITICAL MATCHING RULE FOR ALL DETECTIONS:
+Only report a mention, post, or impersonation as a positive hit if AT LEAST TWO (2) different personal identifiers match. Examples:
+- ✓ VALID: Post mentions full_name + shows address
+- ✓ VALID: Profile uses name + email/phone visible
+- ✓ VALID: Content has photo + full_name tag
+- ✗ INVALID: Only mentions a common name
+- ✗ INVALID: Only shows a generic email
+
+This prevents false positives from common names or coincidental matches.
+
 COMPREHENSIVE MONITORING TASKS:
 
-1. MENTION DETECTION - Find all mentions across platforms:
+1. MENTION DETECTION - Find all mentions across platforms (2+ identifiers required):
    - Direct mentions (@username, name tags)
    - Indirect references (talking about the person without tagging)
    - Photo/video appearances
@@ -54,20 +64,20 @@ COMPREHENSIVE MONITORING TASKS:
    - Sentiment score (-100 to 100)
    - Emotional tone and context
    
-3. PRIVACY RISK ASSESSMENT - Identify:
+3. PRIVACY RISK ASSESSMENT - Identify (2+ identifiers required):
    - Personal data being shared without consent
    - Location reveals and check-ins
    - Photos/videos with private information visible
    - Contact details being shared
    - Financial information exposure
    
-4. IMPERSONATION DETECTION - Look for:
+4. IMPERSONATION DETECTION - Look for (2+ identifiers required):
    - Fake profiles using this person's name/photos
    - Accounts claiming to be this person
    - Unauthorized use of identity
    - Catfishing attempts
    
-5. UNAUTHORIZED DATA USE - Detect:
+5. UNAUTHORIZED DATA USE - Detect (2+ identifiers required):
    - Photos/videos used without permission
    - Personal information being sold/shared
    - Data being used for doxxing
@@ -75,14 +85,16 @@ COMPREHENSIVE MONITORING TASKS:
 
 Platforms to monitor: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube, Pinterest, Telegram, Discord, and other relevant platforms.
 
+For EACH finding, include a "matched_identifiers" field listing which specific data types matched (must be 2+).
+
 Return JSON with:
-- mentions: array of detected mentions with full details
-- impersonations: array of suspicious accounts/profiles
+- mentions: array of detected mentions with full details (each must have 2+ identifier matches)
+- impersonations: array of suspicious accounts/profiles (each must have 2+ identifier matches)
 - privacy_risks: array of specific privacy concerns found
 - overall_risk_score: 0-100
 - summary: brief overview of findings
 
-Only include real findings with confidence >= 65%.`;
+Only include real findings with confidence >= 65% AND at least 2 identifiers matched.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt: monitoringPrompt,
@@ -109,7 +121,8 @@ Only include real findings with confidence >= 65%.`;
                 engagement_count: { type: "number" },
                 published_date: { type: "string" },
                 ai_analysis: { type: "string" },
-                recommended_actions: { type: "array", items: { type: "string" } }
+                recommended_actions: { type: "array", items: { type: "string" } },
+                matched_identifiers: { type: "array", items: { type: "string" } }
               }
             }
           },
@@ -124,7 +137,8 @@ Only include real findings with confidence >= 65%.`;
                 similarity_score: { type: "number" },
                 finding_type: { type: "string" },
                 evidence: { type: "string" },
-                severity: { type: "string" }
+                severity: { type: "string" },
+                matched_identifiers: { type: "array", items: { type: "string" } }
               }
             }
           },
@@ -150,8 +164,18 @@ Only include real findings with confidence >= 65%.`;
     const impersonations = result.impersonations || [];
     const privacyRisks = result.privacy_risks || [];
 
+    // Filter: require at least 2 identifiers matched
+    const validMentions = mentions.filter(m => 
+      (m.matched_identifiers && m.matched_identifiers.length >= 2) ||
+      (m.exposed_data && m.exposed_data.length >= 2)
+    );
+    
+    const validImpersonations = impersonations.filter(i =>
+      i.matched_identifiers && i.matched_identifiers.length >= 2
+    );
+
     // Create mention records
-    for (const mention of mentions) {
+    for (const mention of validMentions) {
       await base44.asServiceRole.entities.SocialMediaMention.create({
         profile_id: profileId,
         platform: mention.platform,
@@ -201,7 +225,7 @@ Only include real findings with confidence >= 65%.`;
     }
 
     // Create impersonation records
-    for (const imp of impersonations) {
+    for (const imp of validImpersonations) {
       await base44.asServiceRole.entities.SocialMediaFinding.create({
         profile_id: profileId,
         platform: imp.platform,
@@ -232,12 +256,12 @@ Only include real findings with confidence >= 65%.`;
 
     return Response.json({
       success: true,
-      mentionsFound: mentions.length,
-      impersonationsFound: impersonations.length,
+      mentionsFound: validMentions.length,
+      impersonationsFound: validImpersonations.length,
       privacyRisksFound: privacyRisks.length,
       overall_risk_score: result.overall_risk_score || 0,
       summary: result.summary,
-      message: `Found ${mentions.length} mention${mentions.length === 1 ? '' : 's'}, ${impersonations.length} potential impersonation${impersonations.length === 1 ? '' : 's'}, and ${privacyRisks.length} privacy risk${privacyRisks.length === 1 ? '' : 's'}`
+      message: `Found ${validMentions.length} mention${validMentions.length === 1 ? '' : 's'} (2+ identifiers), ${validImpersonations.length} potential impersonation${validImpersonations.length === 1 ? '' : 's'} (2+ identifiers), and ${privacyRisks.length} privacy risk${privacyRisks.length === 1 ? '' : 's'}`
     });
 
   } catch (error) {

@@ -127,7 +127,7 @@ Determine:
                   newStatus = 'requires_action';
                 }
 
-                await base44.asServiceRole.entities.DeletionRequest.update(
+                const deletionReq = await base44.asServiceRole.entities.DeletionRequest.update(
                   analysis.matched_request_id,
                   {
                     status: newStatus,
@@ -137,11 +137,41 @@ Determine:
                   }
                 );
 
+                // Create notification for user
+                const notificationMessages = {
+                  confirmation: `✓ Data deletion confirmed from ${from.split('@')[1] || from}`,
+                  rejection: `✗ Deletion request rejected by ${from.split('@')[1] || from}`,
+                  requires_action: `⚠ Action required for deletion request from ${from.split('@')[1] || from}`,
+                  in_progress: `⏳ Deletion request being processed by ${from.split('@')[1] || from}`,
+                  partial: `◐ Partial deletion completed by ${from.split('@')[1] || from}`
+                };
+
+                await base44.asServiceRole.entities.NotificationAlert.create({
+                  profile_id: profileId,
+                  alert_type: newStatus === 'completed' ? 'mitigation_reminder' : 'high_risk_alert',
+                  title: notificationMessages[analysis.response_type] || 'Deletion Update',
+                  message: analysis.suggested_action || snippet.substring(0, 200),
+                  severity: newStatus === 'completed' ? 'low' : newStatus === 'failed' ? 'high' : 'medium',
+                  is_read: false,
+                  action_url: '/DeletionCenter',
+                  related_data_ids: [analysis.matched_request_id],
+                  confidence_score: analysis.confidence || 80
+                });
+
+                // Update scan result if completed
+                if (newStatus === 'completed' && deletionReq.scan_result_id) {
+                  await base44.asServiceRole.entities.ScanResult.update(
+                    deletionReq.scan_result_id,
+                    { status: 'removed' }
+                  );
+                }
+
                 responsesDetected++;
                 results.push({
                   request_id: analysis.matched_request_id,
                   response_type: analysis.response_type,
-                  from: from
+                  from: from,
+                  status: newStatus
                 });
               }
             }
@@ -150,6 +180,19 @@ Determine:
       } catch (error) {
         console.error(`Error monitoring ${account.account_identifier}:`, error);
       }
+    }
+
+    // Send summary email if responses found
+    if (responsesDetected > 0) {
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to: user.email,
+        subject: `🔔 ${responsesDetected} New Deletion Response${responsesDetected > 1 ? 's' : ''}`,
+        body: `You have ${responsesDetected} new response(s) from data brokers:
+
+${results.map(r => `• ${r.from.split('@')[1] || r.from}: ${r.response_type} → ${r.status}`).join('\n')}
+
+View details: ${req.headers.get('origin') || 'https://app.base44.com'}/DeletionCenter`
+      });
     }
 
     return Response.json({

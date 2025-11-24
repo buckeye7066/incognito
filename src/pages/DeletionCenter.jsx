@@ -289,6 +289,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
         responses={responses}
         onRefresh={checkDeletionResponses}
         refreshing={checkingResponses}
+        profileId={activeProfileId}
       />
 
       {/* Platform-Specific Deletion Guide */}

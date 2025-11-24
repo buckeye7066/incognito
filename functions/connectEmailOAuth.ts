@@ -19,19 +19,28 @@ Deno.serve(async (req) => {
     let accessToken;
     let integrationType;
 
-    if (accountType === 'gmail') {
-      integrationType = 'google';
-      accessToken = await base44.asServiceRole.connectors.getAccessToken('google');
-    } else if (accountType === 'outlook') {
-      integrationType = 'microsoft';
-      accessToken = await base44.asServiceRole.connectors.getAccessToken('microsoft');
-    } else if (accountType === 'icloud') {
+    try {
+      if (accountType === 'gmail') {
+        integrationType = 'google';
+        accessToken = await base44.asServiceRole.connectors.getAccessToken('google');
+      } else if (accountType === 'outlook') {
+        integrationType = 'microsoft';
+        accessToken = await base44.asServiceRole.connectors.getAccessToken('microsoft');
+      } else if (accountType === 'icloud') {
+        return Response.json({ 
+          error: 'iCloud requires app-specific password setup. Please use Settings > App-Specific Passwords in your Apple ID account.',
+          requiresManualSetup: true 
+        }, { status: 400 });
+      } else {
+        return Response.json({ error: 'Unsupported account type' }, { status: 400 });
+      }
+    } catch (error) {
+      // OAuth not set up yet
       return Response.json({ 
-        error: 'iCloud requires app-specific password setup. Please use Settings > App-Specific Passwords in your Apple ID account.',
-        requiresManualSetup: true 
-      }, { status: 400 });
-    } else {
-      return Response.json({ error: 'Unsupported account type' }, { status: 400 });
+        error: `Please authorize ${accountType} access first. Contact your administrator to set up OAuth integration.`,
+        needsAuth: true,
+        integrationType 
+      }, { status: 403 });
     }
 
     if (!accessToken) {

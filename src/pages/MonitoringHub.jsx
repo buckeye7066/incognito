@@ -549,7 +549,6 @@ export default function MonitoringHub() {
                               className="bg-amber-600 hover:bg-amber-700 text-white h-7 text-xs"
                               onClick={async () => {
                                 try {
-                                  // Trigger OAuth connection
                                   const response = await base44.functions.invoke('connectEmailOAuth', {
                                     accountId: account.id,
                                     accountType: account.account_type
@@ -563,7 +562,14 @@ export default function MonitoringHub() {
                                     alert('Email account connected successfully! Automatic spam monitoring is now active.');
                                   }
                                 } catch (error) {
-                                  alert('Connection failed: ' + error.message);
+                                  const errorData = error.response?.data;
+                                  if (errorData?.needsAuth) {
+                                    alert(`OAuth Setup Required\n\nTo connect ${account.account_type}, please:\n1. Contact your administrator to set up OAuth integration\n2. Authorize the app to access ${account.account_type === 'gmail' ? 'Gmail' : account.account_type === 'outlook' ? 'Outlook' : 'email'}\n3. Return here and click "Connect Now" again\n\nFor now, you can use "Scan Email Spam" in Quick Monitoring Actions for manual checks.`);
+                                  } else if (errorData?.requiresManualSetup) {
+                                    alert(errorData.error);
+                                  } else {
+                                    alert('Connection failed: ' + (error.response?.data?.error || error.message));
+                                  }
                                 }
                               }}
                             >

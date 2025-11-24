@@ -86,10 +86,17 @@ export default function MonitoringHub() {
         profile_id: activeProfileId,
         oauth_connected: false
       });
-      
+
       // Show instructions to complete OAuth setup
-      alert(`Account added! To complete setup:\n\n1. Click the "Setup Required" badge on your account\n2. Authorize access to your ${formData.account_type}\n3. This is a one-time, secure OAuth connection\n\nNote: Full OAuth integration coming soon. For now, use "Scan Email Spam" in Quick Monitoring Actions.`);
+      alert(`Account added! You can add more accounts below.\n\nTo complete setup:\n1. Click the "Connect Now" button on your account\n2. Use "Scan Email Spam" in Quick Monitoring Actions for manual checks`);
     }
+
+    // Clear form but keep it open for adding more accounts
+    setFormData({
+      account_type: 'gmail',
+      account_identifier: '',
+      check_frequency_hours: 6
+    });
   };
 
   const runMonitoring = async () => {

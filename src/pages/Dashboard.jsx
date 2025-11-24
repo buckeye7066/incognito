@@ -48,6 +48,13 @@ export default function Dashboard() {
     queryFn: () => base44.entities.DigitalFootprintReport.list()
   });
 
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => base44.entities.Profile.list()
+  });
+
+  const activeProfile = allProfiles.find(p => p.id === activeProfileId);
+
   // Filter by active profile
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
@@ -99,8 +106,15 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Privacy Dashboard</h1>
-          <p className="text-purple-300">Monitor and minimize your digital footprint</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-4xl font-bold text-white">Privacy Dashboard</h1>
+            {activeProfile && (
+              <Badge className="bg-red-600/20 text-red-300 border-red-600/40 px-3 py-1 text-lg">
+                {activeProfile.name}
+              </Badge>
+            )}
+          </div>
+          <p className="text-gray-300">Monitor and minimize your digital footprint</p>
         </div>
         <Button
           onClick={handleAdvancedRiskAnalysis}

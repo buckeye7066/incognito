@@ -91,15 +91,18 @@ Finding Details:
 - Location: Cleveland, TN
 
 Provide:
-1. COMPANY_INFO: Full legal name, headquarters address, registered agent
+1. COMPANY_INFO: Full legal name, headquarters address, registered agent, and contact info (email, fax, physical address for sending notices)
 2. APPLICABLE_LAWS: ONLY list laws that ACTUALLY APPLY to this specific breach based on: the data types exposed, the company's jurisdiction, the breach nature, and the victim's location (TN). For EACH law, explain WHY it applies.
-4. LEGAL_BASIS: Specific legal grounds for action
-5. DAMAGES: Potential damages (actual, statutory, punitive)
-6. STATUTE_LIMITATIONS: Filing deadlines
-7. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
-8. ATTORNEY: Cleveland, TN attorney name, firm, phone, email (real, verified)
-9. LEGALLY_REQUIRED_STEPS: ONLY steps you are LEGALLY REQUIRED to take (not optional actions)
-10. COSTS: Fees and potential recovery`;
+3. LEGAL_BASIS: Specific legal grounds for action
+4. DAMAGES: Potential damages (actual, statutory, punitive)
+5. STATUTE_LIMITATIONS: Filing deadlines
+6. CLASS_ACTION: Existing class action? If yes, case name, court, lead counsel
+7. ATTORNEY: Find a real, verified attorney who handles data breach/privacy cases. Start with Cleveland, TN area but expand to Chattanooga, Knoxville, Nashville, or broader Tennessee/Southeast if needed. Must include: name, firm, phone, email.
+8. LEGALLY_REQUIRED_STEPS: For EACH required step, provide:
+   - Clear explanation of what the step means in plain language
+   - Specific contact info (email, fax, physical address) if notification is required
+   - Step-by-step pathway to complete the action
+   - Any forms, templates, or specific procedures needed`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -108,6 +111,14 @@ Provide:
           type: 'object',
           properties: {
             company_legal_name: { type: 'string' },
+            company_contact: {
+              type: 'object',
+              properties: {
+                email: { type: 'string' },
+                fax: { type: 'string' },
+                address: { type: 'string' }
+              }
+            },
             applicable_laws: {
               type: 'array',
               items: {
@@ -122,11 +133,23 @@ Provide:
             class_action_details: { type: 'string' },
             attorney_name: { type: 'string' },
             attorney_firm: { type: 'string' },
+            attorney_location: { type: 'string' },
             attorney_phone: { type: 'string' },
             attorney_email: { type: 'string' },
             legal_basis: { type: 'string' },
             potential_damages: { type: 'string' },
-            legally_required_steps: { type: 'array', items: { type: 'string' } },
+            legally_required_steps: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  step_title: { type: 'string' },
+                  explanation: { type: 'string' },
+                  contact_info: { type: 'string' },
+                  how_to_complete: { type: 'string' }
+                }
+              }
+            },
             statute_deadline: { type: 'string' }
           }
         }
@@ -722,9 +745,12 @@ Provide:
                           )}
 
                           <div className="p-3 rounded bg-green-500/10 border border-green-500/30">
-                            <p className="text-green-300 font-semibold mb-1">👨‍⚖️ Attorney (Cleveland, TN)</p>
+                            <p className="text-green-300 font-semibold mb-1">👨‍⚖️ Attorney</p>
                             <p className="text-xs"><strong>Name:</strong> {legalInfo[result.id].attorney_name}</p>
                             <p className="text-xs"><strong>Firm:</strong> {legalInfo[result.id].attorney_firm}</p>
+                            {legalInfo[result.id].attorney_location && (
+                              <p className="text-xs"><strong>Location:</strong> {legalInfo[result.id].attorney_location}</p>
+                            )}
                             <p className="text-xs"><strong>Phone:</strong> <a href={`tel:${legalInfo[result.id].attorney_phone}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_phone}</a></p>
                             <p className="text-xs"><strong>Email:</strong> <a href={`mailto:${legalInfo[result.id].attorney_email}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_email}</a></p>
                           </div>
@@ -742,12 +768,23 @@ Provide:
 
                           {legalInfo[result.id].legally_required_steps && legalInfo[result.id].legally_required_steps.length > 0 && (
                             <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
-                              <p className="font-semibold text-blue-300 mb-2">⚠️ Legally Required Steps Only</p>
-                              <ol className="list-decimal list-inside space-y-1 text-xs pl-2 text-gray-300">
+                              <p className="font-semibold text-blue-300 mb-2">⚠️ Legally Required Steps</p>
+                              <div className="space-y-3">
                                 {legalInfo[result.id].legally_required_steps.map((step, idx) => (
-                                  <li key={idx}>{step}</li>
+                                  <div key={idx} className="border-l-2 border-blue-400 pl-3">
+                                    <p className="text-xs font-semibold text-blue-200">{idx + 1}. {step.step_title || step}</p>
+                                    {step.explanation && (
+                                      <p className="text-xs text-gray-300 mt-1"><strong>What this means:</strong> {step.explanation}</p>
+                                    )}
+                                    {step.contact_info && (
+                                      <p className="text-xs text-gray-300 mt-1"><strong>Contact:</strong> {step.contact_info}</p>
+                                    )}
+                                    {step.how_to_complete && (
+                                      <p className="text-xs text-gray-300 mt-1"><strong>How to complete:</strong> {step.how_to_complete}</p>
+                                    )}
+                                  </div>
                                 ))}
-                              </ol>
+                              </div>
                             </div>
                           )}
                         </div>

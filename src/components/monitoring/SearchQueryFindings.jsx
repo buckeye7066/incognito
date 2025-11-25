@@ -185,12 +185,19 @@ export default function SearchQueryFindings({ profileId }) {
                   </div>
 
                   <div>
-                    <p className="text-xs text-purple-400 mb-1">Matched Data:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {finding.matched_data_types.map((type, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {type.replace(/_/g, ' ')}
-                        </Badge>
+                    <p className="text-xs text-purple-400 mb-1">Your Data That Matched:</p>
+                    <div className="space-y-1">
+                      {finding.matched_data_types?.map((type, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded px-3 py-1.5">
+                          <Badge variant="outline" className="text-xs bg-red-500/20 text-red-300 border-red-500/40">
+                            {type.replace(/_/g, ' ')}
+                          </Badge>
+                          {finding.matched_values?.[idx] && (
+                            <span className="text-sm text-red-200 font-mono">
+                              {finding.matched_values[idx]}
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

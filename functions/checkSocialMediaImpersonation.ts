@@ -156,6 +156,34 @@ Return ONLY findings that directly involve THIS USER's identity. Do NOT return g
           // Only save findings with sufficient confidence that directly involve user's data
           if (finding.similarity_score < 60) continue;
           
+          // REJECT PLACEHOLDER DATA - LLM sometimes generates fake template values
+          const hasPlaceholders = (str) => {
+            if (!str) return false;
+            return /\[.*\]/.test(str) || /suspicious/i.test(str) || /example/i.test(str) || /placeholder/i.test(str);
+          };
+          
+          // Check for placeholder values in critical fields
+          if (hasPlaceholders(finding.suspicious_username) ||
+              hasPlaceholders(finding.suspicious_profile_url) ||
+              hasPlaceholders(finding.evidence) ||
+              (finding.misused_data_details && (
+                hasPlaceholders(finding.misused_data_details.full_name) ||
+                hasPlaceholders(finding.misused_data_details.bio) ||
+                hasPlaceholders(finding.misused_data_details.location) ||
+                hasPlaceholders(finding.misused_data_details.workplace) ||
+                hasPlaceholders(finding.misused_data_details.education)
+              ))) {
+            console.log('Skipping finding with placeholder data:', finding.suspicious_username);
+            continue;
+          }
+          
+          // Must have a real profile URL to be actionable
+          if (!finding.suspicious_profile_url || 
+              !finding.suspicious_profile_url.startsWith('http') ||
+              finding.suspicious_profile_url.includes('example.com')) {
+            continue;
+          }
+          
           // Create finding record with all enhanced details
           await base44.entities.SocialMediaFinding.create({
             profile_id: profileId,

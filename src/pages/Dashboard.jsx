@@ -119,6 +119,30 @@ export default function Dashboard() {
     setShowFindingModal(true);
   };
 
+  const handleCheckBreachAlerts = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+
+    setCheckingBreaches(true);
+    try {
+      const response = await base44.functions.invoke('checkBreachAlerts', {
+        profileId: activeProfileId
+      });
+
+      if (response.data.alertsCreated > 0) {
+        alert(`⚠️ ${response.data.alertsCreated} new breach alert(s) created! Check your notifications.`);
+      } else {
+        alert('✓ No new breaches affecting your data were found.');
+      }
+    } catch (error) {
+      alert('Breach check failed: ' + error.message);
+    } finally {
+      setCheckingBreaches(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}

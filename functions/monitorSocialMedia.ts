@@ -41,19 +41,20 @@ ${personalData.map(d => `${d.data_type}: ${d.value}`).join('\n')}
 Legitimate Social Profiles:
 ${socialProfiles.map(s => `${s.platform}: @${s.username}`).join('\n')}
 
-CRITICAL MATCHING RULE FOR ALL DETECTIONS:
-Only report a mention, post, or impersonation as a positive hit if AT LEAST TWO (2) different personal identifiers match. Examples:
-- ✓ VALID: Post mentions full_name + shows address
-- ✓ VALID: Profile uses name + email/phone visible
-- ✓ VALID: Content has photo + full_name tag
-- ✗ INVALID: Only mentions a common name
-- ✗ INVALID: Only shows a generic email
+MATCHING RULES:
+- For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
+- For ALL OTHER data types (email, phone, address, SSN, etc.): Only ONE (1) identifier match is sufficient
 
-This prevents false positives from common names or coincidental matches.
+Examples:
+- ✓ VALID: Post contains user's email address (1 match is enough for email)
+- ✓ VALID: Profile shows user's phone number (1 match is enough for phone)
+- ✓ VALID: Content reveals user's address (1 match is enough for address)
+- ✓ VALID: Full name + any other identifier (2 matches required for name)
+- ✗ INVALID: Only mentions a common name without other identifiers
 
 COMPREHENSIVE MONITORING TASKS:
 
-1. MENTION DETECTION - Find all mentions across platforms (2+ identifiers required):
+1. MENTION DETECTION - Find all mentions across platforms:
    - Direct mentions (@username, name tags)
    - Indirect references (talking about the person without tagging)
    - Photo/video appearances
@@ -64,20 +65,20 @@ COMPREHENSIVE MONITORING TASKS:
    - Sentiment score (-100 to 100)
    - Emotional tone and context
    
-3. PRIVACY RISK ASSESSMENT - Identify (2+ identifiers required):
+3. PRIVACY RISK ASSESSMENT - Identify:
    - Personal data being shared without consent
    - Location reveals and check-ins
    - Photos/videos with private information visible
    - Contact details being shared
    - Financial information exposure
    
-4. IMPERSONATION DETECTION - Look for (2+ identifiers required):
+4. IMPERSONATION DETECTION - Look for:
    - Fake profiles using this person's name/photos
    - Accounts claiming to be this person
    - Unauthorized use of identity
    - Catfishing attempts
    
-5. UNAUTHORIZED DATA USE - Detect (2+ identifiers required):
+5. UNAUTHORIZED DATA USE - Detect:
    - Photos/videos used without permission
    - Personal information being sold/shared
    - Data being used for doxxing
@@ -85,16 +86,16 @@ COMPREHENSIVE MONITORING TASKS:
 
 Platforms to monitor: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube, Pinterest, Telegram, Discord, and other relevant platforms.
 
-For EACH finding, include a "matched_identifiers" field listing which specific data types matched (must be 2+).
+For EACH finding, include a "matched_identifiers" field listing which specific data types matched.
 
 Return JSON with:
-- mentions: array of detected mentions with full details (each must have 2+ identifier matches)
-- impersonations: array of suspicious accounts/profiles (each must have 2+ identifier matches)
+- mentions: array of detected mentions with full details
+- impersonations: array of suspicious accounts/profiles
 - privacy_risks: array of specific privacy concerns found
 - overall_risk_score: 0-100
 - summary: brief overview of findings
 
-Only include real findings with confidence >= 65% AND at least 2 identifiers matched.`;
+Only include real findings with confidence >= 65%. Remember: name matches require 2+ identifiers, all other data types require only 1.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt: monitoringPrompt,
@@ -164,15 +165,28 @@ Only include real findings with confidence >= 65% AND at least 2 identifiers mat
     const impersonations = result.impersonations || [];
     const privacyRisks = result.privacy_risks || [];
 
-    // Filter: require at least 2 identifiers matched
-    const validMentions = mentions.filter(m => 
-      (m.matched_identifiers && m.matched_identifiers.length >= 2) ||
-      (m.exposed_data && m.exposed_data.length >= 2)
-    );
+    // Filter: name-only matches require 2+ identifiers, all other types need only 1
+    const isNameOnlyMatch = (identifiers) => {
+      if (!identifiers || identifiers.length === 0) return false;
+      const nameTypes = ['full_name', 'alias', 'name'];
+      return identifiers.every(id => nameTypes.some(nt => id.toLowerCase().includes(nt)));
+    };
     
-    const validImpersonations = impersonations.filter(i =>
-      i.matched_identifiers && i.matched_identifiers.length >= 2
-    );
+    const validMentions = mentions.filter(m => {
+      const identifiers = m.matched_identifiers || m.exposed_data || [];
+      if (identifiers.length === 0) return false;
+      // If only name matched, require 2+ identifiers
+      if (isNameOnlyMatch(identifiers)) return identifiers.length >= 2;
+      // Otherwise, 1 identifier is enough
+      return true;
+    });
+    
+    const validImpersonations = impersonations.filter(i => {
+      const identifiers = i.matched_identifiers || [];
+      if (identifiers.length === 0) return false;
+      if (isNameOnlyMatch(identifiers)) return identifiers.length >= 2;
+      return true;
+    });
 
     // Create mention records
     for (const mention of validMentions) {

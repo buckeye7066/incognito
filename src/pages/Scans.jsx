@@ -66,30 +66,32 @@ export default function Scans() {
       try {
         // Comprehensive multi-source scan
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `Perform a comprehensive scan across multiple data sources for this personal information:
+          prompt: `You are searching for a SPECIFIC piece of personal data. ONLY report findings where you can CONFIRM this EXACT value appears.
 
-DATA TO SCAN:
+MY SPECIFIC DATA TO FIND:
 Type: ${data.data_type}
-Value: ${data.value}
+EXACT Value: "${data.value}"
 
-SCAN THE FOLLOWING SOURCES:
-1. PEOPLE FINDER SITES: Spokeo, BeenVerified, Intelius, PeopleFinders, WhitePages
-2. DATA BROKERS: Acxiom, Epsilon, Oracle Data Cloud, LiveRamp
-3. PUBLIC RECORDS: Property records, business registries, voter registration
-4. GOVERNMENT DATABASES: USA.gov public data, state databases, license records
-5. LEGAL RECORDS: PACER federal court records, public legal filings
-6. BREACH DATABASES: Have I Been Pwned, DeHashed, LeakCheck
-7. OSINT SOURCES: Archive.org cached pages, Google dorking results
+CRITICAL MATCHING RULES:
+- ONLY return found=true if you can VERIFY my EXACT value "${data.value}" appears in a breach or database
+- Do NOT return generic breaches that "might" contain my data
+- Do NOT assume my data is in a breach just because the breach "contains emails" or "contains names"
+- You need EVIDENCE that my SPECIFIC value "${data.value}" is exposed
+- If you cannot confirm my exact value is present, return found=false
 
-For each source where data is found, provide:
-- Source name (be specific)
-- What data was exposed
-- Risk assessment
-- Last updated/cached date if available
+SEARCH THESE SOURCES for my exact data:
+1. Have I Been Pwned - search for exact email/username
+2. Known breaches - only if my exact value is confirmed present
+3. People finder sites - only if they show my exact information
+4. Public records - only with confirmed matches
 
-Use internet search to verify current breach status and public record availability. 
-          
-IMPORTANT: Be thorough and specific. Check real sources, not hypothetical ones.`,
+Respond with:
+- found: true ONLY if you have confirmed my exact value "${data.value}" is in a specific source
+- sources: array of CONFIRMED sources (not hypothetical ones)
+- risk_score: 0-100
+- details: explanation of how you confirmed my data is present
+
+REMEMBER: Generic breaches do NOT count unless you confirm MY specific value is in them.`,
           add_context_from_internet: true,
           response_json_schema: {
             type: 'object',
@@ -178,29 +180,33 @@ IMPORTANT: Be thorough and specific. Check real sources, not hypothetical ones.`
       try {
         // Simulate dark web breach check using LLM with enhanced context
         const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `You are a cybersecurity analyst checking for data breaches and dark web exposure.
+          prompt: `You are checking if a SPECIFIC piece of data appears in known data breaches.
 
-IMPORTANT: Search for ACTUAL, REAL data breaches and exposures related to this information:
+MY EXACT DATA TO CHECK:
+Type: ${data.data_type}
+EXACT Value: "${data.value}"
 
-Data type: ${data.data_type}
-Value: ${data.value}
+STRICT MATCHING REQUIREMENTS:
+- ONLY return found=true if you can CONFIRM this EXACT value "${data.value}" was in a breach
+- Do NOT assume data is breached just because a company had a breach
+- Do NOT report breaches that "might" include this type of data
+- You need to VERIFY that "${data.value}" specifically was exposed
+- If uncertain, return found=false
 
-Check the following sources:
-1. Have I Been Pwned database
-2. Known data breaches (LinkedIn, Adobe, Yahoo, Marriott, Equifax, etc.)
-3. Credential dumps and paste sites
-4. Dark web marketplaces and forums
-5. Public breach notifications
+CHECK THESE SOURCES:
+1. Have I Been Pwned - for this exact email/account
+2. Known breaches - ONLY if this exact value was confirmed compromised
+3. Credential dumps - only with confirmed presence
 
-Respond with detailed JSON:
-- found: true if found in ANY breach or exposure (be thorough)
-- sources: array of SPECIFIC breach names or sources where found
-- risk_score: 0-100 based on severity and recency
-- breach_details: object with keys as source names, values as details about what was exposed
-- recommendations: array of recommended actions
-- compromised_data: array of specific data types exposed (email, password, phone, etc.)
+Return:
+- found: true ONLY with confirmed exposure of my exact value
+- sources: array of breaches where MY EXACT DATA was confirmed present
+- risk_score: 0-100
+- breach_details: specifics about what was exposed FOR MY DATA
+- recommendations: actions to take
+- compromised_data: what types of my data were exposed
 
-For common email providers or widespread breaches, check thoroughly. If this could be in any major breach, mark as found.`,
+DO NOT report generic breach information. Only confirmed exposures of "${data.value}".`,
           add_context_from_internet: true,
           response_json_schema: {
             type: 'object',

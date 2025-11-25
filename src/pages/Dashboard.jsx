@@ -17,6 +17,7 @@ import FindingDetailModal from '../components/dashboard/FindingDetailModal';
 export default function Dashboard() {
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
   const [analyzingRisk, setAnalyzingRisk] = useState(false);
+  const [checkingBreaches, setCheckingBreaches] = useState(false);
   const [correlations, setCorrelations] = useState(null);
   const [selectedFinding, setSelectedFinding] = useState(null);
   const [showFindingModal, setShowFindingModal] = useState(false);

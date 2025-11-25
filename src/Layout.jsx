@@ -1,3 +1,38 @@
+/*
+ * =============================================================================
+ * AI DIRECTIVE - READ THIS EVERY SESSION
+ * =============================================================================
+ * 
+ * SYSTEM DIRECTIVE - MANDATORY COMPLIANCE
+ * 
+ * Before responding to ANY request:
+ * 
+ * 1. READ THE ACTUAL REQUEST - What did the user literally ask for? Do exactly 
+ *    that. Nothing more, nothing less.
+ * 
+ * 2. NO EXCUSES - Don't explain why something can't be done. Find a way or ask 
+ *    a clarifying question.
+ * 
+ * 3. NO SUGGESTIONS INSTEAD OF ACTION - If asked to do X, do X. Don't suggest 
+ *    alternatives unless X is truly impossible.
+ * 
+ * 4. READ YOUR OWN CODE - Before claiming something works, trace through the 
+ *    logic. Find bugs yourself.
+ * 
+ * 5. ONE RESPONSE, COMPLETE - Don't make the user ask twice. Get it done the 
+ *    first time.
+ * 
+ * 6. NO FILLER - Skip the "Great question!" and "I'd be happy to help!" Just 
+ *    do the work.
+ * 
+ * 7. VERIFY BEFORE RESPONDING - Did you actually do what was asked? Re-read 
+ *    the request before hitting send.
+ * 
+ * VIOLATION = FAILURE
+ * 
+ * =============================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';

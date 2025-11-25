@@ -86,6 +86,77 @@ export default function ImpersonationFindings({ findings, profileId }) {
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
+            {/* Photo Comparison - Prominent at top */}
+            <div className="p-3 rounded bg-slate-700/50 border border-amber-500/30">
+              <p className="text-sm font-semibold text-white mb-3">📸 Photo Comparison</p>
+              
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div className="text-center">
+                  <p className="text-xs text-green-400 mb-2 font-semibold">Your Photo</p>
+                  {finding.your_profile_photo ? (
+                    <img 
+                      src={finding.your_profile_photo} 
+                      alt="Your profile" 
+                      className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-green-500"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full mx-auto bg-slate-600 flex items-center justify-center">
+                      <span className="text-gray-400 text-xs">Not set</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-red-400 mb-2 font-semibold">Suspicious Profile</p>
+                  {finding.suspicious_profile_photo ? (
+                    <img 
+                      src={finding.suspicious_profile_photo} 
+                      alt="Suspicious profile" 
+                      className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-red-500"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full mx-auto bg-slate-600 flex items-center justify-center">
+                      <span className="text-gray-400 text-xs">No photo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {finding.photo_similarity_score !== undefined && (
+                <div className="text-center mb-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    finding.photo_similarity_score >= 80 ? 'bg-red-600/30 text-red-300' :
+                    finding.photo_similarity_score >= 50 ? 'bg-amber-600/30 text-amber-300' :
+                    'bg-green-600/30 text-green-300'
+                  }`}>
+                    {finding.photo_similarity_score}% Photo Match
+                  </span>
+                </div>
+              )}
+
+              {finding.matching_photos && finding.matching_photos.length > 0 && (
+                <div>
+                  <p className="text-xs text-amber-300 mb-2 font-semibold">Matching Photos Found ({finding.matching_photos.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {finding.matching_photos.map((photoUrl, idx) => (
+                      <a 
+                        key={idx} 
+                        href={photoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        <img 
+                          src={photoUrl} 
+                          alt={`Matching photo ${idx + 1}`} 
+                          className="w-full h-20 object-cover rounded border border-amber-500/50 hover:border-amber-400 transition-colors"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <p className="text-sm font-semibold text-white mb-1">Finding Type</p>
               <Badge className="bg-purple-500/20 text-purple-300">
@@ -108,84 +179,6 @@ export default function ImpersonationFindings({ findings, profileId }) {
                     </Badge>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Photo Comparison Section */}
-            {(finding.suspicious_profile_photo || finding.your_profile_photo || (finding.matching_photos && finding.matching_photos.length > 0)) && (
-              <div className="p-3 rounded bg-slate-700/50 border border-amber-500/30">
-                <p className="text-sm font-semibold text-white mb-3">📸 Photo Comparison</p>
-                
-                {/* Side by side profile photos */}
-                {(finding.suspicious_profile_photo || finding.your_profile_photo) && (
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div className="text-center">
-                      <p className="text-xs text-green-400 mb-2 font-semibold">Your Photo</p>
-                      {finding.your_profile_photo ? (
-                        <img 
-                          src={finding.your_profile_photo} 
-                          alt="Your profile" 
-                          className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-green-500"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-full mx-auto bg-slate-600 flex items-center justify-center">
-                          <span className="text-gray-400 text-xs">Not set</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-red-400 mb-2 font-semibold">Suspicious Profile</p>
-                      {finding.suspicious_profile_photo ? (
-                        <img 
-                          src={finding.suspicious_profile_photo} 
-                          alt="Suspicious profile" 
-                          className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-red-500"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-full mx-auto bg-slate-600 flex items-center justify-center">
-                          <span className="text-gray-400 text-xs">No photo</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Photo similarity score */}
-                {finding.photo_similarity_score !== undefined && (
-                  <div className="text-center mb-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      finding.photo_similarity_score >= 80 ? 'bg-red-600/30 text-red-300' :
-                      finding.photo_similarity_score >= 50 ? 'bg-amber-600/30 text-amber-300' :
-                      'bg-green-600/30 text-green-300'
-                    }`}>
-                      {finding.photo_similarity_score}% Photo Match
-                    </span>
-                  </div>
-                )}
-
-                {/* Matching photos gallery */}
-                {finding.matching_photos && finding.matching_photos.length > 0 && (
-                  <div>
-                    <p className="text-xs text-amber-300 mb-2 font-semibold">Matching Photos Found ({finding.matching_photos.length})</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {finding.matching_photos.map((photoUrl, idx) => (
-                        <a 
-                          key={idx} 
-                          href={photoUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          <img 
-                            src={photoUrl} 
-                            alt={`Matching photo ${idx + 1}`} 
-                            className="w-full h-20 object-cover rounded border border-amber-500/50 hover:border-amber-400 transition-colors"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

@@ -35,29 +35,53 @@ Deno.serve(async (req) => {
     const findings = [];
 
     for (const legitimateProfile of userProfiles) {
-      const prompt = `You are an identity theft detection AI. Analyze social media for impersonation attempts.
+      const prompt = `You are an advanced identity theft and social media threat detection AI. Perform a comprehensive scan for impersonation attempts, data misuse, and stolen content.
 
-User's legitimate profile: ${legitimateProfile.platform} - @${legitimateProfile.username}
-User's personal data: ${userDataSummary}
+USER'S LEGITIMATE PROFILE:
+Platform: ${legitimateProfile.platform}
+Username: @${legitimateProfile.username}
+Profile URL: ${legitimateProfile.profile_url || 'Not provided'}
 
-Search for:
-1. Profiles impersonating this user (similar usernames, stolen photos, copied bio)
-2. Unauthorized use of user's personal data (name, photos, information)
-3. Accounts claiming to be this person
-4. Fake profiles using variations of their username
+USER'S PERSONAL DATA TO PROTECT:
+${userDataSummary}
 
-For each suspicious finding, provide:
-- platform: social media platform
-- finding_type: impersonation, data_misuse, unauthorized_profile, stolen_content, or identity_theft
-- suspicious_username: username of suspicious account
-- suspicious_profile_url: URL to profile (if available)
-- similarity_score: 0-100 confidence this is impersonation
-- misused_data: array of data types being misused
-- evidence: what makes this suspicious
-- severity: critical, high, medium, or low
-- ai_recommendations: array of recommended actions
+COMPREHENSIVE SCAN REQUIREMENTS:
 
-Return JSON with findings array. Only include high-confidence findings (similarity_score >= 60).`;
+1. IMPERSONATION DETECTION:
+   - Search for accounts with similar/variant usernames (typosquatting, underscore variations)
+   - Look for profiles using the same or similar display name
+   - Detect copied profile photos or stolen images
+   - Find accounts with copied bio text or similar descriptions
+
+2. DATA MISUSE ANALYSIS:
+   - Check if user's name appears on unauthorized accounts
+   - Look for user's photos being used elsewhere
+   - Detect personal information being shared without consent
+   - Find scraped content from the legitimate profile
+
+3. STOLEN CONTENT DETECTION:
+   - Search for reposted photos/videos without attribution
+   - Find copied posts or status updates
+   - Detect repurposed professional content
+
+4. CROSS-PLATFORM THREATS:
+   - Check related platforms for coordinated impersonation
+   - Look for fake accounts linking to each other
+   - Detect phishing profiles that reference the real user
+
+SEVERITY CLASSIFICATION:
+- CRITICAL: Active scam using user's identity, financial fraud attempts
+- HIGH: Complete profile impersonation, identity theft in progress
+- MEDIUM: Partial data misuse, stolen photos, bio copying
+- LOW: Similar usernames, potential future threat
+
+For each finding, provide DETAILED information including:
+- The actual content being misused (full_name, bio text, photo URLs, location, workplace, education)
+- Photo comparison details if applicable
+- Common friends/connections if detectable
+- Specific evidence of impersonation
+
+Return ONLY findings that directly involve THIS USER's identity. Do NOT return generic fake accounts unless they specifically use this user's data.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -71,15 +95,56 @@ Return JSON with findings array. Only include high-confidence findings (similari
                 type: "object",
                 properties: {
                   platform: { type: "string" },
-                  finding_type: { type: "string" },
+                  finding_type: { type: "string", enum: ["impersonation", "data_misuse", "unauthorized_profile", "stolen_content", "identity_theft"] },
                   suspicious_username: { type: "string" },
                   suspicious_profile_url: { type: "string" },
+                  suspicious_profile_photo: { type: "string" },
+                  your_profile_photo: { type: "string" },
+                  matching_photos: { type: "array", items: { type: "string" } },
+                  photo_similarity_score: { type: "number" },
+                  common_friends: { 
+                    type: "array", 
+                    items: { 
+                      type: "object",
+                      properties: {
+                        name: { type: "string" },
+                        username: { type: "string" },
+                        profile_url: { type: "string" }
+                      }
+                    }
+                  },
+                  misused_data_details: {
+                    type: "object",
+                    properties: {
+                      full_name: { type: "string" },
+                      bio: { type: "string" },
+                      photos: { type: "array", items: { type: "string" } },
+                      location: { type: "string" },
+                      workplace: { type: "string" },
+                      education: { type: "string" },
+                      other: { type: "string" }
+                    }
+                  },
                   similarity_score: { type: "number" },
                   misused_data: { type: "array", items: { type: "string" } },
                   evidence: { type: "string" },
-                  severity: { type: "string" },
-                  ai_recommendations: { type: "array", items: { type: "string" } }
+                  severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                  ai_recommendations: { type: "array", items: { type: "string" } },
+                  threat_category: { type: "string" },
+                  potential_impact: { type: "string" }
                 }
+              }
+            },
+            scan_summary: {
+              type: "object",
+              properties: {
+                total_threats_found: { type: "number" },
+                critical_count: { type: "number" },
+                high_count: { type: "number" },
+                medium_count: { type: "number" },
+                low_count: { type: "number" },
+                platforms_scanned: { type: "array", items: { type: "string" } },
+                scan_confidence: { type: "number" }
               }
             }
           }
@@ -88,13 +153,22 @@ Return JSON with findings array. Only include high-confidence findings (similari
 
       if (result.findings && result.findings.length > 0) {
         for (const finding of result.findings) {
-          // Create finding record
+          // Only save findings with sufficient confidence that directly involve user's data
+          if (finding.similarity_score < 60) continue;
+          
+          // Create finding record with all enhanced details
           await base44.entities.SocialMediaFinding.create({
             profile_id: profileId,
-            platform: finding.platform,
+            platform: finding.platform || legitimateProfile.platform,
             finding_type: finding.finding_type,
             suspicious_username: finding.suspicious_username,
             suspicious_profile_url: finding.suspicious_profile_url || '',
+            suspicious_profile_photo: finding.suspicious_profile_photo || '',
+            your_profile_photo: finding.your_profile_photo || '',
+            matching_photos: finding.matching_photos || [],
+            photo_similarity_score: finding.photo_similarity_score || 0,
+            common_friends: finding.common_friends || [],
+            misused_data_details: finding.misused_data_details || {},
             similarity_score: finding.similarity_score,
             misused_data: finding.misused_data || [],
             evidence: finding.evidence,
@@ -104,12 +178,15 @@ Return JSON with findings array. Only include high-confidence findings (similari
             ai_recommendations: finding.ai_recommendations || []
           });
 
-          // Create notification alert
+          // Create prioritized notification alert based on severity
+          const alertType = finding.severity === 'critical' ? 'high_risk_alert' : 
+                          finding.severity === 'high' ? 'high_risk_alert' : 'emerging_threat';
+          
           await base44.entities.NotificationAlert.create({
             profile_id: profileId,
-            alert_type: 'high_risk_alert',
-            title: `${finding.severity.toUpperCase()}: Social Media Impersonation Detected`,
-            message: `Potential ${finding.finding_type} found on ${finding.platform}: @${finding.suspicious_username}. ${finding.evidence}`,
+            alert_type: alertType,
+            title: `${finding.severity.toUpperCase()}: ${finding.finding_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Detected`,
+            message: `Potential ${finding.finding_type.replace(/_/g, ' ')} found on ${finding.platform}: @${finding.suspicious_username}. ${finding.evidence}${finding.potential_impact ? ` Impact: ${finding.potential_impact}` : ''}`,
             severity: finding.severity,
             is_read: false,
             related_data_ids: [],
@@ -122,12 +199,28 @@ Return JSON with findings array. Only include high-confidence findings (similari
       }
     }
 
+    // Categorize findings by severity for summary
+    const categorizedFindings = {
+      critical: findings.filter(f => f.severity === 'critical'),
+      high: findings.filter(f => f.severity === 'high'),
+      medium: findings.filter(f => f.severity === 'medium'),
+      low: findings.filter(f => f.severity === 'low')
+    };
+
     return Response.json({
       success: true,
       findingsCount: findings.length,
       findings,
+      summary: {
+        total: findings.length,
+        critical: categorizedFindings.critical.length,
+        high: categorizedFindings.high.length,
+        medium: categorizedFindings.medium.length,
+        low: categorizedFindings.low.length,
+        requiresImmediateAction: categorizedFindings.critical.length + categorizedFindings.high.length
+      },
       message: findings.length > 0 
-        ? `Found ${findings.length} potential impersonation attempt(s)`
+        ? `Found ${findings.length} threat(s): ${categorizedFindings.critical.length} critical, ${categorizedFindings.high.length} high, ${categorizedFindings.medium.length} medium, ${categorizedFindings.low.length} low`
         : 'No impersonation attempts detected'
     });
 

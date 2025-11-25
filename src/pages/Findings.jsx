@@ -80,44 +80,85 @@ export default function Findings() {
   const getLegalAction = async (finding) => {
     setLoadingLegal(finding.id);
     try {
-      const prompt = `You are a legal research assistant. Provide COMPLETE and DETAILED legal action information for this data breach. DO NOT leave any fields empty - research and provide real information.
+      // Determine data categories for legal analysis
+      const dataExposed = finding.data_exposed || [];
+      const hasFinancialData = dataExposed.some(d => 
+        /credit|bank|financial|payment|card/i.test(d)
+      );
+      const hasHealthData = dataExposed.some(d => 
+        /health|medical|hipaa|patient/i.test(d)
+      );
+      const hasSSN = dataExposed.some(d => 
+        /ssn|social security/i.test(d)
+      );
+      const hasDriversLicense = dataExposed.some(d => 
+        /driver|license|dmv/i.test(d)
+      );
+
+      // Build dynamic legal analysis based on exposed data
+      const dataAnalysis = `
+DATA CATEGORY ANALYSIS:
+- Contains Financial Data: ${hasFinancialData ? 'YES - FCRA, GLBA may apply' : 'NO'}
+- Contains Health Data: ${hasHealthData ? 'YES - HIPAA may apply' : 'NO'}
+- Contains SSN: ${hasSSN ? 'YES - Identity theft laws apply, higher damages' : 'NO'}
+- Contains Driver License: ${hasDriversLicense ? 'YES - State DMV breach laws may apply' : 'NO'}
+- Total Data Types Exposed: ${dataExposed.length}
+- Risk Score: ${finding.risk_score}/100 (${finding.risk_score >= 70 ? 'CRITICAL' : finding.risk_score >= 40 ? 'HIGH' : 'MODERATE'})
+`;
+
+      const prompt = `You are an expert data breach attorney assistant. Provide COMPREHENSIVE legal action information for this breach. Research REAL, CURRENT information.
 
 DATA BREACH DETAILS:
 - Company/Source: ${finding.source_name}
-- Type: ${finding.source_type}
-- Data Exposed: ${finding.data_exposed?.join(', ') || 'email addresses, personal information'}
+- Type: ${finding.source_type?.replace(/_/g, ' ')}
+- Data Exposed: ${dataExposed.join(', ') || 'personal information'}
 - Risk Level: ${finding.risk_score}/100
 - Discovered: ${finding.scan_date || 'Recently'}
-- Victim Location: Cleveland, Tennessee
+- Victim Location: Cleveland, Tennessee (Bradley County)
+${dataAnalysis}
 
-REQUIRED INFORMATION (provide ALL of these with real, researched data):
+RESEARCH REQUIREMENTS:
 
-1. COMPANY: Research "${finding.source_name}" and provide their full legal name. If unknown, state the name as provided.
+1. ATTORNEY SEARCH (CRITICAL - must be REAL and VERIFIED):
+   Search for data breach/privacy attorneys in this EXACT order of preference:
+   a) Cleveland, TN or Bradley County area
+   b) Chattanooga, TN (30 miles away)
+   c) Knoxville, TN
+   d) Nashville, TN
+   e) Tennessee statewide firms that handle data breach cases
+   
+   Provide a REAL attorney with:
+   - Full name and credentials (JD, etc.)
+   - Law firm name
+   - Exact office location/city
+   - Working phone number
+   - Email address
+   - Their specific experience with data breach cases if available
+   
+   Also provide 2 ALTERNATIVE attorneys as backup options.
 
-2. COMPANY CONTACT: Find or estimate contact info for sending legal notices:
-   - Email (privacy@, legal@, or general contact)
-   - Fax number if available
-   - Physical/mailing address
+2. LEGAL BASIS ANALYSIS:
+   Based on the specific data exposed (${dataExposed.join(', ')}), explain:
+   - Primary legal theory for recovery
+   - Secondary claims that may apply
+   - Strength of the case (strong/moderate/weak)
+   - Key elements the victim must prove
 
-3. APPLICABLE LAWS: List 2-4 laws that apply to this breach in Tennessee. Include federal laws (like FCRA if credit data, HIPAA if health data) and Tennessee state laws. Explain why each applies.
+3. DAMAGES CALCULATION:
+   Based on ${hasSSN ? 'SSN exposure (typically $1,000-$10,000 statutory)' : ''} ${hasFinancialData ? 'financial data exposure (FCRA damages $100-$1,000 per violation)' : ''} ${hasHealthData ? 'health data exposure (HIPAA penalties)' : ''}:
+   - Statutory damages available under each applicable law
+   - Actual damages that can be claimed
+   - Potential for punitive damages
+   - Estimated total recovery range (low to high)
+   - Attorney fee recovery availability
 
-4. LEGAL BASIS: Explain the legal grounds for action in 2-3 sentences.
+4. APPLICABLE LAWS (be specific based on data types):
+   List 3-5 laws with SPECIFIC sections/provisions that apply
 
-5. POTENTIAL DAMAGES: Describe what damages could be recovered (statutory minimums, actual damages, etc.)
+5. CLASS ACTION RESEARCH:
+   Search for ANY existing class action against "${finding.source_name}" related to data breaches. Include case names, court, and how to join if available.
 
-6. STATUTE OF LIMITATIONS: Provide the filing deadline based on Tennessee law.
-
-7. CLASS ACTION: Search if there's an existing class action against ${finding.source_name}. If yes, provide details. If unknown, say "No known class action at this time."
-
-8. ATTORNEY: Find a REAL attorney in Tennessee who handles data breach cases. Search in this order: Cleveland TN, Chattanooga TN, Knoxville TN, Nashville TN. Provide actual name, firm, phone, email. If you cannot find one, provide a Tennessee Bar referral service contact.
-
-9. LEGALLY REQUIRED STEPS: Provide 2-4 steps the victim must take. For EACH step include:
-   - step_title: Brief title
-   - explanation: What this means in plain English
-   - contact_info: Email, phone, fax, or address needed
-   - how_to_complete: Step-by-step instructions
-
-IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or say "unknown" unless absolutely necessary.`;
+IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current legal directories.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -140,19 +181,53 @@ IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or sa
                 type: 'object',
                 properties: {
                   law_name: { type: 'string' },
-                  why_applicable: { type: 'string' }
+                  specific_section: { type: 'string' },
+                  why_applicable: { type: 'string' },
+                  damages_available: { type: 'string' }
                 }
               }
             },
             existing_class_action: { type: 'boolean' },
             class_action_details: { type: 'string' },
+            class_action_how_to_join: { type: 'string' },
             attorney_name: { type: 'string' },
+            attorney_credentials: { type: 'string' },
             attorney_firm: { type: 'string' },
             attorney_location: { type: 'string' },
             attorney_phone: { type: 'string' },
             attorney_email: { type: 'string' },
+            attorney_experience: { type: 'string' },
+            alternative_attorneys: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  firm: { type: 'string' },
+                  location: { type: 'string' },
+                  phone: { type: 'string' },
+                  email: { type: 'string' }
+                }
+              }
+            },
             legal_basis: { type: 'string' },
+            legal_basis_strength: { type: 'string' },
+            key_elements_to_prove: {
+              type: 'array',
+              items: { type: 'string' }
+            },
             potential_damages: { type: 'string' },
+            damages_breakdown: {
+              type: 'object',
+              properties: {
+                statutory_damages: { type: 'string' },
+                actual_damages: { type: 'string' },
+                punitive_damages: { type: 'string' },
+                estimated_recovery_low: { type: 'string' },
+                estimated_recovery_high: { type: 'string' },
+                attorney_fees_recoverable: { type: 'boolean' }
+              }
+            },
             legally_required_steps: {
               type: 'array',
               items: {
@@ -749,44 +824,167 @@ IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or sa
                           </Button>
                         </div>
 
-                        <div className="space-y-2 text-sm text-gray-300">
+                        <div className="space-y-3 text-sm text-gray-300">
                           <p><strong>Company:</strong> {legalInfo[result.id].company_legal_name}</p>
 
+                          {/* Applicable Laws with Damages */}
                           {legalInfo[result.id].applicable_laws && legalInfo[result.id].applicable_laws.length > 0 && (
                             <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
                               <p className="text-red-300 font-semibold mb-2">⚖️ Applicable Laws</p>
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 {legalInfo[result.id].applicable_laws.map((law, idx) => (
-                                  <div key={idx} className="text-xs">
+                                  <div key={idx} className="text-xs border-l-2 border-red-400 pl-3">
                                     <p className="font-semibold text-red-200">{law.law_name}</p>
+                                    {law.specific_section && (
+                                      <p className="text-red-300 font-mono text-xs">{law.specific_section}</p>
+                                    )}
                                     <p className="text-gray-300 mt-0.5">{law.why_applicable}</p>
+                                    {law.damages_available && (
+                                      <p className="text-green-300 mt-1">💰 Damages: {law.damages_available}</p>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                             </div>
                           )}
-                          
+
+                          {/* Legal Basis with Strength Indicator */}
+                          <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-amber-300 font-semibold">📋 Legal Basis</p>
+                              {legalInfo[result.id].legal_basis_strength && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  legalInfo[result.id].legal_basis_strength.toLowerCase().includes('strong') 
+                                    ? 'bg-green-600/30 text-green-300' 
+                                    : legalInfo[result.id].legal_basis_strength.toLowerCase().includes('moderate')
+                                    ? 'bg-amber-600/30 text-amber-300'
+                                    : 'bg-red-600/30 text-red-300'
+                                }`}>
+                                  {legalInfo[result.id].legal_basis_strength}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-300">{legalInfo[result.id].legal_basis}</p>
+                            {legalInfo[result.id].key_elements_to_prove && legalInfo[result.id].key_elements_to_prove.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs text-amber-200 font-semibold mb-1">Key Elements to Prove:</p>
+                                <ul className="text-xs text-gray-300 space-y-1 ml-3">
+                                  {legalInfo[result.id].key_elements_to_prove.map((elem, idx) => (
+                                    <li key={idx} className="list-disc">{elem}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Damages Breakdown */}
+                          <div className="p-3 rounded bg-green-500/10 border border-green-500/30">
+                            <p className="text-green-300 font-semibold mb-2">💰 Potential Damages</p>
+                            <p className="text-xs text-gray-300 mb-2">{legalInfo[result.id].potential_damages}</p>
+                            {legalInfo[result.id].damages_breakdown && (
+                              <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                                {legalInfo[result.id].damages_breakdown.statutory_damages && (
+                                  <div className="p-2 rounded bg-slate-800/50">
+                                    <p className="text-green-200 font-semibold">Statutory</p>
+                                    <p className="text-gray-300">{legalInfo[result.id].damages_breakdown.statutory_damages}</p>
+                                  </div>
+                                )}
+                                {legalInfo[result.id].damages_breakdown.actual_damages && (
+                                  <div className="p-2 rounded bg-slate-800/50">
+                                    <p className="text-green-200 font-semibold">Actual</p>
+                                    <p className="text-gray-300">{legalInfo[result.id].damages_breakdown.actual_damages}</p>
+                                  </div>
+                                )}
+                                {legalInfo[result.id].damages_breakdown.punitive_damages && (
+                                  <div className="p-2 rounded bg-slate-800/50">
+                                    <p className="text-green-200 font-semibold">Punitive</p>
+                                    <p className="text-gray-300">{legalInfo[result.id].damages_breakdown.punitive_damages}</p>
+                                  </div>
+                                )}
+                                {(legalInfo[result.id].damages_breakdown.estimated_recovery_low || legalInfo[result.id].damages_breakdown.estimated_recovery_high) && (
+                                  <div className="p-2 rounded bg-slate-800/50">
+                                    <p className="text-green-200 font-semibold">Est. Recovery Range</p>
+                                    <p className="text-gray-300">
+                                      {legalInfo[result.id].damages_breakdown.estimated_recovery_low} - {legalInfo[result.id].damages_breakdown.estimated_recovery_high}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {legalInfo[result.id].damages_breakdown?.attorney_fees_recoverable && (
+                              <p className="text-xs text-green-300 mt-2">✓ Attorney fees may be recoverable</p>
+                            )}
+                          </div>
+
+                          {/* Class Action */}
                           {legalInfo[result.id].existing_class_action && (
                             <div className="p-3 rounded bg-purple-500/10 border border-purple-500/30">
                               <p className="text-purple-300 font-semibold mb-1">⚖️ Class Action Available</p>
-                              <p className="text-xs">{legalInfo[result.id].class_action_details}</p>
+                              <p className="text-xs text-gray-300">{legalInfo[result.id].class_action_details}</p>
+                              {legalInfo[result.id].class_action_how_to_join && (
+                                <div className="mt-2 p-2 rounded bg-purple-600/20">
+                                  <p className="text-xs text-purple-200 font-semibold">How to Join:</p>
+                                  <p className="text-xs text-gray-300">{legalInfo[result.id].class_action_how_to_join}</p>
+                                </div>
+                              )}
                             </div>
                           )}
 
-                          <div className="p-3 rounded bg-green-500/10 border border-green-500/30">
-                            <p className="text-green-300 font-semibold mb-1">👨‍⚖️ Attorney</p>
-                            <p className="text-xs"><strong>Name:</strong> {legalInfo[result.id].attorney_name}</p>
-                            <p className="text-xs"><strong>Firm:</strong> {legalInfo[result.id].attorney_firm}</p>
-                            {legalInfo[result.id].attorney_location && (
-                              <p className="text-xs"><strong>Location:</strong> {legalInfo[result.id].attorney_location}</p>
-                            )}
-                            <p className="text-xs"><strong>Phone:</strong> <a href={`tel:${legalInfo[result.id].attorney_phone}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_phone}</a></p>
-                            <p className="text-xs"><strong>Email:</strong> <a href={`mailto:${legalInfo[result.id].attorney_email}`} className="text-blue-400 hover:underline">{legalInfo[result.id].attorney_email}</a></p>
+                          {/* Primary Attorney */}
+                          <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
+                            <p className="text-blue-300 font-semibold mb-2">👨‍⚖️ Recommended Attorney</p>
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-white">
+                                {legalInfo[result.id].attorney_name}
+                                {legalInfo[result.id].attorney_credentials && (
+                                  <span className="text-blue-300 text-xs ml-2">{legalInfo[result.id].attorney_credentials}</span>
+                                )}
+                              </p>
+                              <p className="text-xs"><strong>Firm:</strong> {legalInfo[result.id].attorney_firm}</p>
+                              {legalInfo[result.id].attorney_location && (
+                                <p className="text-xs"><strong>Location:</strong> {legalInfo[result.id].attorney_location}</p>
+                              )}
+                              <p className="text-xs">
+                                <strong>Phone:</strong>{' '}
+                                <a href={`tel:${legalInfo[result.id].attorney_phone}`} className="text-blue-400 hover:underline">
+                                  {legalInfo[result.id].attorney_phone}
+                                </a>
+                              </p>
+                              <p className="text-xs">
+                                <strong>Email:</strong>{' '}
+                                <a href={`mailto:${legalInfo[result.id].attorney_email}`} className="text-blue-400 hover:underline">
+                                  {legalInfo[result.id].attorney_email}
+                                </a>
+                              </p>
+                              {legalInfo[result.id].attorney_experience && (
+                                <p className="text-xs mt-1 text-blue-200"><strong>Experience:</strong> {legalInfo[result.id].attorney_experience}</p>
+                              )}
+                            </div>
                           </div>
 
-                          <p><strong>Legal Basis:</strong> {legalInfo[result.id].legal_basis}</p>
-                          <p><strong>Potential Damages:</strong> {legalInfo[result.id].potential_damages}</p>
-                          
+                          {/* Alternative Attorneys */}
+                          {legalInfo[result.id].alternative_attorneys && legalInfo[result.id].alternative_attorneys.length > 0 && (
+                            <div className="p-3 rounded bg-slate-700/30 border border-slate-500/30">
+                              <p className="text-slate-300 font-semibold mb-2">📋 Alternative Attorneys</p>
+                              <div className="space-y-2">
+                                {legalInfo[result.id].alternative_attorneys.map((alt, idx) => (
+                                  <div key={idx} className="text-xs p-2 rounded bg-slate-800/50">
+                                    <p className="font-semibold text-white">{alt.name}</p>
+                                    <p className="text-gray-400">{alt.firm} • {alt.location}</p>
+                                    <div className="flex gap-3 mt-1">
+                                      {alt.phone && (
+                                        <a href={`tel:${alt.phone}`} className="text-blue-400 hover:underline">{alt.phone}</a>
+                                      )}
+                                      {alt.email && (
+                                        <a href={`mailto:${alt.email}`} className="text-blue-400 hover:underline">{alt.email}</a>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {legalInfo[result.id].statute_deadline && (
                             <div className="p-3 rounded bg-red-500/10 border border-red-500/30">
                               <p className="text-red-300 text-xs">
@@ -796,12 +994,12 @@ IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or sa
                           )}
 
                           {legalInfo[result.id].legally_required_steps && legalInfo[result.id].legally_required_steps.length > 0 && (
-                            <div className="p-3 rounded bg-blue-500/10 border border-blue-500/30">
-                              <p className="font-semibold text-blue-300 mb-2">⚠️ Legally Required Steps</p>
+                            <div className="p-3 rounded bg-indigo-500/10 border border-indigo-500/30">
+                              <p className="font-semibold text-indigo-300 mb-2">⚠️ Legally Required Steps</p>
                               <div className="space-y-3">
                                 {legalInfo[result.id].legally_required_steps.map((step, idx) => (
-                                  <div key={idx} className="border-l-2 border-blue-400 pl-3">
-                                    <p className="text-xs font-semibold text-blue-200">{idx + 1}. {step.step_title || step}</p>
+                                  <div key={idx} className="border-l-2 border-indigo-400 pl-3">
+                                    <p className="text-xs font-semibold text-indigo-200">{idx + 1}. {step.step_title || step}</p>
                                     {step.explanation && (
                                       <p className="text-xs text-gray-300 mt-1"><strong>What this means:</strong> {step.explanation}</p>
                                     )}

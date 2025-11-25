@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -69,198 +69,128 @@ export default function ImpersonationFindings({ findings, profileId }) {
                 <span className="text-2xl">{PLATFORM_ICONS[finding.platform]}</span>
                 <div>
                   <CardTitle className="text-white text-lg flex items-center gap-2">
-                    @{finding.suspicious_username}
+                    Suspicious Profile Found
                     {getStatusIcon(finding.status)}
                   </CardTitle>
-                  <p className="text-xs text-purple-400 capitalize">{finding.platform}</p>
+                  <p className="text-sm text-purple-400 capitalize">{finding.platform}</p>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <Badge className={getSeverityColor(finding.severity)}>
-                  {finding.severity.toUpperCase()}
-                </Badge>
-                <span className="text-xs text-purple-400">
-                  {finding.similarity_score}% match
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 space-y-3">
-            {/* Photo Comparison - Only show if there are actual photos */}
-            {(finding.your_profile_photo || finding.suspicious_profile_photo || (finding.matching_photos && finding.matching_photos.length > 0)) && (
-              <div className="p-3 rounded bg-slate-700/50 border border-amber-500/30">
-                <p className="text-sm font-semibold text-white mb-3">📸 Photo Comparison</p>
-                
-                {(finding.your_profile_photo || finding.suspicious_profile_photo) && (
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    {finding.your_profile_photo && (
-                      <div className="text-center">
-                        <p className="text-xs text-green-400 mb-2 font-semibold">Your Photo</p>
-                        <img 
-                          src={finding.your_profile_photo} 
-                          alt="Your profile" 
-                          className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-green-500"
-                        />
-                      </div>
-                    )}
-                    {finding.suspicious_profile_photo && (
-                      <div className="text-center">
-                        <p className="text-xs text-red-400 mb-2 font-semibold">Suspicious Profile</p>
-                        <img 
-                          src={finding.suspicious_profile_photo} 
-                          alt="Suspicious profile" 
-                          className="w-24 h-24 rounded-full mx-auto object-cover border-2 border-red-500"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {finding.photo_similarity_score !== undefined && finding.photo_similarity_score > 0 && (
-                  <div className="text-center mb-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      finding.photo_similarity_score >= 80 ? 'bg-red-600/30 text-red-300' :
-                      finding.photo_similarity_score >= 50 ? 'bg-amber-600/30 text-amber-300' :
-                      'bg-green-600/30 text-green-300'
-                    }`}>
-                      {finding.photo_similarity_score}% Photo Match
-                    </span>
-                  </div>
-                )}
-
-                {finding.matching_photos && finding.matching_photos.length > 0 && (
-                  <div>
-                    <p className="text-xs text-amber-300 mb-2 font-semibold">Matching Photos Found ({finding.matching_photos.length})</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {finding.matching_photos.map((photoUrl, idx) => (
-                        <a 
-                          key={idx} 
-                          href={photoUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          <img 
-                            src={photoUrl} 
-                            alt={`Matching photo ${idx + 1}`} 
-                            className="w-full h-20 object-cover rounded border border-amber-500/50 hover:border-amber-400 transition-colors"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Common Friends Section */}
-            {finding.common_friends && finding.common_friends.length > 0 && (
-              <div className="p-3 rounded bg-slate-700/50 border border-purple-500/30">
-                <p className="text-sm font-semibold text-white mb-3">👥 Common Friends ({finding.common_friends.length})</p>
-                <p className="text-xs text-purple-300 mb-2">These connections may help identify the impersonator</p>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {finding.common_friends.map((friend, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
-                      <div>
-                        <p className="text-sm text-white font-medium">{friend.name}</p>
-                        {friend.username && (
-                          <p className="text-xs text-purple-400">@{friend.username}</p>
-                        )}
-                      </div>
-                      {friend.profile_url && (
-                        <a 
-                          href={friend.profile_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
-                        >
-                          View Profile
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-sm font-semibold text-white mb-1">Finding Type</p>
-              <Badge className="bg-purple-500/20 text-purple-300">
-                {finding.finding_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              <Badge className={getSeverityColor(finding.severity)}>
+                {finding.severity?.toUpperCase() || 'UNKNOWN'}
               </Badge>
             </div>
+          </CardHeader>
 
-            <div>
-              <p className="text-sm font-semibold text-white mb-1">Evidence</p>
-              <p className="text-sm text-purple-300">{finding.evidence}</p>
+          <CardContent className="p-4 space-y-4">
+            {/* WHY THIS WAS FLAGGED */}
+            <div className="p-4 rounded-lg bg-amber-900/30 border border-amber-500/40">
+              <div className="flex items-start gap-2 mb-2">
+                <Flag className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-amber-300 font-semibold">Why This Was Flagged</p>
+                  <p className="text-sm text-amber-100 mt-1">{finding.evidence || 'Profile matches identifiers in your vault'}</p>
+                </div>
+              </div>
+              {finding.similarity_score && (
+                <p className="text-xs text-amber-200 mt-2">
+                  Match confidence: <span className="font-bold">{finding.similarity_score}%</span>
+                </p>
+              )}
             </div>
 
-            {finding.misused_data && finding.misused_data.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-white mb-1">Misused Data</p>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {finding.misused_data.map((data, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-200 border-red-500/40">
-                      {data}
-                    </Badge>
-                  ))}
-                </div>
-                
-                {/* Show actual misused content from the impersonating profile */}
+            {/* THE SUSPICIOUS PROFILE DATA */}
+            <div className="p-4 rounded-lg bg-red-900/20 border border-red-500/30">
+              <p className="text-red-300 font-semibold mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Suspicious Profile Content
+              </p>
+              
+              <div className="space-y-3">
+                {/* Username */}
+                {finding.suspicious_username && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-400 text-sm w-24 flex-shrink-0">Username:</span>
+                    <span className="text-white font-medium">@{finding.suspicious_username}</span>
+                  </div>
+                )}
+
+                {/* Profile URL */}
+                {finding.suspicious_profile_url && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-400 text-sm w-24 flex-shrink-0">Profile URL:</span>
+                    <a 
+                      href={finding.suspicious_profile_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 hover:underline break-all text-sm"
+                    >
+                      {finding.suspicious_profile_url}
+                    </a>
+                  </div>
+                )}
+
+                {/* Profile Photo */}
+                {finding.suspicious_profile_photo && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-400 text-sm w-24 flex-shrink-0">Profile Photo:</span>
+                    <a href={finding.suspicious_profile_photo} target="_blank" rel="noopener noreferrer">
+                      <img 
+                        src={finding.suspicious_profile_photo} 
+                        alt="Suspicious profile" 
+                        className="w-20 h-20 rounded object-cover border border-red-500/50 hover:border-red-400"
+                      />
+                    </a>
+                  </div>
+                )}
+
+                {/* Detailed profile content from misused_data_details */}
                 {finding.misused_data_details && (
-                  <div className="mt-3 p-3 rounded bg-red-900/20 border border-red-500/30 space-y-2">
-                    <p className="text-xs text-red-300 font-semibold mb-2">📋 Content on Fake Profile:</p>
-                    
+                  <>
                     {finding.misused_data_details.full_name && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Name: </span>
-                        <span className="text-white font-medium">"{finding.misused_data_details.full_name}"</span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Name Used:</span>
+                        <span className="text-white">"{finding.misused_data_details.full_name}"</span>
                       </div>
                     )}
                     
                     {finding.misused_data_details.bio && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Bio: </span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Bio:</span>
                         <span className="text-white italic">"{finding.misused_data_details.bio}"</span>
                       </div>
                     )}
                     
                     {finding.misused_data_details.location && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Location: </span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Location:</span>
                         <span className="text-white">{finding.misused_data_details.location}</span>
                       </div>
                     )}
                     
                     {finding.misused_data_details.workplace && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Workplace: </span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Workplace:</span>
                         <span className="text-white">{finding.misused_data_details.workplace}</span>
                       </div>
                     )}
                     
                     {finding.misused_data_details.education && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Education: </span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Education:</span>
                         <span className="text-white">{finding.misused_data_details.education}</span>
                       </div>
                     )}
-                    
+
                     {finding.misused_data_details.photos && finding.misused_data_details.photos.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-400 mb-2">Misused Photos ({finding.misused_data_details.photos.length}):</p>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Photos:</span>
                         <div className="grid grid-cols-4 gap-2">
                           {finding.misused_data_details.photos.map((photoUrl, idx) => (
-                            <a 
-                              key={idx} 
-                              href={photoUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                            >
+                            <a key={idx} href={photoUrl} target="_blank" rel="noopener noreferrer">
                               <img 
                                 src={photoUrl} 
-                                alt={`Misused photo ${idx + 1}`} 
-                                className="w-full h-16 object-cover rounded border border-red-500/50 hover:border-red-400"
+                                alt={`Photo ${idx + 1}`} 
+                                className="w-16 h-16 object-cover rounded border border-red-500/50 hover:border-red-400"
                               />
                             </a>
                           ))}
@@ -269,38 +199,55 @@ export default function ImpersonationFindings({ findings, profileId }) {
                     )}
                     
                     {finding.misused_data_details.other && (
-                      <div className="text-sm">
-                        <span className="text-gray-400">Other: </span>
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-400 text-sm w-24 flex-shrink-0">Other Info:</span>
                         <span className="text-white">{finding.misused_data_details.other}</span>
                       </div>
                     )}
+                  </>
+                )}
+
+                {/* Data types that were matched */}
+                {finding.misused_data && finding.misused_data.length > 0 && (
+                  <div className="flex items-start gap-2 mt-2 pt-2 border-t border-red-500/20">
+                    <span className="text-gray-400 text-sm w-24 flex-shrink-0">Matched:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {finding.misused_data.map((data, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-200 border-red-500/40">
+                          {data}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Profile URL for verification */}
-            {finding.suspicious_profile_url && (
-              <div className="p-3 rounded bg-slate-700/50 border border-slate-500/30">
-                <p className="text-sm font-semibold text-white mb-1">🔗 Profile URL (for verification)</p>
-                <a 
-                  href={finding.suspicious_profile_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline break-all"
-                >
-                  {finding.suspicious_profile_url}
-                </a>
-                {finding.suspicious_username && (
-                  <p className="text-xs text-gray-300 mt-1">
-                    <strong>Username:</strong> @{finding.suspicious_username}
-                  </p>
-                )}
+            {/* Common Friends - if any real connections found */}
+            {finding.common_friends && finding.common_friends.length > 0 && finding.common_friends[0].name !== '[Friend\'s Name]' && (
+              <div className="p-3 rounded bg-slate-700/50 border border-purple-500/30">
+                <p className="text-sm font-semibold text-white mb-2">👥 Common Connections ({finding.common_friends.length})</p>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {finding.common_friends.map((friend, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
+                      <div>
+                        <p className="text-sm text-white">{friend.name}</p>
+                        {friend.username && <p className="text-xs text-purple-400">@{friend.username}</p>}
+                      </div>
+                      {friend.profile_url && (
+                        <a href={friend.profile_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                          View
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
+            {/* Recommended Actions */}
             {finding.ai_recommendations && finding.ai_recommendations.length > 0 && (
-              <div>
+              <div className="p-3 rounded bg-slate-700/50">
                 <p className="text-sm font-semibold text-white mb-2">Recommended Actions</p>
                 <ul className="space-y-1">
                   {finding.ai_recommendations.map((rec, idx) => (
@@ -313,13 +260,14 @@ export default function ImpersonationFindings({ findings, profileId }) {
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-2 border-t border-purple-500/20">
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-3 border-t border-red-500/20">
               {finding.suspicious_profile_url && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => window.open(finding.suspicious_profile_url, '_blank')}
-                  className="border-purple-500/50 text-purple-300"
+                  className="border-blue-500/50 text-blue-300"
                 >
                   <ExternalLink className="w-3 h-3 mr-2" />
                   View Profile
@@ -332,7 +280,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
                     variant="outline"
                     size="sm"
                     onClick={() => updateStatusMutation.mutate({ id: finding.id, status: 'reported' })}
-                    className="border-blue-500/50 text-blue-300"
+                    className="border-amber-500/50 text-amber-300"
                   >
                     Mark Reported
                   </Button>
@@ -342,7 +290,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
                     onClick={() => updateStatusMutation.mutate({ id: finding.id, status: 'false_positive' })}
                     className="border-gray-500/50 text-gray-300"
                   >
-                    False Positive
+                    Not Me
                   </Button>
                 </>
               )}
@@ -359,9 +307,10 @@ export default function ImpersonationFindings({ findings, profileId }) {
               )}
             </div>
 
-            <p className="text-xs text-purple-400">
-              Detected: {new Date(finding.detected_date).toLocaleDateString()}
-            </p>
+            <div className="flex items-center justify-between text-xs text-purple-400">
+              <span>Type: {finding.finding_type?.replace(/_/g, ' ')}</span>
+              <span>Detected: {new Date(finding.detected_date).toLocaleDateString()}</span>
+            </div>
           </CardContent>
         </Card>
       ))}

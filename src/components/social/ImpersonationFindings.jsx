@@ -198,13 +198,84 @@ export default function ImpersonationFindings({ findings, profileId }) {
             {finding.misused_data && finding.misused_data.length > 0 && (
               <div>
                 <p className="text-sm font-semibold text-white mb-1">Misused Data</p>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-2">
                   {finding.misused_data.map((data, idx) => (
                     <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-200 border-red-500/40">
                       {data}
                     </Badge>
                   ))}
                 </div>
+                
+                {/* Show actual misused content from the impersonating profile */}
+                {finding.misused_data_details && (
+                  <div className="mt-3 p-3 rounded bg-red-900/20 border border-red-500/30 space-y-2">
+                    <p className="text-xs text-red-300 font-semibold mb-2">📋 Content on Fake Profile:</p>
+                    
+                    {finding.misused_data_details.full_name && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Name: </span>
+                        <span className="text-white font-medium">"{finding.misused_data_details.full_name}"</span>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.bio && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Bio: </span>
+                        <span className="text-white italic">"{finding.misused_data_details.bio}"</span>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.location && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Location: </span>
+                        <span className="text-white">{finding.misused_data_details.location}</span>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.workplace && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Workplace: </span>
+                        <span className="text-white">{finding.misused_data_details.workplace}</span>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.education && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Education: </span>
+                        <span className="text-white">{finding.misused_data_details.education}</span>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.photos && finding.misused_data_details.photos.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-400 mb-2">Misused Photos ({finding.misused_data_details.photos.length}):</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {finding.misused_data_details.photos.map((photoUrl, idx) => (
+                            <a 
+                              key={idx} 
+                              href={photoUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                            >
+                              <img 
+                                src={photoUrl} 
+                                alt={`Misused photo ${idx + 1}`} 
+                                className="w-full h-16 object-cover rounded border border-red-500/50 hover:border-red-400"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {finding.misused_data_details.other && (
+                      <div className="text-sm">
+                        <span className="text-gray-400">Other: </span>
+                        <span className="text-white">{finding.misused_data_details.other}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

@@ -126,110 +126,72 @@ This report is generated automatically by the Incognito system based on data sup
 
     // ATTORNEY BRIEFING PACKET
     const attorneyPacket = `
-================================================================================
-ATTORNEY BRIEFING PACKET – ONLINE IMPERSONATION / IDENTITY MISUSE
-================================================================================
+ATTORNEY BRIEFING PACKET – SUSPECTED ONLINE IMPERSONATION / IDENTITY MISUSE
 Generated: ${now}
-Matter Reference: INC-${finding.id.slice(0, 8).toUpperCase()}
-PRIVILEGED AND CONFIDENTIAL - ATTORNEY WORK PRODUCT
 
---------------------------------------------------------------------------------
-1. CLIENT INFORMATION
---------------------------------------------------------------------------------
-Client Name: ${safe(myName)}
-Contact Email(s): ${list(myEmails)}
-Contact Phone(s): ${list(myPhones)}
-Location: ${list(myAddresses)}
+1. Client Information
+- Name: ${safe(myName)}
+- Address (city/state): ${list(myAddresses)}
+- Preferred contact: ${list(myEmails)}
+- Known online presence (owned accounts): ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
+- Any prior incidents of impersonation: none reported
 
-Legitimate Social Media Presence:
-${myProfiles.map(p => `- ${p.platform}: @${p.username} (${p.profile_url || 'URL not recorded'})`).join('\n') || '- [No profiles registered]'}
+2. Facts in Brief (Chronological Summary)
+- Date client created legitimate account(s): [not available]
+- Date client first learned of impersonating account: ${safe(finding.detected_date || finding.created_date)}
+- How client learned of impersonation: Automated detection via Incognito Privacy Guardian
+- Whether client has any personal relationship with suspected operator: unknown
 
---------------------------------------------------------------------------------
-2. INCIDENT SUMMARY
---------------------------------------------------------------------------------
-An account on ${finding.platform} has been identified using client's personal 
-information without authorization. Detection confidence: ${finding.similarity_score || 'N/A'}%.
+3. Impersonating Account Details
+- Platform: ${safe(finding.platform)}
+- URL: ${safe(finding.suspicious_profile_url)}
+- Username / Handle: @${safe(finding.suspicious_username)}
+- Display Name: ${safe(finding.misused_data_details?.full_name)}
+- Bio text: ${safe(finding.misused_data_details?.bio)}
+- Contact info on profile: [not available]
+- Evidence of use of client's photos or likeness: ${finding.matching_photos?.length ? `${finding.matching_photos.length} photo(s) matched` : finding.suspicious_profile_photo ? 'Profile photo detected' : '[not available]'}
+- Evidence of use of client's biographical info (work, education, church, etc.): ${safe(finding.misused_data_details?.workplace || finding.misused_data_details?.education ? 'Yes - see matched identifiers' : '[not available]')}
 
-Impersonating Account Details:
-- Platform: ${finding.platform}
-- Username: @${finding.suspicious_username}
-- URL: ${finding.suspicious_profile_url || '[not captured]'}
-- First Detected: ${finding.detected_date || finding.created_date}
-
---------------------------------------------------------------------------------
-3. EVIDENCE OF MISAPPROPRIATION
---------------------------------------------------------------------------------
-The following client data appears on the unauthorized account:
+4. Exact Matches to Client Identifiers (for pleading / exhibits)
+From automated comparison:
 
 ${matchedLines}
 
-Supporting Evidence:
-${safe(finding.evidence)}
+5. Harm and Damages (Client-Reported)
+[Attorney: confirm and expand]
+- Emotional distress (anxiety, reputational harm, time spent responding): [to be documented]
+- Lost opportunities (jobs, contracts, ministry, etc.): [to be documented]
+- Out-of-pocket costs (identity monitoring, credit freezes, travel, etc.): [to be documented]
+- Any fraudulent accounts opened or charges made in client's name: [to be documented]
+- Time lost from work to deal with incident (hours): [to be documented]
 
---------------------------------------------------------------------------------
-4. POTENTIAL LEGAL THEORIES
---------------------------------------------------------------------------------
-Based on the facts presented, the following causes of action may be available:
+6. Potential Legal Theories to Evaluate (for Tennessee / federal counsel)
+[This is a checklist for your attorney to consider; not a legal conclusion.]
 
-A. FEDERAL CLAIMS:
-   - Lanham Act § 43(a) (15 U.S.C. § 1125(a)) - False designation of origin
-   - Computer Fraud and Abuse Act (18 U.S.C. § 1030) - If unauthorized access involved
-   - CAN-SPAM Act - If commercial emails sent using client's identity
+- State identity theft / identity fraud statute(s)
+- Civil remedies under Tennessee identity theft victim provisions
+- Tort claims: defamation, false light, invasion of privacy, intentional infliction of emotional distress
+- Misappropriation of name or likeness for commercial or fraudulent purposes
+- Possible federal claims if interstate or financial fraud is involved
+- Platform contract / ToS issues and any relevant statutory notice requirements
 
-B. STATE CLAIMS (jurisdiction dependent):
-   - Right of Publicity / Misappropriation of Likeness
-   - False Light Invasion of Privacy
-   - Intentional Infliction of Emotional Distress
-   - Fraud / Fraudulent Misrepresentation
-   - Unfair Competition
-   - Identity Theft (criminal referral)
+7. Evidence Inventory (available from Incognito)
+- Screenshots: [recommend capturing immediately]
+- Raw HTML / JSON capture: [not available]
+- Hashes for evidentiary integrity: see law_enforcement packet section 4
+- Log of when client accessed and viewed the impersonating account: [not available]
 
-C. PLATFORM TERMS OF SERVICE:
-   - Violation of ${finding.platform} Terms of Service
-   - DMCA takedown for copyrighted photos
+8. Requested Relief (to be refined by counsel)
+[Client draft – for attorney to revise]
+- Immediate takedown / preservation of platform data
+- Criminal investigation of impersonating party if identity theft or fraud is supported
+- Injunction preventing further impersonation and ordering deletion of data
+- Monetary damages for financial loss, emotional distress, and costs of mitigation
+- Attorney's fees and costs as permitted by statute
 
---------------------------------------------------------------------------------
-5. DAMAGES ASSESSMENT
---------------------------------------------------------------------------------
-Potential damages categories to investigate:
-
-□ Actual Damages:
-  - Lost business opportunities
-  - Cost of remediation efforts
-  - Credit monitoring expenses
-  - Professional reputation damage
-
-□ Statutory Damages:
-  - State identity theft statutes (varies by jurisdiction)
-  - Right of publicity statutes
-
-□ Punitive Damages:
-  - If willful and malicious conduct can be proven
-
-□ Injunctive Relief:
-  - Immediate takedown of impersonating account
-  - Prohibition on future use of client's identity
-
---------------------------------------------------------------------------------
-6. RECOMMENDED NEXT STEPS
---------------------------------------------------------------------------------
-1. Preserve all evidence (screenshots, archives, communications)
-2. Send cease and desist to identifiable parties
-3. File DMCA takedown for any copyrighted materials
-4. Subpoena platform for account holder information
-5. Consider emergency TRO if ongoing harm
-6. Evaluate jurisdiction for filing
-
---------------------------------------------------------------------------------
-7. PLATFORM-SPECIFIC REMEDIES
---------------------------------------------------------------------------------
+9. Platform-Specific Remedies
 ${finding.platform?.toUpperCase()} IMPERSONATION REPORT:
 ${getPlatformReportInfo(finding.platform)}
-
-================================================================================
-DISCLAIMER: This packet is generated for informational purposes. Attorney should
-independently verify all facts and assess applicable law in relevant jurisdiction.
-================================================================================
 `.trim();
 
     return Response.json({

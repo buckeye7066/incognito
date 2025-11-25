@@ -55,115 +55,50 @@ export default function Scans() {
 
   const runScan = async () => {
     setScanning(true);
-    setScanProgress({ current: 0, total: personalData.filter(p => p.monitoring_enabled).length });
+    
+    // Get emails from personal data for HIBP check
+    const emails = personalData.filter(p => p.monitoring_enabled && p.data_type === 'email');
+    const totalSteps = emails.length;
+    
+    setScanProgress({ current: 0, total: totalSteps });
 
-    const monitoredData = personalData.filter(p => p.monitoring_enabled);
-
-    for (let i = 0; i < monitoredData.length; i++) {
-      const data = monitoredData[i];
-      setScanProgress({ current: i + 1, total: monitoredData.length, scanning: data.value });
+    for (let i = 0; i < emails.length; i++) {
+      const emailData = emails[i];
+      setScanProgress({ current: i + 1, total: totalSteps, scanning: emailData.value });
 
       try {
-        // Comprehensive multi-source scan
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt: `You are searching for a SPECIFIC piece of personal data. ONLY report findings where you can CONFIRM this EXACT value appears.
-
-MY SPECIFIC DATA TO FIND:
-Type: ${data.data_type}
-EXACT Value: "${data.value}"
-
-CRITICAL MATCHING RULES:
-- ONLY return found=true if you can VERIFY my EXACT value "${data.value}" appears in a breach or database
-- Do NOT return generic breaches that "might" contain my data
-- Do NOT assume my data is in a breach just because the breach "contains emails" or "contains names"
-- You need EVIDENCE that my SPECIFIC value "${data.value}" is exposed
-- If you cannot confirm my exact value is present, return found=false
-
-SEARCH THESE SOURCES for my exact data:
-1. Have I Been Pwned - search for exact email/username
-2. Known breaches - only if my exact value is confirmed present
-3. People finder sites - only if they show my exact information
-4. Public records - only with confirmed matches
-
-Respond with:
-- found: true ONLY if you have confirmed my exact value "${data.value}" is in a specific source
-- sources: array of CONFIRMED sources (not hypothetical ones)
-- risk_score: 0-100
-- details: explanation of how you confirmed my data is present
-
-REMEMBER: Generic breaches do NOT count unless you confirm MY specific value is in them.`,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: 'object',
-            properties: {
-              found: { type: 'boolean' },
-              sources: { 
-                type: 'array', 
-                items: { 
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string' },
-                    type: { type: 'string' },
-                    data_exposed: { type: 'array', items: { type: 'string' } },
-                    last_updated: { type: 'string' }
-                  }
-                }
-              },
-              risk_score: { type: 'number' },
-              details: { type: 'string' },
-              osint_findings: { type: 'array', items: { type: 'string' } }
-            }
-          }
-        });
-
-        // STRICT VALIDATION: Only create results if we have REAL confirmed evidence
-        // The LLM cannot actually access breach databases, so we must be very skeptical
-        if (result.found && result.sources?.length > 0 && result.details) {
-          // Check if the details actually mention our specific value
-          const valueInDetails = result.details.toLowerCase().includes(data.value.toLowerCase());
-          const hasSpecificEvidence = result.details.length > 50 && 
-            !result.details.includes('might') && 
-            !result.details.includes('may have') &&
-            !result.details.includes('possibly') &&
-            !result.details.includes('could be') &&
-            !result.details.includes('likely');
-          
-          // Only proceed if we have real evidence mentioning our actual data
-          if (valueInDetails && hasSpecificEvidence) {
-            for (const sourceObj of result.sources) {
-              const sourceName = typeof sourceObj === 'string' ? sourceObj : sourceObj.name;
-              const sourceType = sourceObj.type || 'other';
-              const dataExposed = sourceObj.data_exposed || [data.data_type];
-              
-              const sourceTypeEnum = ['breach_database', 'people_finder', 'public_record', 'data_broker'].includes(sourceType) 
-                ? sourceType 
-                : 'other';
-              
-              await createResultMutation.mutateAsync({
-                profile_id: activeProfileId,
-                personal_data_id: data.id,
-                source_name: sourceName,
-                source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + sourceName)}`,
-                source_type: sourceTypeEnum,
-                risk_score: result.risk_score || 50,
-                data_exposed: dataExposed,
-                status: 'new',
-                scan_date: new Date().toISOString().split('T')[0],
-                metadata: { 
-                  details: result.details,
-                  last_updated: sourceObj.last_updated,
-                  osint_findings: result.osint_findings,
-                  scan_type: 'comprehensive'
-                }
-              });
-            }
+        // Call REAL Have I Been Pwned API
+        const response = await base44.functions.invoke('checkHIBP', { email: emailData.value });
+        
+        if (response.data.found && response.data.breaches?.length > 0) {
+          // Create scan results for REAL breaches
+          for (const breach of response.data.breaches) {
+            await createResultMutation.mutateAsync({
+              profile_id: activeProfileId,
+              personal_data_id: emailData.id,
+              source_name: breach.title || breach.name,
+              source_url: breach.domain ? `https://${breach.domain}` : 'https://haveibeenpwned.com',
+              source_type: 'breach_database',
+              risk_score: breach.isSensitive ? 90 : (breach.dataClasses?.length > 5 ? 80 : 60),
+              data_exposed: breach.dataClasses || ['email'],
+              breach_date: breach.breachDate,
+              status: 'new',
+              scan_date: new Date().toISOString().split('T')[0],
+              metadata: { 
+                details: breach.description,
+                pwnCount: breach.pwnCount,
+                isVerified: breach.isVerified,
+                logoPath: breach.logoPath,
+                scan_type: 'hibp_verified'
+              }
+            });
           }
         }
       } catch (error) {
-        console.error('Scan error:', error);
+        console.error('HIBP scan error:', error);
       }
 
-      // Simulate delay
+      // Respect HIBP rate limits
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
 

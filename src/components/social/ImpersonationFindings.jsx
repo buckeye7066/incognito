@@ -22,6 +22,50 @@ const PLATFORM_ICONS = {
 
 export default function ImpersonationFindings({ findings, profileId }) {
   const queryClient = useQueryClient();
+  const [generatingEvidence, setGeneratingEvidence] = useState(null);
+  const [evidencePackets, setEvidencePackets] = useState({});
+
+  const generateEvidencePacket = async (finding) => {
+    setGeneratingEvidence(finding.id);
+    try {
+      const response = await base44.functions.invoke('generateEvidencePacket', {
+        findingId: finding.id,
+        profileId
+      });
+      setEvidencePackets(prev => ({
+        ...prev,
+        [finding.id]: response.data
+      }));
+    } catch (error) {
+      alert('Failed to generate evidence packet: ' + error.message);
+    } finally {
+      setGeneratingEvidence(null);
+    }
+  };
+
+  const printPacket = (type, packet) => {
+    const content = type === 'law' ? packet.lawEnforcementPacket : packet.attorneyPacket;
+    const title = type === 'law' ? 'Law Enforcement Evidence Packet' : 'Attorney Briefing Packet';
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title} - ${packet.caseReference}</title>
+        <style>
+          body { font-family: 'Courier New', monospace; margin: 40px; line-height: 1.4; font-size: 12px; }
+          pre { white-space: pre-wrap; word-wrap: break-word; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body><pre>${content}</pre></body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => base44.entities.SocialMediaFinding.update(id, { status }),

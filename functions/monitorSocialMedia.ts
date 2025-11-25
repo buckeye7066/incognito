@@ -42,11 +42,11 @@ Known Social Profiles:
 ${socialProfiles.map(s => `${s.platform}: @${s.username}`).join('\n')}
 
 CRITICAL INSTRUCTIONS:
-1. Search for REAL public posts, profiles, and mentions - DO NOT make up fake usernames like "user123"
-2. Only report findings you can verify exist publicly on the internet
-3. Include REAL usernames, REAL post content snippets, and REAL profile URLs when found
-4. If you cannot find real public data, return empty arrays - do NOT fabricate results
-5. Search data broker sites, people search engines, public records, social media, forums, etc.
+1. Search the web for this person's data appearing on people search sites, data brokers, social media, forums, etc.
+2. Report what you find indexed publicly - include site names, what data appears there, and URLs if available
+3. For social media, report the platforms where this person's info appears publicly
+4. Be thorough - check Spokeo, BeenVerified, WhitePages, TruePeopleSearch, Radaris, etc.
+5. If data appears on a site but you don't have exact URL, still report the finding with the site name
 
 MATCHING RULES:
 - For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
@@ -99,7 +99,7 @@ PLATFORMS & SOURCES TO SEARCH:
 - Professional Sites: LinkedIn profiles, company directories, business listings
 - Other: News articles, blog mentions, review sites
 
-IMPORTANT: Only return REAL findings with actual URLs and real usernames. No placeholders or fake data.
+IMPORTANT: Report all publicly indexed appearances of this person's data. Include site names and as much detail as available. Focus on data broker sites, people search engines, and public records where personal info commonly appears.
 
 For EACH finding, include a "matched_identifiers" field listing which specific data types matched.
 

@@ -92,11 +92,12 @@ SEVERITY CLASSIFICATION:
 
 For each finding, provide DETAILED information including:
 - The actual content being misused (full_name, bio text, photo URLs, location, workplace, education)
+- WHICH SPECIFIC VALUE from the user's vault was matched (e.g., "Uses exact name 'John Smith' from vault")
 - Photo comparison details if applicable
 - Common friends/connections if detectable
 - Specific evidence of impersonation
 
-Return ONLY findings that directly involve THIS USER's identity. Do NOT return generic fake accounts unless they specifically use this user's data.`;
+CRITICAL: Return ONLY findings where you can prove the suspicious profile uses one or more EXACT values from the user's vault listed above. If you're not 100% certain the profile uses the user's specific data, DO NOT include it.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

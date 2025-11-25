@@ -35,15 +35,30 @@ Deno.serve(async (req) => {
     const findings = [];
 
     for (const legitimateProfile of userProfiles) {
-      const prompt = `You are an advanced identity theft and social media threat detection AI. Perform a comprehensive scan for impersonation attempts, data misuse, and stolen content.
+      // Build detailed vault data for matching
+      const vaultValues = {};
+      profileData.forEach(d => {
+        if (!vaultValues[d.data_type]) vaultValues[d.data_type] = [];
+        vaultValues[d.data_type].push(d.value);
+      });
+
+      const prompt = `You are an advanced identity theft and social media threat detection AI. Your job is to find accounts that are using THIS SPECIFIC USER'S data.
 
 USER'S LEGITIMATE PROFILE:
 Platform: ${legitimateProfile.platform}
 Username: @${legitimateProfile.username}
 Profile URL: ${legitimateProfile.profile_url || 'Not provided'}
 
-USER'S PERSONAL DATA TO PROTECT:
-${userDataSummary}
+USER'S EXACT PERSONAL DATA (VAULT) - ONLY REPORT MATCHES TO THESE SPECIFIC VALUES:
+${Object.entries(vaultValues).map(([type, values]) => `- ${type}: ${values.join(', ')}`).join('\n')}
+
+CRITICAL MATCHING RULES:
+1. ONLY report a finding if the suspicious profile contains ONE OR MORE of the EXACT values listed above
+2. A "name match" means the suspicious profile uses the EXACT name from the vault (e.g., if vault has "John Smith", report profiles using "John Smith" or very close variants like "John A. Smith")
+3. An "email match" means the suspicious profile displays or references the EXACT email from the vault
+4. A "phone match" means the suspicious profile displays the EXACT phone number
+5. DO NOT report generic fake accounts - only accounts specifically using THIS USER's data
+6. If you cannot confirm the suspicious profile uses data from the vault above, DO NOT include it
 
 COMPREHENSIVE SCAN REQUIREMENTS:
 

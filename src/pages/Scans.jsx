@@ -116,35 +116,47 @@ REMEMBER: Generic breaches do NOT count unless you confirm MY specific value is 
           }
         });
 
-        if (result.found && result.sources?.length > 0) {
-          // Create scan results for each source found
-          for (const sourceObj of result.sources) {
-            const sourceName = typeof sourceObj === 'string' ? sourceObj : sourceObj.name;
-            const sourceType = sourceObj.type || 'other';
-            const dataExposed = sourceObj.data_exposed || [data.data_type];
-            
-            // Map source type to enum
-            const sourceTypeEnum = ['breach_database', 'people_finder', 'public_record', 'data_broker'].includes(sourceType) 
-              ? sourceType 
-              : 'other';
-            
-            await createResultMutation.mutateAsync({
-              profile_id: activeProfileId,
-              personal_data_id: data.id,
-              source_name: sourceName,
-              source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + sourceName)}`,
-              source_type: sourceTypeEnum,
-              risk_score: result.risk_score || 50,
-              data_exposed: dataExposed,
-              status: 'new',
-              scan_date: new Date().toISOString().split('T')[0],
-              metadata: { 
-                details: result.details,
-                last_updated: sourceObj.last_updated,
-                osint_findings: result.osint_findings,
-                scan_type: 'comprehensive'
-              }
-            });
+        // STRICT VALIDATION: Only create results if we have REAL confirmed evidence
+        // The LLM cannot actually access breach databases, so we must be very skeptical
+        if (result.found && result.sources?.length > 0 && result.details) {
+          // Check if the details actually mention our specific value
+          const valueInDetails = result.details.toLowerCase().includes(data.value.toLowerCase());
+          const hasSpecificEvidence = result.details.length > 50 && 
+            !result.details.includes('might') && 
+            !result.details.includes('may have') &&
+            !result.details.includes('possibly') &&
+            !result.details.includes('could be') &&
+            !result.details.includes('likely');
+          
+          // Only proceed if we have real evidence mentioning our actual data
+          if (valueInDetails && hasSpecificEvidence) {
+            for (const sourceObj of result.sources) {
+              const sourceName = typeof sourceObj === 'string' ? sourceObj : sourceObj.name;
+              const sourceType = sourceObj.type || 'other';
+              const dataExposed = sourceObj.data_exposed || [data.data_type];
+              
+              const sourceTypeEnum = ['breach_database', 'people_finder', 'public_record', 'data_broker'].includes(sourceType) 
+                ? sourceType 
+                : 'other';
+              
+              await createResultMutation.mutateAsync({
+                profile_id: activeProfileId,
+                personal_data_id: data.id,
+                source_name: sourceName,
+                source_url: `https://search.google.com/search?q=${encodeURIComponent(data.value + ' ' + sourceName)}`,
+                source_type: sourceTypeEnum,
+                risk_score: result.risk_score || 50,
+                data_exposed: dataExposed,
+                status: 'new',
+                scan_date: new Date().toISOString().split('T')[0],
+                metadata: { 
+                  details: result.details,
+                  last_updated: sourceObj.last_updated,
+                  osint_findings: result.osint_findings,
+                  scan_type: 'comprehensive'
+                }
+              });
+            }
           }
         }
       } catch (error) {
@@ -221,28 +233,39 @@ DO NOT report generic breach information. Only confirmed exposures of "${data.va
           }
         });
 
+        // STRICT VALIDATION for dark web results too
         if (result.found && result.sources?.length > 0) {
-          // Create dark web scan results
-          for (const source of result.sources) {
-            const breachDetail = result.breach_details?.[source] || 'Data found in breach database';
-            
-            await createResultMutation.mutateAsync({
-              profile_id: activeProfileId,
-              personal_data_id: data.id,
-              source_name: source,
-              source_url: `https://haveibeenpwned.com/`,
-              source_type: 'breach_database',
-              risk_score: result.risk_score || 75,
-              data_exposed: result.compromised_data || [data.data_type],
-              status: 'new',
-              scan_date: new Date().toISOString().split('T')[0],
-              metadata: {
-                details: breachDetail,
-                scan_type: 'dark_web',
-                recommendations: result.recommendations || [],
-                compromised_data: result.compromised_data || []
-              }
-            });
+          // Get the breach details text
+          const detailsText = JSON.stringify(result.breach_details || '').toLowerCase();
+          const valueInDetails = detailsText.includes(data.value.toLowerCase());
+          const hasSpecificEvidence = detailsText.length > 20 && 
+            !detailsText.includes('might') && 
+            !detailsText.includes('may have') &&
+            !detailsText.includes('possibly');
+          
+          // Only create results if our actual data value is mentioned
+          if (valueInDetails && hasSpecificEvidence) {
+            for (const source of result.sources) {
+              const breachDetail = result.breach_details?.[source] || 'Data found in breach database';
+              
+              await createResultMutation.mutateAsync({
+                profile_id: activeProfileId,
+                personal_data_id: data.id,
+                source_name: source,
+                source_url: `https://haveibeenpwned.com/`,
+                source_type: 'breach_database',
+                risk_score: result.risk_score || 75,
+                data_exposed: result.compromised_data || [data.data_type],
+                status: 'new',
+                scan_date: new Date().toISOString().split('T')[0],
+                metadata: {
+                  details: breachDetail,
+                  scan_type: 'dark_web',
+                  recommendations: result.recommendations || [],
+                  compromised_data: result.compromised_data || []
+                }
+              });
+            }
           }
         }
       } catch (error) {

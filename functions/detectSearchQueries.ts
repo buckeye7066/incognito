@@ -57,14 +57,15 @@ For each detected search query that matches this person's data, provide:
 - geographic_origin: specific location (City, State, Country format)
 - ai_analysis: your analysis of intent and risk
 
-CRITICAL MATCHING RULE: Only report a search query as a positive hit if AT LEAST TWO (2) different identifiers match. For example:
-- ✓ VALID: Query contains full_name + address
-- ✓ VALID: Query contains email + phone
-- ✓ VALID: Query contains full_name + dob
-- ✗ INVALID: Query contains only full_name
-- ✗ INVALID: Query contains only email
+MATCHING RULES:
+- For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
+- For ALL OTHER data types (email, phone, address, SSN, etc.): Only ONE (1) identifier match is sufficient
 
-This prevents false positives from common name searches.
+Examples:
+- ✓ VALID: Query contains user's email address (1 match enough)
+- ✓ VALID: Query contains user's phone number (1 match enough)  
+- ✓ VALID: Query contains full_name + any other identifier (2 matches for name)
+- ✗ INVALID: Query contains only a common name without other identifiers
 
 IMPORTANT: For searcher_identity, try to identify if it's:
 - A known person's name
@@ -73,7 +74,7 @@ IMPORTANT: For searcher_identity, try to identify if it's:
 - A company/organization
 - "Anonymous" if truly untraceable
 
-Return JSON with findings array. Only include real, detected searches with confidence >= 70% AND at least 2 identifiers matched.`;
+Return JSON with findings array. Only include real, detected searches with confidence >= 70%. Remember: name matches require 2+ identifiers, all other data types require only 1.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
@@ -107,10 +108,19 @@ Return JSON with findings array. Only include real, detected searches with confi
 
     const findings = result.findings || [];
     
-    // Filter findings: require at least 2 identifiers matched
-    const validFindings = findings.filter(f => 
-      f.matched_data_types && f.matched_data_types.length >= 2
-    );
+    // Filter: name-only matches require 2+ identifiers, all other types need only 1
+    const isNameOnlyMatch = (types) => {
+      if (!types || types.length === 0) return false;
+      const nameTypes = ['full_name', 'alias', 'name'];
+      return types.every(t => nameTypes.some(nt => t.toLowerCase().includes(nt)));
+    };
+    
+    const validFindings = findings.filter(f => {
+      const types = f.matched_data_types || [];
+      if (types.length === 0) return false;
+      if (isNameOnlyMatch(types)) return types.length >= 2;
+      return true;
+    });
     
     // Create finding records
     for (const finding of validFindings) {
@@ -150,8 +160,8 @@ Return JSON with findings array. Only include real, detected searches with confi
       findingsCount: validFindings.length,
       findings: validFindings,
       message: validFindings.length > 0
-        ? `Detected ${validFindings.length} search quer${validFindings.length === 1 ? 'y' : 'ies'} with 2+ identifier matches`
-        : 'No search queries detected at this time (requires 2+ identifier match)'
+        ? `Detected ${validFindings.length} search quer${validFindings.length === 1 ? 'y' : 'ies'} matching your data`
+        : 'No search queries detected at this time'
     });
 
   } catch (error) {

@@ -391,34 +391,36 @@ IMPORTANT: Provide REAL, RESEARCHED information. Do not leave fields blank or sa
       const allPersonalData = await base44.entities.PersonalData.list();
       const myData = allPersonalData.filter(d => d.profile_id === activeProfileId);
 
-      const prompt = `Analyze this finding and determine:
-      1. Does this finding include MY personal data?
-      2. If yes, what specific data of mine is included?
+      const prompt = `Analyze this data breach finding and determine if it contains MY personal data.
 
-      MY PERSONAL DATA (these are MY actual values):
-      ${myData.map(d => `- ${d.data_type}: ${d.value}`).join('\n')}
+  MY PERSONAL DATA IN VAULT (these are my EXACT values to match against):
+  ${myData.map(d => `- ${d.data_type}: "${d.value}"`).join('\n')}
 
-      FINDING DETAILS:
-      Type: ${finding.type}
-      ${finding.type === 'leak' ? `
-      Source: ${finding.source_name}
-      Exposed Data Types: ${finding.data_exposed?.join(', ') || 'Unknown'}
-      Details: ${finding.metadata?.details || 'None'}
-      ` : `
-      Search Query: ${finding.query_detected}
-      Platform: ${finding.search_platform}
-      Matched Data Types: ${finding.matched_data_types?.join(', ') || 'Unknown'}
-      Searcher: ${finding.searcher_identity || 'Anonymous'}
-      `}
+  BREACH/FINDING DETAILS:
+  Type: ${finding.type}
+  ${finding.type === 'leak' ? `
+  Source: ${finding.source_name}
+  Data Types Exposed: ${finding.data_exposed?.join(', ') || 'Unknown'}
+  Raw Details: ${finding.metadata?.details || 'No additional details'}
+  Source URL: ${finding.source_url || 'Not available'}
+  ` : `
+  Search Query: ${finding.query_detected}
+  Platform: ${finding.search_platform}
+  Matched Data Types: ${finding.matched_data_types?.join(', ') || 'Unknown'}
+  Searcher: ${finding.searcher_identity || 'Anonymous'}
+  `}
 
-      CRITICAL INSTRUCTIONS:
-      - Return includes_me=true if ANY of MY personal data values match what's in the finding, even if just ONE identifier matches
-      - Compare the ACTUAL VALUES in the finding details against MY values
-      - The breach may mix MY data with OTHER PEOPLE'S data - if even one of my values appears, it's a HIT
-      - For my_data_found, return ONLY MY values that actually match in readable format like "SSN: 123-45-6789"
-      - In the explanation, clearly state which values are MINE and note if other data belongs to someone else
+  MATCHING INSTRUCTIONS:
+  1. Compare MY EXACT VALUES from the vault against what's in this breach
+  2. A "hit" means my SPECIFIC value (like my exact email "john@example.com") appears in the breach data
+  3. Just because a breach contains "email addresses" doesn't mean MY email is in it - you need evidence my specific value is there
+  4. If the breach details mention or contain my exact values, that's a match
+  5. If you cannot confirm my specific values are in this breach, includes_me should be false
 
-      Return JSON with: includes_me (boolean - true if ANY of my values match), my_data_found (array of strings with only MY matched values), explanation (string explaining which data is mine and which belongs to others)`;
+  Return JSON with:
+  - includes_me: true ONLY if you can confirm my specific values appear in this breach
+  - my_data_found: array of my matched values in format "type: value" (e.g., "email: john@example.com")
+  - explanation: explain what evidence shows my data is or isn't in this breach`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,

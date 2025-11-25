@@ -304,8 +304,48 @@ export default function ImpersonationFindings({ findings, profileId }) {
               </div>
             )}
 
+            {/* Evidence Packet Display */}
+            {evidencePackets[finding.id] && (
+              <div className="p-4 rounded-lg bg-blue-900/20 border border-blue-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-blue-300 font-semibold flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Evidence Packets Generated
+                  </p>
+                  <span className="text-xs text-blue-400">
+                    Case: {evidencePackets[finding.id].caseReference}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => printPacket('law', evidencePackets[finding.id])}
+                    className="border-blue-500/50 text-blue-300"
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Law Enforcement Packet
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => printPacket('attorney', evidencePackets[finding.id])}
+                    className="border-purple-500/50 text-purple-300"
+                  >
+                    <Scale className="w-4 h-4 mr-2" />
+                    Attorney Briefing
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-gray-400">
+                  Click to print or save as PDF. Contains all matched data and legal theories.
+                </p>
+              </div>
+            )}
+
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-3 border-t border-red-500/20">
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-red-500/20">
               {finding.suspicious_profile_url && (
                 <Button
                   variant="outline"
@@ -317,6 +357,26 @@ export default function ImpersonationFindings({ findings, profileId }) {
                   View Profile
                 </Button>
               )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generateEvidencePacket(finding)}
+                disabled={generatingEvidence === finding.id}
+                className="border-green-500/50 text-green-300"
+              >
+                {generatingEvidence === finding.id ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3 h-3 mr-2" />
+                    Generate Evidence Packet
+                  </>
+                )}
+              </Button>
               
               {finding.status === 'new' && (
                 <>

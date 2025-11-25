@@ -31,6 +31,10 @@ Deno.serve(async (req) => {
     const allSocialProfiles = await base44.entities.SocialMediaProfile.list();
     const myProfiles = allSocialProfiles.filter(p => p.profile_id === (profileId || finding.profile_id));
 
+    // Get profile info
+    const allProfiles = await base44.entities.Profile.list();
+    const profile = allProfiles.find(p => p.id === (profileId || finding.profile_id));
+
     const now = new Date().toISOString();
     const safe = (v) => (!v || v === '' ? '[not available]' : String(v));
     const list = (arr) => Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '[none recorded]';
@@ -41,29 +45,30 @@ Deno.serve(async (req) => {
     const myPhones = myData.filter(d => d.data_type === 'phone').map(d => d.value);
     const myUsernames = myData.filter(d => d.data_type === 'username').map(d => d.value);
     const myAddresses = myData.filter(d => d.data_type === 'address').map(d => d.value);
+    const myEmployer = myData.find(d => d.data_type === 'employer')?.value;
 
     // Build matched fields from finding data
-    const matchedFields = [];
+    const matchedFields = {};
     if (finding.misused_data_details) {
       const details = finding.misused_data_details;
-      if (details.full_name) matchedFields.push(`Name: "${details.full_name}"`);
-      if (details.bio) matchedFields.push(`Bio: "${details.bio}"`);
-      if (details.location) matchedFields.push(`Location: ${details.location}`);
-      if (details.workplace) matchedFields.push(`Workplace: ${details.workplace}`);
-      if (details.education) matchedFields.push(`Education: ${details.education}`);
-      if (details.photos?.length) matchedFields.push(`Photos: ${details.photos.length} image(s) matched`);
+      if (details.full_name) matchedFields.name = details.full_name;
+      if (details.bio) matchedFields.bio = details.bio;
+      if (details.location) matchedFields.location = details.location;
+      if (details.workplace) matchedFields.workplace = details.workplace;
+      if (details.education) matchedFields.education = details.education;
+      if (details.photos?.length) matchedFields.photos = `${details.photos.length} image(s)`;
     }
     if (finding.misused_data?.length) {
       finding.misused_data.forEach(d => {
-        if (!matchedFields.some(m => m.toLowerCase().includes(d.toLowerCase()))) {
-          matchedFields.push(`Data type: ${d}`);
+        if (!matchedFields[d.toLowerCase()]) {
+          matchedFields[d.toLowerCase().replace(/ /g, '_')] = 'matched';
         }
       });
     }
 
-    const matchedLines = matchedFields.length > 0 
-      ? matchedFields.map(f => `- ${f}`).join('\n')
-      : '[no exact matches recorded]';
+    const matchedLines = Object.keys(matchedFields).length > 0 
+      ? Object.entries(matchedFields).map(([field, value]) => `- ${field}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n')
+      : '[no exact matches detected]';
 
     // LAW ENFORCEMENT PACKET
     const lawEnforcementPacket = `

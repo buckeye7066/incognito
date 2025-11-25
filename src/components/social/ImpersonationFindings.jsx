@@ -103,11 +103,31 @@ export default function ImpersonationFindings({ findings, profileId }) {
                 <p className="text-sm font-semibold text-white mb-1">Misused Data</p>
                 <div className="flex flex-wrap gap-1">
                   {finding.misused_data.map((data, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
+                    <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-200 border-red-500/40">
                       {data}
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Profile URL for verification */}
+            {finding.suspicious_profile_url && (
+              <div className="p-3 rounded bg-slate-700/50 border border-slate-500/30">
+                <p className="text-sm font-semibold text-white mb-1">🔗 Profile URL (for verification)</p>
+                <a 
+                  href={finding.suspicious_profile_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline break-all"
+                >
+                  {finding.suspicious_profile_url}
+                </a>
+                {finding.suspicious_username && (
+                  <p className="text-xs text-gray-300 mt-1">
+                    <strong>Username:</strong> @{finding.suspicious_username}
+                  </p>
+                )}
               </div>
             )}
 

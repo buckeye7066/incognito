@@ -32,16 +32,20 @@ Deno.serve(async (req) => {
       value: d.value
     }));
 
-    const prompt = `You are a search query monitoring AI. Analyze the web and social media for recent search queries related to this person's data:
+    const prompt = `You are a data exposure detection AI. Search for where this person's information appears PUBLICLY INDEXED on the internet:
 
-Personal Data to Monitor:
+Personal Data to Search For:
 ${searchableData.map(d => `${d.type}: ${d.value}`).join('\n')}
 
-Search across these platforms:
-1. Google search trends and queries
-2. Social media platforms (Facebook, Twitter, Instagram, LinkedIn, TikTok, Reddit)
-3. People search engines
-4. Public records searches
+SEARCH THESE SOURCES FOR PUBLIC EXPOSURES:
+1. People Search Sites: Spokeo, BeenVerified, WhitePages, TruePeopleSearch, FastPeopleSearch, Radaris, Intelius, PeopleFinder
+2. Data Broker Sites: Acxiom, LexisNexis, Experian (public records)
+3. Social Media: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit profiles
+4. Public Records: Court records, property records, voter registration, business filings
+5. Professional Sites: LinkedIn, company directories, business listings
+6. Other: News articles, forum posts, review sites, comment sections
+
+Report each place where this person's data appears publicly as a "finding".
 
 For each detected search query that matches this person's data, provide:
 - search_platform: where the search was detected

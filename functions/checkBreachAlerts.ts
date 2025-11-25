@@ -185,73 +185,66 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
       }
     });
 
-    const alertsCreated = [];
-
-    if (result.breaches && result.breaches.length > 0) {
-      // Get existing alerts to avoid duplicates
+    // Create alerts only for verified breaches
+    if (breachesFound.length > 0) {
       const existingAlerts = await base44.entities.NotificationAlert.list();
       
-      for (const breach of result.breaches) {
-        // Check if we already alerted about this breach
+      for (const breach of breachesFound) {
+        // Check if we already alerted about this specific breach + data combination
+        const alertKey = breach.email_found || breach.data_found;
         const alreadyAlerted = existingAlerts.some(a => 
           a.title?.includes(breach.breach_name) && 
+          a.message?.includes(alertKey) &&
           a.alert_type === 'new_breach_detected'
         );
 
         if (alreadyAlerted) continue;
 
-        // Find which of the user's specific data types are affected
-        const affectedDataTypes = dataTypes.filter(dt => 
-          breach.data_types_exposed.some(exposed => 
-            exposed.toLowerCase().includes(dt.replace(/_/g, ' ').toLowerCase()) ||
-            dt.replace(/_/g, ' ').toLowerCase().includes(exposed.toLowerCase())
-          )
+        // Find the profile for this data
+        const matchedData = profileData.find(d => 
+          d.value === breach.email_found || d.value === breach.data_found
         );
+        
+        if (!matchedData) continue;
 
-        if (affectedDataTypes.length === 0) continue;
+        const exposedDataTypes = breach.data_types_exposed?.join(', ') || 'personal information';
+        const yourData = breach.email_found ? `email: ${breach.email_found}` : `${breach.data_type}: ${breach.data_found}`;
 
-        // Determine affected profiles
-        const affectedProfiles = [...new Set(
-          profileData
-            .filter(d => affectedDataTypes.includes(d.data_type))
-            .map(d => d.profile_id)
-        )];
+        await base44.entities.NotificationAlert.create({
+          profile_id: matchedData.profile_id,
+          alert_type: 'new_breach_detected',
+          title: `🚨 VERIFIED: Your data found in ${breach.breach_name} breach`,
+          message: `Your ${yourData} was found in the ${breach.breach_name} data breach (${breach.breach_date}).\n\nData exposed in this breach: ${exposedDataTypes}\n\nRecords affected: ${breach.records_affected || 'Unknown'}\n\n${breach.description || ''}`,
+          severity: breach.is_verified === false ? 'medium' : 'high',
+          is_read: false,
+          action_url: breach.source_url || breach.domain ? `https://${breach.domain}` : null,
+          related_data_ids: [matchedData.id],
+          threat_indicators: [
+            'Change passwords for this account immediately',
+            'Enable 2-factor authentication if available',
+            'Monitor for suspicious activity',
+            'Consider credit monitoring if sensitive data exposed'
+          ],
+          confidence_score: 100 // This is a verified match
+        });
 
-        // Create alert for each affected profile
-        for (const pid of affectedProfiles) {
-          await base44.entities.NotificationAlert.create({
-            profile_id: pid,
-            alert_type: 'new_breach_detected',
-            title: `⚠️ Data Breach Alert: ${breach.breach_name}`,
-            message: `${breach.description}\n\nYour potentially exposed data: ${affectedDataTypes.join(', ')}\n\nRecords affected: ${breach.records_affected || 'Unknown'}`,
-            severity: breach.severity,
-            is_read: false,
-            action_url: breach.source_url,
-            related_data_ids: profileData
-              .filter(d => d.profile_id === pid && affectedDataTypes.includes(d.data_type))
-              .map(d => d.id),
-            threat_indicators: breach.recommended_actions || [],
-            confidence_score: 85
-          });
-
-          alertsCreated.push({
-            breach_name: breach.breach_name,
-            profile_id: pid,
-            affected_data: affectedDataTypes,
-            severity: breach.severity
-          });
-        }
+        alertsCreated.push({
+          breach_name: breach.breach_name,
+          profile_id: matchedData.profile_id,
+          your_data: yourData,
+          severity: breach.is_verified === false ? 'medium' : 'high'
+        });
       }
     }
 
     return Response.json({
       success: true,
-      breachesFound: result.breaches?.length || 0,
+      breachesFound: breachesFound.length,
       alertsCreated: alertsCreated.length,
       alerts: alertsCreated,
       message: alertsCreated.length > 0 
-        ? `Created ${alertsCreated.length} breach alert(s) for ${result.breaches.length} breach(es)`
-        : 'No new breaches affecting your data were found'
+        ? `Found ${breachesFound.length} breach(es) containing YOUR data. Created ${alertsCreated.length} alert(s).`
+        : 'No breaches found containing your specific data'
     });
 
   } catch (error) {

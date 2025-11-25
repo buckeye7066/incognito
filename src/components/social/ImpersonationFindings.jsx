@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag } from 'lucide-react';
+import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag, FileText, Scale, Loader2, Printer } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 

@@ -158,23 +158,42 @@ export default function Dashboard() {
           </div>
           <p className="text-gray-300">Monitor and minimize your digital footprint</p>
         </div>
-        <Button
-          onClick={handleAdvancedRiskAnalysis}
-          disabled={analyzingRisk}
-          className="bg-gradient-to-r from-orange-600 to-red-600"
-        >
-          {analyzingRisk ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Brain className="w-4 h-4 mr-2" />
-              Run Advanced Risk Analysis
-            </>
-          )}
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleCheckBreachAlerts}
+            disabled={checkingBreaches}
+            className="bg-gradient-to-r from-red-600 to-pink-600"
+          >
+            {checkingBreaches ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                <Bell className="w-4 h-4 mr-2" />
+                Check Breach Alerts
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleAdvancedRiskAnalysis}
+            disabled={analyzingRisk}
+            className="bg-gradient-to-r from-orange-600 to-red-600"
+          >
+            {analyzingRisk ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Brain className="w-4 h-4 mr-2" />
+                Run Advanced Risk Analysis
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}

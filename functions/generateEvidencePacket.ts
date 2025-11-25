@@ -200,7 +200,30 @@ ${getPlatformReportInfo(finding.platform)}
       caseReference: `INC-${finding.id.slice(0, 8).toUpperCase()}`,
       lawEnforcementPacket,
       attorneyPacket,
-      matchedFields,
+      packets: {
+        law_enforcement: lawEnforcementPacket,
+        attorney: attorneyPacket
+      },
+      structured: {
+        victim: {
+          legal_name: myName,
+          emails: myEmails,
+          phones: myPhones,
+          usernames: myUsernames,
+          addresses: myAddresses,
+          owned_platforms: myProfiles.map(p => `${p.platform} (@${p.username})`)
+        },
+        suspect: {
+          platform: finding.platform,
+          username: finding.suspicious_username,
+          profile_url: finding.suspicious_profile_url,
+          display_name: finding.misused_data_details?.full_name,
+          bio: finding.misused_data_details?.bio,
+          location: finding.misused_data_details?.location,
+          first_seen_utc: finding.detected_date || finding.created_date
+        },
+        matches: matchedFields
+      },
       generatedAt: now
     });
 

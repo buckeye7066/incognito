@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import StatCard from '../components/shared/StatCard';
 import RiskBadge from '../components/shared/RiskBadge';
-import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles, Loader2 } from 'lucide-react';
+import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles, Loader2, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

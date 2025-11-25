@@ -24,8 +24,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build a summary of user's data types for breach matching
-    const dataTypes = [...new Set(profileData.map(d => d.data_type))];
+    // Build user's actual data for verification
     const dataValues = profileData.map(d => ({
       type: d.data_type,
       value: d.value,
@@ -33,29 +32,132 @@ Deno.serve(async (req) => {
       profile_id: d.profile_id
     }));
 
-    // Search for recent data breaches that could affect the user
-    const prompt = `You are a data breach monitoring system. Search for RECENT data breaches (last 30 days or currently being reported) that could potentially contain the following types of personal data:
+    // Get emails specifically for HIBP check
+    const emails = profileData.filter(d => d.data_type === 'email').map(d => d.value);
+    
+    const alertsCreated = [];
+    const breachesFound = [];
 
-DATA TYPES TO MONITOR:
-${dataTypes.map(t => `- ${t}`).join('\n')}
+    // Check each email against Have I Been Pwned
+    const HIBP_API_KEY = Deno.env.get('HIBP_API_KEY');
+    
+    for (const email of emails) {
+      try {
+        // Rate limit - HIBP requires 1.5 seconds between requests
+        await new Promise(resolve => setTimeout(resolve, 1600));
+        
+        const hibpResponse = await fetch(
+          `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(email)}?truncateResponse=false`,
+          {
+            headers: {
+              'hibp-api-key': HIBP_API_KEY,
+              'User-Agent': 'Incognito-Privacy-Guardian'
+            }
+          }
+        );
 
-SEARCH REQUIREMENTS:
-1. Find REAL, RECENT data breaches being reported in the news
-2. Focus on breaches from the last 30 days
-3. Include breaches from companies, healthcare providers, financial institutions, retailers, etc.
-4. For each breach, determine which data types from the list above could be affected
+        if (hibpResponse.status === 200) {
+          const breaches = await hibpResponse.json();
+          
+          // Filter to recent breaches (last 90 days)
+          const recentBreaches = breaches.filter(b => {
+            const breachDate = new Date(b.BreachDate || b.AddedDate);
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            return breachDate >= ninetyDaysAgo;
+          });
 
-For each breach found, provide:
-- breach_name: Name of the company/organization breached
-- breach_date: Date of breach or when it was disclosed (YYYY-MM-DD format)
-- source_url: URL to news article or official disclosure
-- records_affected: Estimated number of records (if known)
-- data_types_exposed: Array of data types exposed that match the user's monitored types
-- severity: critical, high, medium, or low based on sensitivity of data exposed
-- description: Brief description of the breach
-- recommended_actions: Array of recommended actions for affected individuals
+          for (const breach of recentBreaches) {
+            breachesFound.push({
+              breach_name: breach.Name,
+              breach_date: breach.BreachDate,
+              domain: breach.Domain,
+              data_types_exposed: breach.DataClasses || [],
+              description: breach.Description?.replace(/<[^>]*>/g, '') || 'Data breach detected',
+              records_affected: breach.PwnCount?.toLocaleString() || 'Unknown',
+              is_verified: breach.IsVerified,
+              email_found: email
+            });
+          }
+        }
+      } catch (hibpError) {
+        console.error('HIBP check failed for email:', hibpError.message);
+      }
+    }
 
-IMPORTANT: Only return breaches that expose at least one of the data types listed above. Be accurate and cite real sources.`;
+    // Now use LLM to check for breaches affecting OTHER data types (phone, SSN, etc.)
+    // Only if user has non-email data in vault
+    const nonEmailData = profileData.filter(d => d.data_type !== 'email');
+    
+    if (nonEmailData.length > 0) {
+      const prompt = `You are a data breach verification system. Check if ANY of the user's SPECIFIC data values below appear in known, VERIFIED data breaches.
+
+USER'S EXACT DATA VALUES TO CHECK:
+${nonEmailData.map(d => `- ${d.data_type}: "${d.value}"`).join('\n')}
+
+CRITICAL MATCHING RULES:
+1. ONLY report a match if the user's EXACT VALUE appears in a known breach
+2. DO NOT report generic breaches just because they contain "phone numbers" or "addresses"
+3. You must have evidence or strong indication that THIS SPECIFIC value was in the breach
+4. For names - only match if the exact full name appears in breach data
+5. For phones - only match if the exact phone number was exposed
+6. For SSN/sensitive IDs - these are rarely searchable, only report if you have specific evidence
+
+SEARCH:
+- Check known breach databases and breach search services
+- Look for the user's specific values in exposed data compilations
+- Search for any public exposure of these exact values
+
+If you find a VERIFIED match where the user's specific data appears in a breach, return it.
+If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empty array.`;
+
+      const llmResult = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            verified_breaches: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  breach_name: { type: "string" },
+                  breach_date: { type: "string" },
+                  source_url: { type: "string" },
+                  matched_data_type: { type: "string" },
+                  matched_value: { type: "string" },
+                  evidence: { type: "string" },
+                  severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                  description: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Add LLM-verified breaches that have actual matches
+      if (llmResult.verified_breaches) {
+        for (const breach of llmResult.verified_breaches) {
+          // Verify the matched value actually exists in user's vault
+          const matchedData = nonEmailData.find(d => 
+            d.value.toLowerCase() === breach.matched_value?.toLowerCase() ||
+            d.value.includes(breach.matched_value) ||
+            breach.matched_value?.includes(d.value)
+          );
+          
+          if (matchedData && breach.evidence && !breach.evidence.toLowerCase().includes('not found')) {
+            breachesFound.push({
+              ...breach,
+              email_found: null,
+              data_found: matchedData.value,
+              data_type: matchedData.data_type
+            });
+          }
+        }
+      }
+    }
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,

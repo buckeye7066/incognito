@@ -72,79 +72,56 @@ Deno.serve(async (req) => {
 
     // LAW ENFORCEMENT PACKET
     const lawEnforcementPacket = `
-================================================================================
 EVIDENCE SUMMARY – SUSPECTED ONLINE IMPERSONATION / POSSIBLE IDENTITY THEFT
-================================================================================
 Generated: ${now}
-Case Reference: INC-${finding.id.slice(0, 8).toUpperCase()}
 
---------------------------------------------------------------------------------
-1. REPORTING VICTIM (COMPLAINANT)
---------------------------------------------------------------------------------
-Full Legal Name: ${safe(myName)}
-Known Usernames/Handles: ${list(myUsernames.length ? myUsernames : myProfiles.map(p => '@' + p.username))}
-Primary Email(s): ${list(myEmails)}
-Primary Phone(s): ${list(myPhones)}
-Location: ${list(myAddresses)}
-Platforms Controlled by Victim: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
+1. Reporting Victim (Complainant)
+- Full legal name: ${safe(myName)}
+- Known usernames / handles: ${list(myUsernames.length ? myUsernames : myProfiles.map(p => '@' + p.username))}
+- Primary email(s): ${list(myEmails)}
+- Primary phone(s): ${list(myPhones)}
+- Location (city, state): ${list(myAddresses)}
+- Platforms actually controlled by victim: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
 
---------------------------------------------------------------------------------
-2. SUSPECTED IMPERSONATING ACCOUNT
---------------------------------------------------------------------------------
-Platform: ${safe(finding.platform)}
-Profile Name/Display Name: ${safe(finding.misused_data_details?.full_name)}
-Username/Handle: @${safe(finding.suspicious_username)}
-Profile URL: ${safe(finding.suspicious_profile_url)}
-Location Shown on Profile: ${safe(finding.misused_data_details?.location)}
-Bio Text: ${safe(finding.misused_data_details?.bio)}
-Workplace Listed: ${safe(finding.misused_data_details?.workplace)}
-Education Listed: ${safe(finding.misused_data_details?.education)}
+2. Suspected Impersonating Account
+- Platform: ${safe(finding.platform)}
+- Profile name: ${safe(finding.misused_data_details?.full_name)}
+- Username / handle: @${safe(finding.suspicious_username)}
+- Profile URL: ${safe(finding.suspicious_profile_url)}
+- Account ID (if available): [not available]
+- Location shown on profile: ${safe(finding.misused_data_details?.location)}
+- Bio text: ${safe(finding.misused_data_details?.bio)}
+- Links / contact info in bio: [not available]
+- Other known accounts tied to suspect: [not available]
 
---------------------------------------------------------------------------------
-3. EXACT MATCHING IDENTIFIERS (COPIED FROM VICTIM)
---------------------------------------------------------------------------------
-The following identifiers on the suspected account match data supplied by victim:
+3. Exact Matching Identifiers (Copied from Victim)
+The following identifiers on the suspected account match data supplied by the victim:
 
 ${matchedLines}
 
-Match Confidence Score: ${finding.similarity_score || 'N/A'}%
-Finding Type: ${finding.finding_type?.replace(/_/g, ' ').toUpperCase()}
-Severity: ${finding.severity?.toUpperCase()}
+4. Digital Evidence & Chain of Custody
+- Screenshots captured: [recommend capturing immediately]
+- Raw HTML / scrape stored at vault path: [not available]
+- File hashes (for integrity verification):
+  - [no hashes recorded - recommend using archive.org Wayback Machine]
+- First time victim discovered impersonation (UTC): ${safe(finding.detected_date || finding.created_date)}
+- Most recent verification that account is still active (UTC): ${now}
 
---------------------------------------------------------------------------------
-4. DIGITAL EVIDENCE & DOCUMENTATION
---------------------------------------------------------------------------------
-Date First Detected: ${finding.detected_date || finding.created_date}
-Evidence Description: ${safe(finding.evidence)}
-${finding.suspicious_profile_photo ? `Profile Photo URL: ${finding.suspicious_profile_photo}` : ''}
-${finding.matching_photos?.length ? `Matching Photos: ${finding.matching_photos.join(', ')}` : ''}
+5. Harm / Risk Description (short form)
+- Nature of impersonation: Profile appears to use victim's name, likeness, and/or biographical details.
+- Intended or apparent purpose: Unknown / under investigation
+- Any known messages sent to others while impersonating victim: [not available]
+- Any known financial requests / scams: [not available]
+- Known victims contacted via impersonation: [none recorded]
 
-IMPORTANT: Screenshots should be captured immediately as evidence. 
-Recommended: Use archive.org Wayback Machine to create timestamped archive.
+6. Actions Already Taken
+- Reported to platform (e.g., ${finding.platform}): ${finding.status === 'reported' ? 'Yes' : 'No'}
+- Platform ticket / report ID: [not available]
+- Credit / identity monitoring notified: [not available]
+- Local police report filed: [not available]
+- Other agencies contacted (FTC, state AG, etc.): [none recorded]
 
---------------------------------------------------------------------------------
-5. HARM / RISK ASSESSMENT
---------------------------------------------------------------------------------
-Nature of Impersonation: Profile appears to use victim's name, likeness, and/or biographical details.
-Severity Level: ${finding.severity?.toUpperCase()}
-${finding.ai_recommendations?.length ? `
-AI-Assessed Risks:
-${finding.ai_recommendations.map(r => `- ${r}`).join('\n')}
-` : ''}
-
---------------------------------------------------------------------------------
-6. RECOMMENDED IMMEDIATE ACTIONS
---------------------------------------------------------------------------------
-1. Screenshot all pages of the impersonating account immediately
-2. Report to platform (${finding.platform}) using their impersonation report form
-3. File report with FTC at IdentityTheft.gov
-4. Consider filing local police report for identity theft
-5. Document any contacts or messages received referencing the fake account
-
-================================================================================
-This report was generated by Incognito Privacy Guardian based on automated
-detection and data supplied by the victim. All information should be verified.
-================================================================================
+This report is generated automatically by the Incognito system based on data supplied by the victim and automated capture of the suspected account.
 `.trim();
 
     // ATTORNEY BRIEFING PACKET

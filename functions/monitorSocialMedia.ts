@@ -33,13 +33,20 @@ Deno.serve(async (req) => {
     }
 
     // Build comprehensive monitoring prompt
-    const monitoringPrompt = `You are an advanced social media monitoring AI. Perform comprehensive analysis across all major platforms for this person:
+    const monitoringPrompt = `You are an advanced social media monitoring AI. Search for REAL, PUBLICLY AVAILABLE information about this person across the internet.
 
-Personal Data:
+Personal Data to Search For:
 ${personalData.map(d => `${d.data_type}: ${d.value}`).join('\n')}
 
-Legitimate Social Profiles:
+Known Social Profiles:
 ${socialProfiles.map(s => `${s.platform}: @${s.username}`).join('\n')}
+
+CRITICAL INSTRUCTIONS:
+1. Search for REAL public posts, profiles, and mentions - DO NOT make up fake usernames like "user123"
+2. Only report findings you can verify exist publicly on the internet
+3. Include REAL usernames, REAL post content snippets, and REAL profile URLs when found
+4. If you cannot find real public data, return empty arrays - do NOT fabricate results
+5. Search data broker sites, people search engines, public records, social media, forums, etc.
 
 MATCHING RULES:
 - For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
@@ -84,7 +91,15 @@ COMPREHENSIVE MONITORING TASKS:
    - Data being used for doxxing
    - Information in data broker listings
 
-Platforms to monitor: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube, Pinterest, Telegram, Discord, and other relevant platforms.
+PLATFORMS & SOURCES TO SEARCH:
+- Social Media: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube, Pinterest
+- People Search Sites: Spokeo, BeenVerified, WhitePages, TruePeopleSearch, FastPeopleSearch
+- Public Records: Court records, property records, voter registration
+- Forums & Communities: Reddit posts, forum mentions, community discussions
+- Professional Sites: LinkedIn profiles, company directories, business listings
+- Other: News articles, blog mentions, review sites
+
+IMPORTANT: Only return REAL findings with actual URLs and real usernames. No placeholders or fake data.
 
 For EACH finding, include a "matched_identifiers" field listing which specific data types matched.
 

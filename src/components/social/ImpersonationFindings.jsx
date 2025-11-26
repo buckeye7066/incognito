@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag, FileText, Scale, Loader2, Printer } from 'lucide-react';
+import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag, FileText, Scale, Loader2, Printer, Wand2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import AutomatedDeletionModal from '../deletion/AutomatedDeletionModal';
 
 const PLATFORM_ICONS = {
   facebook: '📘',
@@ -24,6 +25,8 @@ export default function ImpersonationFindings({ findings, profileId }) {
   const queryClient = useQueryClient();
   const [generatingEvidence, setGeneratingEvidence] = useState(null);
   const [evidencePackets, setEvidencePackets] = useState({});
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState(null);
 
   const generateEvidencePacket = async (finding) => {
     setGeneratingEvidence(finding.id);
@@ -378,6 +381,18 @@ export default function ImpersonationFindings({ findings, profileId }) {
                 )}
               </Button>
               
+              <Button
+                size="sm"
+                onClick={() => {
+                  setSelectedForDeletion(finding);
+                  setDeletionModalOpen(true);
+                }}
+                className="bg-gradient-to-r from-red-600 to-purple-600"
+              >
+                <Wand2 className="w-3 h-3 mr-2" />
+                AI Delete Request
+              </Button>
+              
               {finding.status === 'new' && (
                 <>
                   <Button
@@ -418,6 +433,18 @@ export default function ImpersonationFindings({ findings, profileId }) {
           </CardContent>
         </Card>
       ))}
+
+      {/* Automated Deletion Modal */}
+      <AutomatedDeletionModal
+        open={deletionModalOpen}
+        onClose={() => {
+          setDeletionModalOpen(false);
+          setSelectedForDeletion(null);
+        }}
+        finding={selectedForDeletion}
+        findingType="social_media"
+        profileId={profileId}
+      />
     </div>
   );
 }

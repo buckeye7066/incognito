@@ -32,85 +32,82 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build comprehensive monitoring prompt
-    const monitoringPrompt = `You are an advanced social media monitoring AI. Search for REAL, PUBLICLY AVAILABLE information about this person across the internet.
+    // INCÓGNITO comprehensive monitoring prompt
+    const monitoringPrompt = `You are INCÓGNITO, a professional-grade identity forensic analyst. Extract EXACT VERBATIM content where this person's data appears publicly.
 
-Personal Data to Search For:
-${personalData.map(d => `${d.data_type}: ${d.value}`).join('\n')}
+=== VICTIM'S PROTECTED DATA (VAULT) ===
+${personalData.map(d => `${d.data_type}: "${d.value}"`).join('\n')}
 
-Known Social Profiles:
+=== VICTIM'S KNOWN SOCIAL PROFILES ===
 ${socialProfiles.map(s => `${s.platform}: @${s.username}`).join('\n')}
 
-CRITICAL INSTRUCTIONS:
-1. Search the web for this person's data appearing on people search sites, data brokers, social media, forums, etc.
-2. Report what you find indexed publicly - include site names, what data appears there, and URLs if available
-3. For social media, report the platforms where this person's info appears publicly
-4. Be thorough - check Spokeo, BeenVerified, WhitePages, TruePeopleSearch, Radaris, etc.
-5. If data appears on a site but you don't have exact URL, still report the finding with the site name
+=== FORENSIC EXTRACTION PROTOCOL ===
 
-MATCHING RULES:
-- For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
-- For ALL OTHER data types (email, phone, address, SSN, etc.): Only ONE (1) identifier match is sufficient
+RULE 1: EXTRACT EXACT VERBATIM CONTENT
+For every finding, quote the EXACT text/content found:
+- Never say "Personal info found" - quote EXACTLY what was found
+- Include exact URLs, exact text, exact data values
+- Example: "Found on Spokeo: Address listed as '123 Main St, Cleveland, TN 37312'"
 
-Examples:
-- ✓ VALID: Post contains user's email address (1 match is enough for email)
-- ✓ VALID: Profile shows user's phone number (1 match is enough for phone)
-- ✓ VALID: Content reveals user's address (1 match is enough for address)
-- ✓ VALID: Full name + any other identifier (2 matches required for name)
-- ✗ INVALID: Only mentions a common name without other identifiers
+RULE 2: SOURCE DOCUMENTATION
+For each exposure, document:
+- exact_source_name: "Spokeo", "WhitePages", "Facebook", etc.
+- exact_url: Full URL if available
+- exact_content_found: Verbatim text/data shown on the source
+- vault_data_matched: Which specific vault value was found
 
-COMPREHENSIVE MONITORING TASKS:
+RULE 3: MATCHING REQUIREMENTS
+- NAME matches: Require 2+ identifiers (name + phone, name + address, etc.)
+- ALL OTHER data types (email, phone, address, SSN): 1 match is sufficient
 
-1. MENTION DETECTION - Find all mentions across platforms:
-   - Direct mentions (@username, name tags)
-   - Indirect references (talking about the person without tagging)
-   - Photo/video appearances
-   - Comments and shares
+=== SOURCES TO SCAN ===
+DATA BROKERS & PEOPLE SEARCH:
+- Spokeo, BeenVerified, WhitePages, TruePeopleSearch, FastPeopleSearch
+- Radaris, Intelius, PeopleFinder, USSearch, Pipl
+
+PUBLIC RECORDS:
+- Court records, property records, voter registration, business filings
+
+SOCIAL MEDIA:
+- Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube
+
+OTHER:
+- News articles, forum posts, blog mentions, review sites
+
+=== REQUIRED OUTPUT FOR EACH FINDING ===
+
+1. EXACT SOURCE:
+   - platform/source_name: Exact site name
+   - source_url: Full URL
    
-2. SENTIMENT ANALYSIS - For each mention, analyze:
-   - Overall sentiment (positive, neutral, negative, concerning)
-   - Sentiment score (-100 to 100)
-   - Emotional tone and context
+2. VERBATIM CONTENT FOUND:
+   - content_verbatim: Exact text/data as it appears on the source
+   - example: "John Smith, 423-555-1234, 123 Main St, Cleveland TN"
    
-3. PRIVACY RISK ASSESSMENT - Identify:
-   - Personal data being shared without consent
-   - Location reveals and check-ins
-   - Photos/videos with private information visible
-   - Contact details being shared
-   - Financial information exposure
+3. VAULT MATCHES:
+   - vault_data_matched: ["full_name: John Smith", "phone: 423-555-1234", "address: 123 Main St"]
    
-4. IMPERSONATION DETECTION - Look for:
-   - Fake profiles using this person's name/photos
-   - Accounts claiming to be this person
-   - Unauthorized use of identity
-   - Catfishing attempts
-   
-5. UNAUTHORIZED DATA USE - Detect:
-   - Photos/videos used without permission
-   - Personal information being sold/shared
-   - Data being used for doxxing
-   - Information in data broker listings
+4. RISK ASSESSMENT:
+   - privacy_risk_level: none/low/medium/high/critical
+   - exposure_type: data_broker/social_media/public_record/forum/news
 
-PLATFORMS & SOURCES TO SEARCH:
-- Social Media: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit, YouTube, Pinterest
-- People Search Sites: Spokeo, BeenVerified, WhitePages, TruePeopleSearch, FastPeopleSearch
-- Public Records: Court records, property records, voter registration
-- Forums & Communities: Reddit posts, forum mentions, community discussions
-- Professional Sites: LinkedIn profiles, company directories, business listings
-- Other: News articles, blog mentions, review sites
-
-IMPORTANT: Report all publicly indexed appearances of this person's data. Include site names and as much detail as available. Focus on data broker sites, people search engines, and public records where personal info commonly appears.
-
-For EACH finding, include a "matched_identifiers" field listing which specific data types matched.
+=== IMPERSONATION DETECTION ===
+For suspicious profiles, extract:
+- suspicious_username: Exact username
+- suspicious_profile_url: Full URL
+- verbatim_content: Exact bio, name, photos as shown
+- vault_matches: Which victim data was copied
+- identity_match_score: 0-100
+- threat_type: impersonation/phishing/fraud/catfishing/harassment
 
 Return JSON with:
-- mentions: array of detected mentions with full details
-- impersonations: array of suspicious accounts/profiles
-- privacy_risks: array of specific privacy concerns found
+- mentions: Array with verbatim content for each exposure
+- impersonations: Array of suspicious profiles with exact matched content
+- privacy_risks: Array of specific concerns
 - overall_risk_score: 0-100
-- summary: brief overview of findings
+- summary: Overview of findings
 
-Only include real findings with confidence >= 65%. Remember: name matches require 2+ identifiers, all other data types require only 1.`;
+Only include findings with exact vault data matches. No assumptions or generic matches.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt: monitoringPrompt,
@@ -124,7 +121,9 @@ Only include real findings with confidence >= 65%. Remember: name matches requir
               type: "object",
               properties: {
                 platform: { type: "string" },
+                source_url: { type: "string" },
                 mention_type: { type: "string" },
+                content_verbatim: { type: "string", description: "Exact verbatim content as it appears on source" },
                 content: { type: "string" },
                 author_username: { type: "string" },
                 author_profile_url: { type: "string" },
@@ -132,7 +131,9 @@ Only include real findings with confidence >= 65%. Remember: name matches requir
                 sentiment: { type: "string" },
                 sentiment_score: { type: "number" },
                 privacy_risk_level: { type: "string" },
+                exposure_type: { type: "string", enum: ["data_broker", "social_media", "public_record", "forum", "news", "other"] },
                 exposed_data: { type: "array", items: { type: "string" } },
+                vault_data_matched: { type: "array", items: { type: "string" }, description: "Array of 'data_type: exact_value' matched" },
                 reach_estimate: { type: "number" },
                 engagement_count: { type: "number" },
                 published_date: { type: "string" },
@@ -150,8 +151,16 @@ Only include real findings with confidence >= 65%. Remember: name matches requir
                 platform: { type: "string" },
                 suspicious_username: { type: "string" },
                 suspicious_profile_url: { type: "string" },
+                verbatim_name: { type: "string", description: "Exact name shown on suspicious profile" },
+                verbatim_bio: { type: "string", description: "Exact bio text from suspicious profile" },
+                verbatim_location: { type: "string" },
+                verbatim_employer: { type: "string" },
+                vault_matches: { type: "array", items: { type: "string" }, description: "Which vault data was copied" },
+                identity_match_score: { type: "number" },
                 similarity_score: { type: "number" },
                 finding_type: { type: "string" },
+                threat_type: { type: "string", enum: ["impersonation", "phishing", "fraud", "catfishing", "harassment", "doxxing"] },
+                behavioral_red_flags: { type: "array", items: { type: "string" } },
                 evidence: { type: "string" },
                 severity: { type: "string" },
                 matched_identifiers: { type: "array", items: { type: "string" } }
@@ -203,20 +212,20 @@ Only include real findings with confidence >= 65%. Remember: name matches requir
       return true;
     });
 
-    // Create mention records
+    // Create mention records with INCÓGNITO verbatim content
     for (const mention of validMentions) {
       await base44.asServiceRole.entities.SocialMediaMention.create({
         profile_id: profileId,
         platform: mention.platform,
-        mention_type: mention.mention_type,
-        content: mention.content,
+        mention_type: mention.exposure_type || mention.mention_type,
+        content: mention.content_verbatim || mention.content,
         author_username: mention.author_username,
         author_profile_url: mention.author_profile_url,
-        post_url: mention.post_url,
+        post_url: mention.source_url || mention.post_url,
         sentiment: mention.sentiment,
         sentiment_score: mention.sentiment_score || 0,
         privacy_risk_level: mention.privacy_risk_level || 'none',
-        exposed_data: mention.exposed_data || [],
+        exposed_data: mention.vault_data_matched || mention.exposed_data || [],
         reach_estimate: mention.reach_estimate || 0,
         engagement_count: mention.engagement_count || 0,
         detected_date: new Date().toISOString(),
@@ -253,15 +262,24 @@ Only include real findings with confidence >= 65%. Remember: name matches requir
       }
     }
 
-    // Create impersonation records
+    // Create impersonation records with INCÓGNITO verbatim content
     for (const imp of validImpersonations) {
       await base44.asServiceRole.entities.SocialMediaFinding.create({
         profile_id: profileId,
         platform: imp.platform,
-        finding_type: imp.finding_type || 'impersonation',
+        finding_type: imp.threat_type || imp.finding_type || 'impersonation',
         suspicious_username: imp.suspicious_username,
         suspicious_profile_url: imp.suspicious_profile_url,
-        similarity_score: imp.similarity_score || 0,
+        similarity_score: imp.identity_match_score || imp.similarity_score || 0,
+        misused_data_details: {
+          full_name: imp.verbatim_name,
+          bio: imp.verbatim_bio,
+          location: imp.verbatim_location,
+          workplace: imp.verbatim_employer,
+          vault_matches: imp.vault_matches || [],
+          behavioral_red_flags: imp.behavioral_red_flags || []
+        },
+        misused_data: imp.vault_matches || imp.matched_identifiers || [],
         evidence: imp.evidence,
         severity: imp.severity || 'high',
         detected_date: new Date().toISOString().split('T')[0],

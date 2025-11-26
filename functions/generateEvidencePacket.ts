@@ -47,151 +47,313 @@ Deno.serve(async (req) => {
     const myAddresses = myData.filter(d => d.data_type === 'address').map(d => d.value);
     const myEmployer = myData.find(d => d.data_type === 'employer')?.value;
 
-    // Build matched fields from finding data
+    // INCÓGNITO: Build EXACT VERBATIM matched fields from finding data
     const matchedFields = {};
+    const verbatimQuotes = [];
+    
     if (finding.misused_data_details) {
       const details = finding.misused_data_details;
-      if (details.full_name) matchedFields.name = details.full_name;
-      if (details.bio) matchedFields.bio = details.bio;
-      if (details.location) matchedFields.location = details.location;
-      if (details.workplace) matchedFields.workplace = details.workplace;
-      if (details.education) matchedFields.education = details.education;
-      if (details.photos?.length) matchedFields.photos = `${details.photos.length} image(s)`;
+      if (details.full_name) {
+        matchedFields.name = details.full_name;
+        verbatimQuotes.push(`MATCHED NAME: "${details.full_name}"`);
+      }
+      if (details.bio) {
+        matchedFields.bio = details.bio;
+        verbatimQuotes.push(`MATCHED BIO: "${details.bio}"`);
+      }
+      if (details.location) {
+        matchedFields.location = details.location;
+        verbatimQuotes.push(`MATCHED LOCATION: "${details.location}"`);
+      }
+      if (details.workplace) {
+        matchedFields.workplace = details.workplace;
+        verbatimQuotes.push(`MATCHED EMPLOYER: "${details.workplace}"`);
+      }
+      if (details.education) {
+        matchedFields.education = details.education;
+        verbatimQuotes.push(`MATCHED EDUCATION: "${details.education}"`);
+      }
+      if (details.photos?.length) {
+        matchedFields.photos = details.photos;
+        verbatimQuotes.push(`MATCHED PHOTOS: ${details.photos.length} image(s) - URLs: ${details.photos.join(', ')}`);
+      }
+      if (details.vault_matches?.length) {
+        details.vault_matches.forEach(v => verbatimQuotes.push(`VAULT MATCH: ${v}`));
+      }
+      if (details.behavioral_red_flags?.length) {
+        matchedFields.red_flags = details.behavioral_red_flags;
+      }
     }
     if (finding.misused_data?.length) {
       finding.misused_data.forEach(d => {
         if (!matchedFields[d.toLowerCase()]) {
-          matchedFields[d.toLowerCase().replace(/ /g, '_')] = 'matched';
+          matchedFields[d.toLowerCase().replace(/ /g, '_')] = d;
+          verbatimQuotes.push(`VAULT MATCH: ${d}`);
         }
       });
     }
 
-    const matchedLines = Object.keys(matchedFields).length > 0 
-      ? Object.entries(matchedFields).map(([field, value]) => `- ${field}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n')
+    const matchedLines = verbatimQuotes.length > 0 
+      ? verbatimQuotes.map(q => `- ${q}`).join('\n')
       : '[no exact matches detected]';
+    
+    const identityMatchScore = finding.similarity_score || 0;
 
-    // LAW ENFORCEMENT PACKET
+    // INCÓGNITO LAW ENFORCEMENT EVIDENCE PACKET
     const lawEnforcementPacket = `
-EVIDENCE SUMMARY – SUSPECTED ONLINE IMPERSONATION / POSSIBLE IDENTITY THEFT
+================================================================================
+              INCÓGNITO FORENSIC EVIDENCE PACKET - LAW ENFORCEMENT
+================================================================================
+Case Reference: INC-${finding.id.slice(0, 8).toUpperCase()}
 Generated: ${now}
+Identity Match Score: ${identityMatchScore}/100
+Threat Classification: ${finding.finding_type?.toUpperCase() || 'IMPERSONATION'}
+Risk Level: ${finding.severity?.toUpperCase() || 'HIGH'}
 
-1. Reporting Victim (Complainant)
-- Full legal name: ${safe(myName)}
-- Known usernames / handles: ${list(myUsernames.length ? myUsernames : myProfiles.map(p => '@' + p.username))}
-- Primary email(s): ${list(myEmails)}
-- Primary phone(s): ${list(myPhones)}
-- Location (city, state): ${list(myAddresses)}
-- Platforms actually controlled by victim: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
+================================================================================
+SECTION 1: VICTIM INFORMATION (COMPLAINANT)
+================================================================================
+Full Legal Name: ${safe(myName)}
+Known Usernames/Handles: ${list(myUsernames.length ? myUsernames : myProfiles.map(p => '@' + p.username))}
+Primary Email(s): ${list(myEmails)}
+Primary Phone(s): ${list(myPhones)}
+Location (City, State): ${list(myAddresses)}
+Employer: ${safe(myEmployer)}
+Platforms Controlled by Victim: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
 
-2. Suspected Impersonating Account
-- Platform: ${safe(finding.platform)}
-- Profile name: ${safe(finding.misused_data_details?.full_name)}
-- Username / handle: @${safe(finding.suspicious_username)}
-- Profile URL: ${safe(finding.suspicious_profile_url)}
-- Account ID (if available): [not available]
-- Location shown on profile: ${safe(finding.misused_data_details?.location)}
-- Bio text: ${safe(finding.misused_data_details?.bio)}
-- Links / contact info in bio: [not available]
-- Other known accounts tied to suspect: [not available]
+================================================================================
+SECTION 2: SUSPECTED IMPERSONATING ACCOUNT
+================================================================================
+Platform: ${safe(finding.platform)}
+Username/Handle: @${safe(finding.suspicious_username)}
+Profile URL: ${safe(finding.suspicious_profile_url)}
+Account ID: [request from platform via subpoena]
 
-3. Exact Matching Identifiers (Copied from Victim)
-The following identifiers on the suspected account match data supplied by the victim:
+--- VERBATIM CONTENT EXTRACTED FROM SUSPICIOUS PROFILE ---
+Display Name: "${safe(finding.misused_data_details?.full_name)}"
+Bio Text: "${safe(finding.misused_data_details?.bio)}"
+Location Shown: "${safe(finding.misused_data_details?.location)}"
+Workplace Listed: "${safe(finding.misused_data_details?.workplace)}"
+Education Listed: "${safe(finding.misused_data_details?.education)}"
+Profile Photo URL: ${safe(finding.suspicious_profile_photo)}
+
+================================================================================
+SECTION 3: EXACT MATCHED IDENTIFIERS (FORENSIC EVIDENCE)
+================================================================================
+The following data on the suspected account EXACTLY MATCHES data from victim's vault:
 
 ${matchedLines}
 
-4. Digital Evidence & Chain of Custody
-- Screenshots captured: [recommend capturing immediately]
-- Raw HTML / scrape stored at vault path: [not available]
-- File hashes (for integrity verification):
-  - [no hashes recorded - recommend using archive.org Wayback Machine]
-- First time victim discovered impersonation (UTC): ${safe(finding.detected_date || finding.created_date)}
-- Most recent verification that account is still active (UTC): ${now}
+================================================================================
+SECTION 4: BEHAVIORAL RED FLAGS
+================================================================================
+${finding.misused_data_details?.behavioral_red_flags?.length > 0 
+  ? finding.misused_data_details.behavioral_red_flags.map(f => `- ${f}`).join('\n')
+  : '- [no behavioral flags recorded]'}
 
-5. Harm / Risk Description (short form)
-- Nature of impersonation: Profile appears to use victim's name, likeness, and/or biographical details.
-- Intended or apparent purpose: Unknown / under investigation
-- Any known messages sent to others while impersonating victim: [not available]
-- Any known financial requests / scams: [not available]
-- Known victims contacted via impersonation: [none recorded]
+================================================================================
+SECTION 5: DIGITAL EVIDENCE & CHAIN OF CUSTODY
+================================================================================
+Discovery Timeline:
+- First detected (UTC): ${safe(finding.detected_date || finding.created_date)}
+- Last verified active (UTC): ${now}
+- Detection method: Automated forensic scan via Incógnito
 
-6. Actions Already Taken
-- Reported to platform (e.g., ${finding.platform}): ${finding.status === 'reported' ? 'Yes' : 'No'}
-- Platform ticket / report ID: [not available]
-- Credit / identity monitoring notified: [not available]
-- Local police report filed: [not available]
-- Other agencies contacted (FTC, state AG, etc.): [none recorded]
+Evidence Preservation:
+- Screenshots captured: [RECOMMEND IMMEDIATE CAPTURE]
+- Archive.org snapshot: [RECOMMEND SUBMITTING TO WAYBACK MACHINE]
+- Platform data preservation request: [RECOMMEND FILING IMMEDIATELY]
 
-This report is generated automatically by the Incognito system based on data supplied by the victim and automated capture of the suspected account.
+File Integrity:
+- Evidence hash: [generate upon screenshot capture]
+- Chain of custody maintained by: Incógnito automated system
+
+================================================================================
+SECTION 6: HARM ASSESSMENT
+================================================================================
+Nature of Offense: ${finding.finding_type?.replace(/_/g, ' ')?.toUpperCase() || 'IDENTITY IMPERSONATION'}
+Apparent Intent: ${finding.threat_category || 'Under investigation'}
+Potential Impact: ${finding.potential_impact || 'Reputational damage, identity theft risk'}
+
+Known Fraudulent Activity:
+- Financial solicitations: [not detected / requires investigation]
+- Messages sent as victim: [not detected / requires investigation]
+- Third-party victims contacted: [none recorded]
+
+================================================================================
+SECTION 7: RECOMMENDED STATUTORY PATHS
+================================================================================
+- State identity theft statute
+- Computer fraud and abuse (if unauthorized access involved)
+- Wire fraud (if interstate financial fraud)
+- Impersonation statutes (state-specific)
+- Cyberstalking/harassment (if pattern of behavior)
+
+================================================================================
+SECTION 8: ACTIONS TAKEN
+================================================================================
+- Reported to ${finding.platform}: ${finding.status === 'reported' ? 'YES' : 'PENDING'}
+- Platform report ID: [not available]
+- Police report filed: [PENDING - RECOMMEND FILING]
+- FTC complaint filed: [PENDING]
+- State AG notified: [PENDING]
+
+================================================================================
+This evidence packet was generated by INCÓGNITO Privacy Guardian.
+For evidentiary use, supplement with official screenshots and platform records.
+================================================================================
 `.trim();
 
-    // ATTORNEY BRIEFING PACKET
+    // INCÓGNITO ATTORNEY BRIEFING PACKET
     const attorneyPacket = `
-ATTORNEY BRIEFING PACKET – SUSPECTED ONLINE IMPERSONATION / IDENTITY MISUSE
+================================================================================
+              INCÓGNITO FORENSIC EVIDENCE PACKET - ATTORNEY BRIEFING
+================================================================================
+Case Reference: INC-${finding.id.slice(0, 8).toUpperCase()}
 Generated: ${now}
+Identity Match Score: ${identityMatchScore}/100
+Threat Classification: ${finding.finding_type?.toUpperCase() || 'IMPERSONATION'}
 
-1. Client Information
-- Name: ${safe(myName)}
-- Address (city/state): ${list(myAddresses)}
-- Preferred contact: ${list(myEmails)}
-- Known online presence (owned accounts): ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
-- Any prior incidents of impersonation: none reported
+================================================================================
+SECTION 1: CLIENT INFORMATION
+================================================================================
+Full Legal Name: ${safe(myName)}
+Location (City/State): ${list(myAddresses)}
+Contact Email(s): ${list(myEmails)}
+Contact Phone(s): ${list(myPhones)}
+Employer: ${safe(myEmployer)}
+Legitimate Online Presence: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
+Prior Impersonation Incidents: None on record
 
-2. Facts in Brief (Chronological Summary)
-- Date client created legitimate account(s): [not available]
-- Date client first learned of impersonating account: ${safe(finding.detected_date || finding.created_date)}
-- How client learned of impersonation: Automated detection via Incognito Privacy Guardian
-- Whether client has any personal relationship with suspected operator: unknown
+================================================================================
+SECTION 2: CASE FACTS (CHRONOLOGICAL)
+================================================================================
+Date impersonation discovered: ${safe(finding.detected_date || finding.created_date)}
+Discovery method: Automated forensic detection via Incógnito Privacy Guardian
+Relationship to suspected operator: Unknown / under investigation
+Date client created legitimate accounts: [obtain from client]
 
-3. Impersonating Account Details
-- Platform: ${safe(finding.platform)}
-- URL: ${safe(finding.suspicious_profile_url)}
-- Username / Handle: @${safe(finding.suspicious_username)}
-- Display Name: ${safe(finding.misused_data_details?.full_name)}
-- Bio text: ${safe(finding.misused_data_details?.bio)}
-- Contact info on profile: [not available]
-- Evidence of use of client's photos or likeness: ${finding.matching_photos?.length ? `${finding.matching_photos.length} photo(s) matched` : finding.suspicious_profile_photo ? 'Profile photo detected' : '[not available]'}
-- Evidence of use of client's biographical info (work, education, church, etc.): ${safe(finding.misused_data_details?.workplace || finding.misused_data_details?.education ? 'Yes - see matched identifiers' : '[not available]')}
+================================================================================
+SECTION 3: IMPERSONATING ACCOUNT - VERBATIM EVIDENCE
+================================================================================
+Platform: ${safe(finding.platform)}
+Profile URL: ${safe(finding.suspicious_profile_url)}
+Username/Handle: @${safe(finding.suspicious_username)}
 
-4. Exact Matches to Client Identifiers (for pleading / exhibits)
-From automated comparison:
+--- EXACT CONTENT COPIED FROM SUSPICIOUS PROFILE (for exhibits) ---
+Display Name Used: "${safe(finding.misused_data_details?.full_name)}"
+Bio/Description: "${safe(finding.misused_data_details?.bio)}"
+Location Claimed: "${safe(finding.misused_data_details?.location)}"
+Employer Listed: "${safe(finding.misused_data_details?.workplace)}"
+Education Listed: "${safe(finding.misused_data_details?.education)}"
+Profile Photo: ${safe(finding.suspicious_profile_photo)}
+${finding.matching_photos?.length ? `Additional Matched Photos: ${finding.matching_photos.join(', ')}` : ''}
 
+================================================================================
+SECTION 4: FORENSIC MATCH ANALYSIS (for pleadings/exhibits)
+================================================================================
+Identity Match Score: ${identityMatchScore}/100
+
+Exact Matches to Client's Protected Information:
 ${matchedLines}
 
-5. Harm and Damages (Client-Reported)
-[Attorney: confirm and expand]
-- Emotional distress (anxiety, reputational harm, time spent responding): [to be documented]
-- Lost opportunities (jobs, contracts, ministry, etc.): [to be documented]
-- Out-of-pocket costs (identity monitoring, credit freezes, travel, etc.): [to be documented]
-- Any fraudulent accounts opened or charges made in client's name: [to be documented]
-- Time lost from work to deal with incident (hours): [to be documented]
+Behavioral Red Flags Observed:
+${finding.misused_data_details?.behavioral_red_flags?.length > 0 
+  ? finding.misused_data_details.behavioral_red_flags.map(f => `- ${f}`).join('\n')
+  : '- [none recorded - conduct additional investigation]'}
 
-6. Potential Legal Theories to Evaluate (for Tennessee / federal counsel)
-[This is a checklist for your attorney to consider; not a legal conclusion.]
+================================================================================
+SECTION 5: LEGAL THEORIES TO EVALUATE
+================================================================================
+Based on the evidence, counsel should evaluate the following causes of action:
 
-- State identity theft / identity fraud statute(s)
-- Civil remedies under Tennessee identity theft victim provisions
-- Tort claims: defamation, false light, invasion of privacy, intentional infliction of emotional distress
-- Misappropriation of name or likeness for commercial or fraudulent purposes
-- Possible federal claims if interstate or financial fraud is involved
-- Platform contract / ToS issues and any relevant statutory notice requirements
+IDENTITY-BASED CLAIMS:
+□ State identity theft statute (criminal referral and civil remedies)
+□ Tennessee identity theft victim protection provisions
+□ Misappropriation of name/likeness (commercial or fraudulent use)
 
-7. Evidence Inventory (available from Incognito)
-- Screenshots: [recommend capturing immediately]
-- Raw HTML / JSON capture: [not available]
-- Hashes for evidentiary integrity: see law_enforcement packet section 4
-- Log of when client accessed and viewed the impersonating account: [not available]
+TORT CLAIMS:
+□ Defamation (if false statements made as client)
+□ False light invasion of privacy
+□ Appropriation of identity
+□ Intentional infliction of emotional distress
+□ Negligent infliction of emotional distress
 
-8. Requested Relief (to be refined by counsel)
-[Client draft – for attorney to revise]
-- Immediate takedown / preservation of platform data
-- Criminal investigation of impersonating party if identity theft or fraud is supported
-- Injunction preventing further impersonation and ordering deletion of data
-- Monetary damages for financial loss, emotional distress, and costs of mitigation
-- Attorney's fees and costs as permitted by statute
+FRAUD-BASED CLAIMS (if financial activity detected):
+□ Common law fraud
+□ Wire fraud (federal, if interstate)
+□ Consumer protection act violations
 
-9. Platform-Specific Remedies
+PLATFORM-RELATED:
+□ Terms of Service violations (basis for takedown demand)
+□ DMCA notice for copyrighted photos
+□ State revenge porn statutes (if intimate images involved)
+
+================================================================================
+SECTION 6: DAMAGES ANALYSIS
+================================================================================
+[Attorney: document and quantify the following with client]
+
+Emotional Distress:
+- Anxiety, fear, reputational harm: [to be documented]
+- Medical/therapy costs: [to be documented]
+
+Economic Damages:
+- Lost business opportunities: [to be documented]
+- Lost employment/contracts: [to be documented]
+- Credit monitoring costs: [to be documented]
+- Identity theft remediation costs: [to be documented]
+
+Time & Effort:
+- Hours spent addressing impersonation: [to be documented]
+- Work time lost: [to be documented]
+
+Punitive Damages:
+- Willful and malicious conduct: [evaluate based on evidence]
+
+================================================================================
+SECTION 7: EVIDENCE INVENTORY
+================================================================================
+Available from Incógnito:
+✓ Automated detection report
+✓ Matched identifier analysis
+✓ Profile content extraction
+✓ Timestamp of discovery
+
+To Be Obtained:
+□ Screenshots with metadata (recommend immediately)
+□ Archive.org Wayback Machine submission
+□ Platform account data (via subpoena)
+□ IP address logs (via platform subpoena)
+□ Communication records (if any)
+
+================================================================================
+SECTION 8: REQUESTED RELIEF (draft for counsel review)
+================================================================================
+IMMEDIATE:
+1. Emergency takedown of impersonating account
+2. Platform data preservation letter
+3. Cease and desist to operator (if identified)
+
+LITIGATION:
+1. Temporary restraining order
+2. Preliminary injunction
+3. Permanent injunction against impersonation
+4. Actual damages
+5. Statutory damages where available
+6. Punitive damages
+7. Attorney's fees and costs
+
+================================================================================
+SECTION 9: PLATFORM-SPECIFIC REPORTING
+================================================================================
 ${finding.platform?.toUpperCase()} IMPERSONATION REPORT:
 ${getPlatformReportInfo(finding.platform)}
+
+================================================================================
+This briefing packet was generated by INCÓGNITO Privacy Guardian.
+All verbatim content extracted for evidentiary use. Supplement with official records.
+================================================================================
 `.trim();
 
     return Response.json({

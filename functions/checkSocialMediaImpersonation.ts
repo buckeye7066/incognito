@@ -42,62 +42,77 @@ Deno.serve(async (req) => {
         vaultValues[d.data_type].push(d.value);
       });
 
-      const prompt = `You are an advanced identity theft and social media threat detection AI. Your job is to find accounts that are using THIS SPECIFIC USER'S data.
+      const prompt = `You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
 
-USER'S LEGITIMATE PROFILE:
+=== VICTIM'S LEGITIMATE PROFILE ===
 Platform: ${legitimateProfile.platform}
 Username: @${legitimateProfile.username}
 Profile URL: ${legitimateProfile.profile_url || 'Not provided'}
 
-USER'S EXACT PERSONAL DATA (VAULT) - ONLY REPORT MATCHES TO THESE SPECIFIC VALUES:
-${Object.entries(vaultValues).map(([type, values]) => `- ${type}: ${values.join(', ')}`).join('\n')}
+=== VICTIM'S EXACT PERSONAL DATA (VAULT) ===
+${Object.entries(vaultValues).map(([type, values]) => `${type}: "${values.join('", "')}"`).join('\n')}
 
-CRITICAL MATCHING RULES:
-1. ONLY report a finding if the suspicious profile contains ONE OR MORE of the EXACT values listed above
-2. A "name match" means the suspicious profile uses the EXACT name from the vault (e.g., if vault has "John Smith", report profiles using "John Smith" or very close variants like "John A. Smith")
-3. An "email match" means the suspicious profile displays or references the EXACT email from the vault
-4. A "phone match" means the suspicious profile displays the EXACT phone number
-5. DO NOT report generic fake accounts - only accounts specifically using THIS USER's data
-6. If you cannot confirm the suspicious profile uses data from the vault above, DO NOT include it
+=== FORENSIC MATCHING PROTOCOL ===
 
-COMPREHENSIVE SCAN REQUIREMENTS:
+RULE 1: EXTRACT EXACT VERBATIM CONTENT
+- Never say "Suspicious bio text" - quote the EXACT bio: "Matched Bio: 'Retired cardiac nurse | father | minister'"
+- Never say "Uses similar name" - quote EXACTLY: "Matched Name: 'John A. Smith'"
+- Quote exact usernames, URLs, locations, workplaces, education, captions, hashtags
 
-1. IMPERSONATION DETECTION:
-   - Search for accounts with similar/variant usernames (typosquatting, underscore variations)
-   - Look for profiles using the same or similar display name
-   - Detect copied profile photos or stolen images
-   - Find accounts with copied bio text or similar descriptions
+RULE 2: IDENTITY MATCH SCORE (0-100)
+Calculate based on:
+- Exact name match: +30 points
+- Exact photo match: +25 points
+- Exact bio/description match: +20 points
+- Exact location match: +10 points
+- Exact employer/education match: +10 points
+- Username similarity: +5 points
 
-2. DATA MISUSE ANALYSIS:
-   - Check if user's name appears on unauthorized accounts
-   - Look for user's photos being used elsewhere
-   - Detect personal information being shared without consent
-   - Find scraped content from the legitimate profile
+RULE 3: THREAT CLASSIFICATION
+Determine likely intent:
+- IMPERSONATION: Pretending to be the victim
+- PHISHING: Using victim's identity to scam others
+- FRAUD: Financial exploitation using victim's data
+- CATFISHING: Romance/relationship scam
+- BRAND_THEFT: Stealing professional reputation
+- HARASSMENT: Defamation or stalking
+- DOXXING: Exposing private information
 
-3. STOLEN CONTENT DETECTION:
-   - Search for reposted photos/videos without attribution
-   - Find copied posts or status updates
-   - Detect repurposed professional content
+RULE 4: BEHAVIORAL RED FLAGS
+Document if present:
+- Burner account (new, low activity)
+- Boosted/fake follower metrics
+- Copied photos from victim
+- Similar bio structure
+- Cross-platform coordination
 
-4. CROSS-PLATFORM THREATS:
-   - Check related platforms for coordinated impersonation
-   - Look for fake accounts linking to each other
-   - Detect phishing profiles that reference the real user
+=== REQUIRED OUTPUT FOR EACH FINDING ===
 
-SEVERITY CLASSIFICATION:
-- CRITICAL: Active scam using user's identity, financial fraud attempts
-- HIGH: Complete profile impersonation, identity theft in progress
-- MEDIUM: Partial data misuse, stolen photos, bio copying
-- LOW: Similar usernames, potential future threat
+1. MATCHED DATA (EXACT COPIES):
+   - matched_name: "Exact name text from suspicious profile"
+   - matched_bio: "Exact bio text from suspicious profile"
+   - matched_photos: [array of exact photo URLs]
+   - matched_location: "Exact location text"
+   - matched_employer: "Exact employer text"
+   - matched_education: "Exact education text"
+   - matched_usernames: [array of exact usernames]
 
-For each finding, provide DETAILED information including:
-- The actual content being misused (full_name, bio text, photo URLs, location, workplace, education)
-- WHICH SPECIFIC VALUE from the user's vault was matched (e.g., "Uses exact name 'John Smith' from vault")
-- Photo comparison details if applicable
-- Common friends/connections if detectable
-- Specific evidence of impersonation
+2. VAULT MATCHES (which victim data was copied):
+   - vault_matches: [array of "data_type: exact_value" that matched]
 
-CRITICAL: Return ONLY findings where you can prove the suspicious profile uses one or more EXACT values from the user's vault listed above. If you're not 100% certain the profile uses the user's specific data, DO NOT include it.`;
+3. IDENTITY MATCH SCORE: 0-100
+
+4. THREAT CLASSIFICATION:
+   - threat_type: impersonation/phishing/fraud/catfishing/brand_theft/harassment/doxxing
+   - risk_level: critical/high/medium/low
+   - behavioral_red_flags: [array of observed red flags]
+
+5. EVIDENCE SUMMARY:
+   - Verbatim quotes proving the match
+   - URLs to suspicious content
+   - Timestamps if available
+
+CRITICAL: Only return findings with Identity Match Score >= 60 and at least one EXACT vault value match. No generic or assumed matches.`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -111,7 +126,7 @@ CRITICAL: Return ONLY findings where you can prove the suspicious profile uses o
                 type: "object",
                 properties: {
                   platform: { type: "string" },
-                  finding_type: { type: "string", enum: ["impersonation", "data_misuse", "unauthorized_profile", "stolen_content", "identity_theft"] },
+                  finding_type: { type: "string", enum: ["impersonation", "data_misuse", "unauthorized_profile", "stolen_content", "identity_theft", "phishing", "fraud", "catfishing", "brand_theft", "harassment", "doxxing"] },
                   suspicious_username: { type: "string" },
                   suspicious_profile_url: { type: "string" },
                   suspicious_profile_photo: { type: "string" },
@@ -129,6 +144,23 @@ CRITICAL: Return ONLY findings where you can prove the suspicious profile uses o
                       }
                     }
                   },
+                  // INCÓGNITO: Exact verbatim matched content
+                  matched_data_verbatim: {
+                    type: "object",
+                    properties: {
+                      matched_name: { type: "string", description: "Exact name text from suspicious profile" },
+                      matched_bio: { type: "string", description: "Exact bio text from suspicious profile" },
+                      matched_photos: { type: "array", items: { type: "string" } },
+                      matched_location: { type: "string", description: "Exact location text" },
+                      matched_employer: { type: "string", description: "Exact employer text" },
+                      matched_education: { type: "string", description: "Exact education text" },
+                      matched_usernames: { type: "array", items: { type: "string" } }
+                    }
+                  },
+                  vault_matches: { type: "array", items: { type: "string" }, description: "Array of 'data_type: exact_value' that matched" },
+                  identity_match_score: { type: "number", description: "0-100 forensic match score" },
+                  threat_type: { type: "string", enum: ["impersonation", "phishing", "fraud", "catfishing", "brand_theft", "harassment", "doxxing"] },
+                  behavioral_red_flags: { type: "array", items: { type: "string" } },
                   misused_data_details: {
                     type: "object",
                     properties: {
@@ -210,11 +242,11 @@ CRITICAL: Return ONLY findings where you can prove the suspicious profile uses o
             continue;
           }
           
-          // Create finding record with all enhanced details
+          // Create finding record with INCÓGNITO enhanced forensic details
           await base44.entities.SocialMediaFinding.create({
             profile_id: profileId,
             platform: finding.platform || legitimateProfile.platform,
-            finding_type: finding.finding_type,
+            finding_type: finding.threat_type || finding.finding_type,
             suspicious_username: finding.suspicious_username,
             suspicious_profile_url: finding.suspicious_profile_url || '',
             suspicious_profile_photo: finding.suspicious_profile_photo || '',
@@ -222,9 +254,20 @@ CRITICAL: Return ONLY findings where you can prove the suspicious profile uses o
             matching_photos: finding.matching_photos || [],
             photo_similarity_score: finding.photo_similarity_score || 0,
             common_friends: finding.common_friends || [],
-            misused_data_details: finding.misused_data_details || {},
-            similarity_score: finding.similarity_score,
-            misused_data: finding.misused_data || [],
+            misused_data_details: {
+              ...(finding.misused_data_details || {}),
+              // INCÓGNITO: Add verbatim matched content
+              full_name: finding.matched_data_verbatim?.matched_name || finding.misused_data_details?.full_name,
+              bio: finding.matched_data_verbatim?.matched_bio || finding.misused_data_details?.bio,
+              location: finding.matched_data_verbatim?.matched_location || finding.misused_data_details?.location,
+              workplace: finding.matched_data_verbatim?.matched_employer || finding.misused_data_details?.workplace,
+              education: finding.matched_data_verbatim?.matched_education || finding.misused_data_details?.education,
+              photos: finding.matched_data_verbatim?.matched_photos || finding.misused_data_details?.photos || [],
+              vault_matches: finding.vault_matches || [],
+              behavioral_red_flags: finding.behavioral_red_flags || []
+            },
+            similarity_score: finding.identity_match_score || finding.similarity_score,
+            misused_data: finding.vault_matches || finding.misused_data || [],
             evidence: finding.evidence,
             status: 'new',
             severity: finding.severity,

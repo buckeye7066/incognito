@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Loader2, Eye, CheckCircle } from 'lucide-react';
+import { Globe, Loader2, Eye, CheckCircle, Trash2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -37,6 +37,13 @@ export default function SearchQueryFindings({ profileId }) {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => base44.entities.SearchQueryFinding.update(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['searchQueryFindings']);
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.SearchQueryFinding.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['searchQueryFindings']);
     }
@@ -130,9 +137,19 @@ export default function SearchQueryFindings({ profileId }) {
                       </p>
                     </div>
                   </div>
-                  <Badge className={getRiskColor(finding.risk_level)}>
-                    {finding.risk_level?.toUpperCase()}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getRiskColor(finding.risk_level)}>
+                      {finding.risk_level?.toUpperCase()}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(finding.id)}
+                      className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

@@ -2,21 +2,24 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, MapPin, Eye, CheckCircle, User, Clock, Monitor } from 'lucide-react';
+import { Globe, Loader2, Eye, CheckCircle } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
-const PLATFORM_ICONS = {
-  google: '🔍',
-  bing: '🔎',
-  duckduckgo: '🦆',
+const SOURCE_ICONS = {
+  spokeo: '🔍',
+  beenverified: '🔎',
+  whitepages: '📄',
+  truepeoplesearch: '👤',
+  radaris: '📊',
+  zillow: '🏠',
   facebook: '📘',
   twitter: '🐦',
   instagram: '📷',
   linkedin: '💼',
-  tiktok: '🎵',
   reddit: '🤖',
+  google: '🔍',
   other: '🌐'
 };
 
@@ -68,8 +71,8 @@ export default function SearchQueryFindings({ profileId }) {
       <CardHeader className="border-b border-purple-500/20">
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2">
-            <Search className="w-5 h-5 text-purple-400" />
-            Search Query Monitor
+            <Globe className="w-5 h-5 text-purple-400" />
+            Public Exposure Monitor
           </CardTitle>
           <Button
             size="sm"
@@ -80,12 +83,12 @@ export default function SearchQueryFindings({ profileId }) {
             {detecting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Detecting...
+                Scanning...
               </>
             ) : (
               <>
-                <Search className="w-4 h-4 mr-2" />
-                Check Searches
+                <Globe className="w-4 h-4 mr-2" />
+                Scan for Exposures
               </>
             )}
           </Button>
@@ -97,10 +100,10 @@ export default function SearchQueryFindings({ profileId }) {
             <Eye className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-purple-200 font-semibold mb-1">
-                Active Search Monitoring
+                Public Data Exposure Detection
               </p>
               <p className="text-xs text-purple-300">
-                AI monitors web and social media for searches related to your personal data, alerting you to potential stalking or unauthorized lookups.
+                AI scans people search sites, data brokers, and public records to find where your personal information appears online.
               </p>
             </div>
           </div>
@@ -117,75 +120,31 @@ export default function SearchQueryFindings({ profileId }) {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{PLATFORM_ICONS[finding.search_platform] || '🌐'}</span>
+                    <span className="text-2xl">{SOURCE_ICONS[finding.search_platform?.toLowerCase()] || '🌐'}</span>
                     <div>
                       <p className="text-sm font-semibold text-white capitalize">
                         {finding.search_platform}
                       </p>
                       <p className="text-xs text-purple-400">
-                        {new Date(finding.detected_date).toLocaleString()}
+                        Found {new Date(finding.detected_date).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
                   <Badge className={getRiskColor(finding.risk_level)}>
-                    {finding.risk_level.toUpperCase()}
+                    {finding.risk_level?.toUpperCase()}
                   </Badge>
                 </div>
 
-                {/* Who, Where, When Section */}
-                <div className="grid grid-cols-3 gap-3 mb-3 p-3 rounded-lg bg-slate-900/50 border border-purple-500/10">
-                  <div className="flex items-start gap-2">
-                    <User className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-purple-400 mb-0.5">Who</p>
-                      <p className="text-sm text-white font-semibold">
-                        {finding.searcher_identity || 'Anonymous'}
-                      </p>
-                      {finding.searcher_ip && finding.searcher_ip !== 'Unknown' && (
-                        <p className="text-xs text-purple-300 font-mono">{finding.searcher_ip}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-purple-400 mb-0.5">Where</p>
-                      <p className="text-sm text-white font-semibold">
-                        {finding.geographic_origin || 'Unknown'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Clock className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-purple-400 mb-0.5">When</p>
-                      <p className="text-sm text-white font-semibold">
-                        {new Date(finding.detected_date).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-purple-300">
-                        {new Date(finding.detected_date).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {finding.device_info && finding.device_info !== 'Unknown' && (
-                  <div className="flex items-center gap-2 mb-3 text-xs text-purple-300 bg-slate-900/30 px-3 py-2 rounded">
-                    <Monitor className="w-3 h-3" />
-                    <span>Device: {finding.device_info}</span>
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs text-purple-400 mb-1">Search Query:</p>
+                    <p className="text-xs text-purple-400 mb-1">Data Found On This Site:</p>
                     <p className="text-sm text-white font-mono bg-slate-900/50 px-3 py-2 rounded">
-                      "{finding.query_detected}"
+                      {finding.query_detected}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-xs text-purple-400 mb-1">Your Data That Matched:</p>
+                    <p className="text-xs text-purple-400 mb-1">Your Exposed Data:</p>
                     <div className="space-y-1">
                       {finding.matched_data_types?.map((type, idx) => (
                         <div key={idx} className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded px-3 py-1.5">
@@ -203,16 +162,9 @@ export default function SearchQueryFindings({ profileId }) {
                   </div>
 
                   <div>
-                    <p className="text-xs text-purple-400 mb-1">AI Analysis:</p>
+                    <p className="text-xs text-purple-400 mb-1">Analysis:</p>
                     <p className="text-sm text-purple-300">{finding.ai_analysis}</p>
                   </div>
-
-                  {finding.search_context && (
-                    <div>
-                      <p className="text-xs text-purple-400 mb-1">Context:</p>
-                      <p className="text-sm text-purple-300">{finding.search_context}</p>
-                    </div>
-                  )}
 
                   {finding.status === 'new' && (
                     <div className="flex gap-2 pt-2 border-t border-purple-500/20">
@@ -241,9 +193,9 @@ export default function SearchQueryFindings({ profileId }) {
           </div>
         ) : (
           <div className="text-center py-8">
-            <Search className="w-12 h-12 text-purple-500 mx-auto mb-3 opacity-50" />
-            <p className="text-purple-300 mb-2">No search queries detected</p>
-            <p className="text-sm text-purple-400">Click "Check Searches" to start monitoring</p>
+            <Globe className="w-12 h-12 text-purple-500 mx-auto mb-3 opacity-50" />
+            <p className="text-purple-300 mb-2">No public exposures detected</p>
+            <p className="text-sm text-purple-400">Click "Scan for Exposures" to check data broker sites</p>
           </div>
         )}
       </CardContent>

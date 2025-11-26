@@ -6,9 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale, Printer } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale, Printer, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
+import AutomatedDeletionModal from '../components/deletion/AutomatedDeletionModal';
 
 export default function Findings() {
   const queryClient = useQueryClient();
@@ -17,6 +18,8 @@ export default function Findings() {
   const [aiAnalysis, setAiAnalysis] = useState({});
   const [loadingLegal, setLoadingLegal] = useState(null);
   const [legalInfo, setLegalInfo] = useState({});
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState(null);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -1043,13 +1046,25 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                         <Button
                           size="sm"
                           onClick={() => {
+                            setSelectedForDeletion(result);
+                            setDeletionModalOpen(true);
+                          }}
+                          className="bg-gradient-to-r from-red-600 to-purple-600"
+                        >
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          AI Delete Request
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
                             handleStatusChange(result.id, 'removal_requested');
                             window.location.href = '/DeletionCenter';
                           }}
-                          className="bg-gradient-to-r from-red-600 to-orange-600"
+                          className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
                           <FileText className="w-4 h-4 mr-2" />
-                          Request Removal
+                          Manual Request
                         </Button>
                       </div>
                     ) : (
@@ -1107,6 +1122,18 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
           </div>
         )}
       </AnimatePresence>
+
+      {/* Automated Deletion Modal */}
+      <AutomatedDeletionModal
+        open={deletionModalOpen}
+        onClose={() => {
+          setDeletionModalOpen(false);
+          setSelectedForDeletion(null);
+        }}
+        finding={selectedForDeletion}
+        findingType="scan_result"
+        profileId={activeProfileId}
+      />
     </div>
   );
 }

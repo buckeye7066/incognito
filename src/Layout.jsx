@@ -42,6 +42,7 @@ import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, 
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 export default function Layout({ children, currentPageName }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -107,6 +108,7 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-950 to-slate-900">
       <style>{`
         :root {
@@ -197,6 +199,7 @@ export default function Layout({ children, currentPageName }) {
         onClose={() => setShowProfileModal(false)}
         onSave={handleCreateProfile}
       />
-    </div>
-  );
-}
+      </div>
+      </ErrorBoundary>
+      );
+      }

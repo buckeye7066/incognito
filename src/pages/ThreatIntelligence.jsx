@@ -100,7 +100,10 @@ export default function ThreatIntelligence() {
   const runThreatAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const prompt = `You are INCÓGNITO Threat Intelligence, a professional-grade security analyst. Analyze this user's complete threat landscape and provide actionable intelligence.
+      const prompt = `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles. Only analyze the actual data provided.
+
+You are INCÓGNITO Threat Intelligence, a professional-grade security analyst. Analyze this user's complete threat landscape and provide actionable intelligence.
 
 === USER'S PROTECTED DATA ===
 ${profilePersonalData.map(d => `${d.data_type}: "${d.value}"`).join('\n')}

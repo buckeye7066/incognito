@@ -53,14 +53,14 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
+    // SECURITY: Never return raw card data - mask all sensitive values
     return Response.json({
       success: true,
       card: {
+        masked_pan: `**** **** **** ${cardData.last_four}`,
         last_four: cardData.last_four,
-        pan: cardData.pan,
-        cvv: cardData.cvv,
-        exp_month: cardData.exp_month,
-        exp_year: cardData.exp_year
+        card_brand: cardData.type || 'VISA',
+        created_at: new Date().toISOString()
       }
     });
 

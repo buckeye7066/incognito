@@ -42,7 +42,16 @@ Deno.serve(async (req) => {
         vaultValues[d.data_type].push(d.value);
       });
 
-      const prompt = `You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
+      const prompt = `IMPORTANT SAFETY RULES:
+- Never fabricate impersonation profiles, identities, or findings.
+- Only report findings with concrete, verifiable evidence from real sources.
+- If unsure about any finding, state uncertainty clearly.
+- Never create fake people, companies, usernames, or platforms.
+- Never state someone is impersonating a user unless multiple positive indicators exist.
+- If findings are inconclusive, state ambiguity instead of certainty.
+- If no impersonation is found, return an empty array - do not invent findings.
+
+You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
 
 === VICTIM'S LEGITIMATE PROFILE ===
 Platform: ${legitimateProfile.platform}

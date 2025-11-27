@@ -63,7 +63,14 @@ Deno.serve(async (req) => {
     };
 
     // Analyze data correlations
-    const correlationPrompt = `Analyze the following personal data for correlation risks:
+    const correlationPrompt = `IMPORTANT SAFETY RULES:
+- Never fabricate risk correlations, threats, or exposures.
+- Only analyze the data provided - do not invent additional data points.
+- If unsure about correlation risk, state uncertainty clearly.
+- Never create fake breach scenarios or threat actors.
+- Base all analysis strictly on the provided data.
+
+Analyze the following personal data for correlation risks:
 
 ${personalData.map(d => `${d.data_type}: ${d.monitoring_enabled ? 'monitored' : 'not monitored'}`).join('\n')}
 

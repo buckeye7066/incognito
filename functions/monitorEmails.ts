@@ -95,17 +95,21 @@ Deno.serve(async (req) => {
           last_check: new Date().toISOString()
         });
 
+        // SECURITY: Mask email in response
+        const safeAccountId = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
         results.push({
-          account: account.account_identifier,
+          account: safeAccountId,
           spamFound: spamEmails.length,
           logged: account.auto_log_spam ? spamEmails.length : 0
         });
 
       } catch (error) {
-        console.error(`Error monitoring ${account.account_identifier}:`, error);
+        // SECURITY: Mask email in logs
+        const safeEmail = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
+        console.error(`Error monitoring mailbox for: ${safeEmail}`);
         results.push({
-          account: account.account_identifier,
-          error: error.message
+          account: safeEmail,
+          error: 'Processing error'
         });
       }
     }

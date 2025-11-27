@@ -62,7 +62,13 @@ Deno.serve(async (req) => {
 
             // Use AI to analyze the email and match to deletion request
             const analysis = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `Analyze this email to determine if it's a response to a data deletion/removal request:
+              prompt: `IMPORTANT SAFETY RULES:
+- Never fabricate email analysis results.
+- Only analyze the actual email content provided.
+- If unsure about the response type, state uncertainty.
+- Do not guess deletion request IDs - only match if confident.
+
+Analyze this email to determine if it's a response to a data deletion/removal request:
 
 From: ${from}
 Subject: ${subject}
@@ -178,7 +184,9 @@ Determine:
           }
         }
       } catch (error) {
-        console.error(`Error monitoring ${account.account_identifier}:`, error);
+        // SECURITY: Mask email in logs
+        const safeEmail = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
+        console.error(`Error monitoring deletion responses for: ${safeEmail}`);
       }
     }
 

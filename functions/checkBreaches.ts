@@ -28,6 +28,29 @@ Deno.serve(async (req) => {
 
       // Only check emails with HIBP (their primary supported type)
       if (data_type === 'email') {
+        // Staleness check - skip if checked within last 24 hours
+        const existingResults = await base44.asServiceRole.entities.ScanResult.filter({
+          personal_data_id: id,
+          source_type: 'breach_database'
+        });
+        
+        const recentCheck = existingResults.find(r => {
+          if (!r.scan_date) return false;
+          const scanTime = new Date(r.scan_date).getTime();
+          const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+          return scanTime > dayAgo;
+        });
+        
+        if (recentCheck) {
+          breachResults.push({
+            identifier_id: id,
+            data_type,
+            status: 'skipped_recent_check',
+            lastCheck: recentCheck.scan_date
+          });
+          continue;
+        }
+        
         try {
           // Have I Been Pwned API v3 - requires API key
           const response = await fetch(
@@ -107,7 +130,9 @@ Deno.serve(async (req) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         } catch (error) {
-          console.error(`Error checking ${value}:`, error);
+          // SECURITY: Mask email in logs
+          const safeEmail = value.replace(/(.{2}).+(@.+)/, "$1***$2");
+          console.error(`Error checking breach for: ${safeEmail}`);
         }
 
         // Rate limiting - HIBP allows 1 request per 1.5 seconds for paid plans
@@ -129,7 +154,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Breach check error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    // SECURITY: Do not log full error details
+    console.error('Breach check error occurred');
+    return Response.json({ error: 'Breach check failed' }, { status: 500 });
   }
 });

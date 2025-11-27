@@ -1,11 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
-// SECURITY: Helper to mask email addresses
-const maskEmail = (email) => {
-  if (!email) return '[redacted]';
-  return email.replace(/^(.)(.*)(@.+)$/, '$1***$3');
-};
-
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -101,19 +95,17 @@ Deno.serve(async (req) => {
           last_check: new Date().toISOString()
         });
 
-        // SECURITY FIX: Only return masked account identifier
         results.push({
-          account: maskEmail(account.account_identifier),
+          account: account.account_identifier,
           spamFound: spamEmails.length,
           logged: account.auto_log_spam ? spamEmails.length : 0
         });
 
       } catch (error) {
-        // SECURITY FIX: Never log actual email addresses
-        console.error('Error monitoring mailbox for account');
+        console.error(`Error monitoring ${account.account_identifier}:`, error);
         results.push({
-          account: maskEmail(account.account_identifier),
-          error: 'Processing failed'
+          account: account.account_identifier,
+          error: error.message
         });
       }
     }
@@ -126,7 +118,6 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Email monitoring error occurred');
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

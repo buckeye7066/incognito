@@ -36,38 +36,35 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.text();
-      return Response.json({ error: 'Card creation failed. Please try again.' }, { status: response.status });
+      return Response.json({ error: `Privacy.com API error: ${error}` }, { status: response.status });
     }
 
     const cardData = await response.json();
 
-    // Store ONLY masked data in database - NEVER store raw card numbers
+    // Store in database
     await base44.asServiceRole.entities.DisposableCredential.create({
       profile_id: profileId,
       credential_type: 'credit_card',
       service_provider: 'Privacy.com',
-      credential_value: `**** **** **** ${cardData.last_four}`, // Only masked value
+      credential_value: `****-${cardData.last_four}`,
       purpose: purpose || 'Virtual Card',
       created_for_website: website || '',
       expiry_date: cardData.exp_date,
       is_active: true
     });
 
-    // SECURITY FIX: Return ONLY masked values - NEVER return raw PAN, CVV, or full expiry
     return Response.json({
       success: true,
       card: {
-        masked_pan: `**** **** **** ${cardData.last_four}`,
         last_four: cardData.last_four,
-        card_brand: cardData.funding?.type || 'VISA',
-        created_at: new Date().toISOString()
-      },
-      message: 'Virtual card created. For security, full card details are only available in your Privacy.com dashboard.'
+        pan: cardData.pan,
+        cvv: cardData.cvv,
+        exp_month: cardData.exp_month,
+        exp_year: cardData.exp_year
+      }
     });
 
   } catch (error) {
-    // SECURITY: Never log sensitive data
-    console.error('Card creation error occurred');
-    return Response.json({ error: 'Failed to create virtual card' }, { status: 500 });
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });

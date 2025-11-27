@@ -32,13 +32,7 @@ Deno.serve(async (req) => {
       value: d.value
     }));
 
-    const prompt = `IMPORTANT:
-    - Never fabricate breach results, impersonation profiles, card data, identities, exposures, or search results.
-    - Only use the JSON data provided.
-    - If unsure, state uncertainty clearly.
-    - Never create fake people, companies, or platforms.
-
-    You are a precise data exposure detection system. Your job is to find REAL, VERIFIABLE places where this person's data appears publicly online.
+    const prompt = `You are a precise data exposure detection system. Your job is to find REAL, VERIFIABLE places where this person's data appears publicly online.
 
 === USER'S PERSONAL DATA TO SEARCH FOR ===
 ${searchableData.map(d => `${d.type}: "${d.value}"`).join('\n')}

@@ -191,7 +191,12 @@ Deno.serve(async (req) => {
     riskScore = Math.min(100, Math.round(riskScore));
 
     // Generate AI explanation
-    const explanationPrompt = `IMPORTANT: Never fabricate findings. Only summarize the actual data provided.
+    const explanationPrompt = `IMPORTANT SAFETY RULES:
+- NEVER fabricate breach data, impersonation findings, exposures, or personal details.
+- NEVER invent platforms, people, websites, or records.
+- NEVER guess. If unsure, explicitly say 'uncertain.'
+- ONLY summarize the actual data provided.
+- If a detail is not present in the evidence, DO NOT add it.
 
 Based on these identity scan results, provide a brief risk assessment:
 
@@ -244,7 +249,8 @@ Provide:
     });
 
   } catch (error) {
+    // SECURITY: Do not log full error details
     console.error('Correlation engine error occurred');
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: 'An error occurred during correlation analysis' }, { status: 500 });
   }
 });

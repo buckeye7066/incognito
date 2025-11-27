@@ -34,15 +34,13 @@ Deno.serve(async (req) => {
 
     // INCÓGNITO comprehensive monitoring prompt
     const monitoringPrompt = `IMPORTANT SAFETY RULES:
-    - Never fabricate breach results, impersonation profiles, identities, exposures, or search results.
-    - Only use the JSON data provided and verified internet sources.
-    - If unsure about any finding, state uncertainty clearly.
-    - Never create fake people, companies, or platforms.
-    - Never state someone is impersonating a user unless multiple positive indicators exist.
-    - If findings are inconclusive, state ambiguity instead of certainty.
-    - If no exposures are found, return empty arrays - do not invent findings.
+- NEVER fabricate breach data, impersonation findings, exposures, or personal details.
+- NEVER invent platforms, people, websites, or records.
+- NEVER guess. If unsure, explicitly say 'uncertain.'
+- ONLY use the JSON evidence provided.
+- If a detail is not present in the evidence, DO NOT add it.
 
-    You are INCÓGNITO, a professional-grade identity forensic analyst. Extract EXACT VERBATIM content where this person's data appears publicly.
+You are INCÓGNITO, a professional-grade identity forensic analyst. Extract EXACT VERBATIM content where this person's data appears publicly.
 
 === VICTIM'S PROTECTED DATA (VAULT) ===
 ${personalData.map(d => `${d.data_type}: "${d.value}"`).join('\n')}
@@ -321,10 +319,11 @@ Only include findings with exact vault data matches. No assumptions or generic m
     });
 
   } catch (error) {
-    console.error('Social media monitoring error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Social media monitoring error occurred');
     return Response.json({ 
-      error: error.message,
-      details: 'Failed to monitor social media'
+      error: 'Failed to monitor social media',
+      details: 'An error occurred during monitoring'
     }, { status: 500 });
   }
 });

@@ -53,13 +53,15 @@ Deno.serve(async (req) => {
       is_active: true
     });
 
-    // SECURITY: Never return raw card data - mask all sensitive values
+    // SECURITY: Never return full PAN/CVV to frontend
     return Response.json({
       success: true,
       card: {
         masked_pan: `**** **** **** ${cardData.last_four}`,
         last_four: cardData.last_four,
-        card_brand: cardData.type || 'VISA',
+        exp_month: cardData.exp_month,
+        exp_year: cardData.exp_year,
+        card_brand: 'Visa', // Privacy.com uses Visa
         created_at: new Date().toISOString()
       }
     });

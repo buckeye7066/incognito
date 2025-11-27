@@ -39,33 +39,6 @@ Deno.serve(async (req) => {
     const safe = (v) => (!v || v === '' ? '[not available]' : String(v));
     const list = (arr) => Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '[none recorded]';
 
-    // SECURITY: PII Redaction functions
-    const redactEmail = (email) => {
-      if (!email) return '[redacted]';
-      return email.replace(/(\w{1})[\w.-]+(@[\w.-]+)/, "$1***$2");
-    };
-    const redactPhone = (phone) => {
-      if (!phone) return '[redacted]';
-      return phone.replace(/\b(\d{3})\d{3}(\d{4})\b/, "$1-***-$2");
-    };
-    const redactAddress = (addr) => {
-      if (!addr) return '[redacted]';
-      // Replace house numbers with ***
-      return addr.replace(/^\d+\s+/, "*** ");
-    };
-    const redactName = (name) => {
-      if (!name) return '[redacted]';
-      const parts = name.trim().split(' ');
-      if (parts.length >= 2) {
-        return `${parts[0][0]}. ${parts[parts.length - 1]}`;
-      }
-      return `${name[0]}.`;
-    };
-    const redactList = (arr, redactFn) => {
-      if (!Array.isArray(arr) || arr.length === 0) return '[none recorded]';
-      return arr.map(redactFn).join(', ');
-    };
-
     // Build user profile summary from vault data
     const myName = myData.find(d => d.data_type === 'full_name')?.value || user.full_name;
     const myEmails = myData.filter(d => d.data_type === 'email').map(d => d.value);
@@ -73,6 +46,31 @@ Deno.serve(async (req) => {
     const myUsernames = myData.filter(d => d.data_type === 'username').map(d => d.value);
     const myAddresses = myData.filter(d => d.data_type === 'address').map(d => d.value);
     const myEmployer = myData.find(d => d.data_type === 'employer')?.value;
+
+    // SECURITY: Redaction helper functions
+    const redactEmail = (email) => {
+      if (!email) return '[not available]';
+      return email.replace(/(.{2}).+(@.+)/, "$1***$2");
+    };
+    
+    const redactPhone = (phone) => {
+      if (!phone) return '[not available]';
+      return phone.replace(/\b(\d{3})\d{3}(\d{4})\b/, "$1-***-$2");
+    };
+    
+    const redactAddress = (addr) => {
+      if (!addr) return '[not available]';
+      return addr.replace(/^\d+\s/, "*** ");
+    };
+    
+    const redactName = (name) => {
+      if (!name) return '[not available]';
+      const parts = name.trim().split(' ');
+      if (parts.length > 1) {
+        return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+      }
+      return `${name[0]}.`;
+    };
 
     // INCÓGNITO: Build EXACT VERBATIM matched fields from finding data
     const matchedFields = {};
@@ -138,13 +136,13 @@ Threat Classification: ${finding.finding_type?.toUpperCase() || 'IMPERSONATION'}
 Risk Level: ${finding.severity?.toUpperCase() || 'HIGH'}
 
 ================================================================================
-SECTION 1: VICTIM INFORMATION (COMPLAINANT) [REDACTED FOR SECURITY]
+SECTION 1: VICTIM INFORMATION (COMPLAINANT)
 ================================================================================
-Full Legal Name: ${redactName(myName)}
+Full Legal Name: ${safe(myName)}
 Known Usernames/Handles: ${list(myUsernames.length ? myUsernames : myProfiles.map(p => '@' + p.username))}
-Primary Email(s): ${redactList(myEmails, redactEmail)}
-Primary Phone(s): ${redactList(myPhones, redactPhone)}
-Location (City, State): ${redactList(myAddresses, redactAddress)}
+Primary Email(s): ${list(myEmails)}
+Primary Phone(s): ${list(myPhones)}
+Location (City, State): ${list(myAddresses)}
 Employer: ${safe(myEmployer)}
 Platforms Controlled by Victim: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
 
@@ -242,12 +240,12 @@ Identity Match Score: ${identityMatchScore}/100
 Threat Classification: ${finding.finding_type?.toUpperCase() || 'IMPERSONATION'}
 
 ================================================================================
-SECTION 1: CLIENT INFORMATION [REDACTED FOR SECURITY]
+SECTION 1: CLIENT INFORMATION
 ================================================================================
-Full Legal Name: ${redactName(myName)}
-Location (City/State): ${redactList(myAddresses, redactAddress)}
-Contact Email(s): ${redactList(myEmails, redactEmail)}
-Contact Phone(s): ${redactList(myPhones, redactPhone)}
+Full Legal Name: ${safe(myName)}
+Location (City/State): ${list(myAddresses)}
+Contact Email(s): ${list(myEmails)}
+Contact Phone(s): ${list(myPhones)}
 Employer: ${safe(myEmployer)}
 Legitimate Online Presence: ${list(myProfiles.map(p => `${p.platform} (@${p.username})`))}
 Prior Impersonation Incidents: None on record
@@ -383,7 +381,7 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
 ================================================================================
 `.trim();
 
-    // SECURITY: Return redacted structured data
+    // SECURITY: Return redacted structured data for API consumers
     return Response.json({
       success: true,
       findingId,
@@ -414,16 +412,15 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
         },
         matches: matchedFields
       },
-      generatedAt: now,
-      redaction_notice: 'PII has been partially redacted for security. Full details available in printed packets.'
+      generatedAt: now
     });
 
   } catch (error) {
     // SECURITY: Do not log full error details
     console.error('Evidence packet generation error occurred');
     return Response.json({ 
-      error: error.message,
-      details: 'Failed to generate evidence packet'
+      error: 'Failed to generate evidence packet',
+      details: 'An error occurred during packet generation'
     }, { status: 500 });
   }
 });

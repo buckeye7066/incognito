@@ -222,7 +222,8 @@ CRITICAL MATCHING RULES:
     });
 
   } catch (error) {
+    // SECURITY: Do not log full error details
     console.error('Identity scan error occurred');
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: 'An error occurred during identity scan' }, { status: 500 });
   }
 });

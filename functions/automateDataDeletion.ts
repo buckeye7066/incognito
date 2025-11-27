@@ -43,24 +43,11 @@ Deno.serve(async (req) => {
         continue;
       }
       // Generate deletion request using AI
-      // Idempotency check - prevent duplicate requests
-      const existingRequests = await base44.asServiceRole.entities.DeletionRequest.filter({
-        scan_result_id: scanResult.id,
-        profile_id: profileId
-      });
-      
-      if (existingRequests.length > 0 && existingRequests.some(r => ['pending', 'in_progress'].includes(r.status))) {
-        skippedPlatforms.push({
-          broker: scanResult.source_name,
-          reason: 'Deletion request already in progress'
-        });
-        continue;
-      }
-
       const prompt = `IMPORTANT SAFETY RULES:
-- Never include raw SSN, full credit card numbers, or passwords in the email.
-- Never fabricate contact information - use standard privacy@ patterns if unknown.
-- Generate professional, legally compliant content only.
+- NEVER include user's actual personal data (SSN, DOB, address) in the email body.
+- NEVER fabricate contact information or legal details.
+- Use placeholder text like "[USER WILL PROVIDE VERIFICATION]" for identity verification.
+- If unsure about contact email, use generic patterns like privacy@ or support@.
 
 Generate a professional GDPR/CCPA data deletion request email for:
       
@@ -167,11 +154,11 @@ Return JSON.`;
     });
 
   } catch (error) {
-    // SECURITY: Do not log full error details that may contain PII
+    // SECURITY: Do not log full error details
     console.error('Automated deletion error occurred');
     return Response.json({ 
-      error: error.message,
-      details: 'Failed to automate data deletion requests'
+      error: 'Failed to automate data deletion requests',
+      details: 'An error occurred during deletion automation'
     }, { status: 500 });
   }
 });

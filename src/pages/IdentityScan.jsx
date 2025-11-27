@@ -8,8 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Scan, Shield, AlertTriangle, Users, Database, Globe, 
   FileText, Mail, Phone, MapPin, User, Loader2, ExternalLink,
-  Eye, Lock, Gavel, MessageSquare, ChevronDown, ChevronUp
+  Eye, Lock, Gavel, MessageSquare, ChevronDown, ChevronUp, Wrench
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CATEGORY_CONFIG = {
@@ -173,9 +175,12 @@ function MatchCard({ match, expanded, onToggle }) {
                   <Eye className="w-3 h-3 mr-1" />
                   Mark Reviewed
                 </Button>
-                <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                  Request Removal
-                </Button>
+                <Link to={`${createPageUrl('FixExposure')}?exposure_id=${match.id || ''}&type=${match.source_type || 'unknown'}`}>
+                  <Button size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
+                    <Wrench className="w-3 h-3 mr-1" />
+                    Fix This Exposure
+                  </Button>
+                </Link>
               </div>
             </div>
           </motion.div>

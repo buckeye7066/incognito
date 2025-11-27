@@ -162,6 +162,31 @@ CRITICAL MATCHING RULES:
       userPII
     });
 
+    // Check for class actions
+    let classActionMatches = [];
+    try {
+      const companies = [...new Set(validFindings.map(f => f.source_name).filter(Boolean))];
+      for (const company of companies.slice(0, 3)) {
+        const caResult = await base44.functions.invoke('checkClassActions', { companyName: company });
+        if (caResult.data?.litigation?.length > 0) {
+          classActionMatches.push(...caResult.data.litigation);
+        }
+      }
+    } catch (e) {
+      // Continue if class action check fails
+    }
+
+    // Find recommended attorneys
+    let recommendedAttorneys = [];
+    try {
+      const attorneyResult = await base44.functions.invoke('findAttorneys', { 
+        exposureType: validFindings.some(f => f.is_impersonation) ? 'impersonation' : 'data_broker'
+      });
+      recommendedAttorneys = (attorneyResult.data?.attorneys || []).slice(0, 3);
+    } catch (e) {
+      // Continue if attorney search fails
+    }
+
     // Store findings as ScanResults
     for (const finding of validFindings) {
       await base44.asServiceRole.entities.ScanResult.create({
@@ -211,13 +236,17 @@ CRITICAL MATCHING RULES:
       })),
       risk_score: correlationResult.data?.risk_score || 0,
       scan_timestamp: Date.now(),
+      class_action_matches: classActionMatches,
+      recommended_attorneys: recommendedAttorneys,
       summary: {
         total_matches: validFindings.length,
         impersonations: impersonationCount,
         critical: criticalCount,
         high: validFindings.filter(f => f.severity === 'high').length,
         medium: validFindings.filter(f => f.severity === 'medium').length,
-        low: validFindings.filter(f => f.severity === 'low').length
+        low: validFindings.filter(f => f.severity === 'low').length,
+        class_actions_found: classActionMatches.length,
+        attorneys_found: recommendedAttorneys.length
       }
     });
 

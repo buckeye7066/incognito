@@ -381,6 +381,55 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
 ================================================================================
 `.trim();
 
+    // Build comprehensive incident summary
+    const incidentSummary = {
+      case_reference: `INC-${finding.id.slice(0, 8).toUpperCase()}`,
+      incident_type: finding.finding_type?.replace(/_/g, ' ') || 'impersonation',
+      severity: finding.severity || 'high',
+      identity_match_score: finding.similarity_score || 0,
+      discovery_date: finding.detected_date || finding.created_date,
+      report_generated: now
+    };
+
+    // Exposure details
+    const exposureDetails = {
+      platform: finding.platform,
+      suspicious_account: finding.suspicious_username,
+      profile_url: finding.suspicious_profile_url,
+      verbatim_content: {
+        name: finding.misused_data_details?.full_name,
+        bio: finding.misused_data_details?.bio,
+        location: finding.misused_data_details?.location,
+        employer: finding.misused_data_details?.workplace,
+        education: finding.misused_data_details?.education
+      }
+    };
+
+    // Timeline
+    const timeline = [
+      { event: 'Exposure detected', date: finding.detected_date || finding.created_date },
+      { event: 'Evidence packet generated', date: now }
+    ];
+
+    // Victim rights summary
+    const victimRights = [
+      'Right to data deletion under GDPR Article 17 and CCPA Section 1798.105',
+      'Right to file FTC complaint at IdentityTheft.gov',
+      'Right to place fraud alerts with credit bureaus',
+      'Right to file police report for documentation',
+      'Right to seek civil remedies for damages'
+    ];
+
+    // Legal next steps
+    const legalNextSteps = [
+      '1. Preserve all evidence (screenshots, URLs, dates)',
+      '2. File identity theft report at IdentityTheft.gov',
+      '3. Place fraud alerts with Equifax, Experian, TransUnion',
+      '4. File police report with local law enforcement',
+      '5. Consult with attorney for civil action options',
+      '6. Submit platform takedown request'
+    ];
+
     // SECURITY: Return redacted structured data for API consumers
     return Response.json({
       success: true,
@@ -393,6 +442,8 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
         attorney: attorneyPacket
       },
       structured: {
+        incident_summary: incidentSummary,
+        exposure_details: exposureDetails,
         victim: {
           legal_name: redactName(myName),
           emails: myEmails.map(redactEmail),
@@ -410,7 +461,22 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
           location: finding.misused_data_details?.location,
           first_seen_utc: finding.detected_date || finding.created_date
         },
-        matches: matchedFields
+        impersonation_analysis: {
+          identity_match_score: finding.similarity_score,
+          matched_fields: matchedFields,
+          behavioral_red_flags: finding.misused_data_details?.behavioral_red_flags || []
+        },
+        timeline,
+        risk_score: finding.similarity_score,
+        class_action_matches: [], // Placeholder - populated by caller
+        recommended_attorneys: [], // Placeholder - populated by caller
+        victim_rights: victimRights,
+        legal_next_steps: legalNextSteps,
+        attachments: {
+          screenshots_recommended: true,
+          profile_url: finding.suspicious_profile_url,
+          evidence_urls: finding.matching_photos || []
+        }
       },
       generatedAt: now
     });

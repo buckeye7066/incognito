@@ -70,6 +70,8 @@ export default function DeletionCenter() {
     }
   });
 
+  const [deletingFailed, setDeletingFailed] = useState(false);
+  
   const deleteAllFailedRequests = async () => {
     const failedRequests = deletionRequests.filter(r => r.status === 'failed');
     if (failedRequests.length === 0) {
@@ -79,10 +81,17 @@ export default function DeletionCenter() {
     
     if (!confirm(`Delete ${failedRequests.length} failed requests?`)) return;
     
-    for (const req of failedRequests) {
-      await base44.entities.DeletionRequest.delete(req.id);
+    setDeletingFailed(true);
+    try {
+      for (const req of failedRequests) {
+        await base44.entities.DeletionRequest.delete(req.id);
+      }
+      queryClient.invalidateQueries(['deletionRequests']);
+    } catch (error) {
+      alert('Error deleting requests: ' + error.message);
+    } finally {
+      setDeletingFailed(false);
     }
-    queryClient.invalidateQueries(['deletionRequests']);
   };
 
   const removalCandidates = scanResults.filter(
@@ -457,10 +466,15 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                 variant="outline"
                 size="sm"
                 onClick={deleteAllFailedRequests}
+                disabled={deletingFailed}
                 className="bg-red-600/20 border-red-500/50 text-red-300 hover:bg-red-600/30"
               >
-                <X className="w-4 h-4 mr-1" />
-                Clear Failed ({deletionRequests.filter(r => r.status === 'failed').length})
+                {deletingFailed ? (
+                  <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <X className="w-4 h-4 mr-1" />
+                )}
+                {deletingFailed ? 'Deleting...' : `Clear Failed (${deletionRequests.filter(r => r.status === 'failed').length})`}
               </Button>
             )}
           </div>

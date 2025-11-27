@@ -76,7 +76,10 @@ export default function AIInsights() {
     try {
       // 0. Exposure Forewarning - Proactive Threat Detection
       const forewarningAnalysis = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a predictive cybersecurity analyst. Analyze potential FUTURE threats and exposures BEFORE they happen:
+        prompt: `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided OSINT data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
+
+You are a predictive cybersecurity analyst. Analyze potential FUTURE threats and exposures BEFORE they happen:
 
 Current Profile Data:
 - Monitored Identifiers: ${JSON.stringify(personalData.map(d => ({ type: d.data_type, monitoring: d.monitoring_enabled })))}
@@ -151,7 +154,10 @@ Include tools, websites, or services needed. Make pathways actionable and clear.
       }
       // 1. Pattern Analysis
       const patternAnalysis = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an expert cybersecurity analyst. Analyze the following data exposure patterns:
+        prompt: `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
+
+You are an expert cybersecurity analyst. Analyze the following data exposure patterns:
 
 Scan Results: ${JSON.stringify(scanResults.map(r => ({
   source: r.source_name,
@@ -212,7 +218,10 @@ Make recommendations actionable with specific instructions.`,
 
       // 2. Risk Predictions
       const riskPrediction = await base44.integrations.Core.InvokeLLM({
-        prompt: `Based on the following current exposures and data types, predict potential future risks:
+        prompt: `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
+
+Based on the following current exposures and data types, predict potential future risks:
 
 Current Exposures: ${scanResults.length}
 High Risk Exposures: ${scanResults.filter(r => r.risk_score >= 70).length}
@@ -267,7 +276,10 @@ Step 3: [completion criteria]`,
 
       // Check for new breaches in monitored databases
       const newBreachCheck = await base44.integrations.Core.InvokeLLM({
-        prompt: `Check for NEWLY REPORTED data breaches in the last 30 days that may affect these identifiers:
+        prompt: `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII. Only report REAL, VERIFIABLE breaches from trusted sources. If unsure, state uncertainty clearly. Never guess. Never invent breaches, platforms, or profiles.
+
+Check for NEWLY REPORTED data breaches in the last 30 days that may affect these identifiers:
 
 ${JSON.stringify(personalData.map(d => ({ type: d.data_type, value: d.value.substring(0, 20) + '...' })))}
 
@@ -318,7 +330,10 @@ Only report if there are genuinely NEW breaches. Be accurate.`,
 
       if (profileSpam.length > 0) {
         const spamAnalysis = await base44.integrations.Core.InvokeLLM({
-          prompt: `Analyze spam patterns and identify likely data sources causing spam:
+          prompt: `IMPORTANT:
+Never fabricate data sources, spam origins, or any findings. Only analyze the actual data provided. If unsure, state uncertainty clearly. Never guess.
+
+Analyze spam patterns and identify likely data sources causing spam:
 
 Spam Incidents (Last 90 Days):
 ${JSON.stringify(profileSpam.slice(0, 50).map(s => ({
@@ -371,7 +386,10 @@ IDENTIFY:
       const highRiskResults = scanResults.filter(r => r.risk_score >= 70);
       if (highRiskResults.length > 0) {
         const mitigationStrategy = await base44.integrations.Core.InvokeLLM({
-          prompt: `Provide advanced mitigation strategies for these high-risk exposures:
+          prompt: `IMPORTANT:
+Never fabricate recommendations or findings. Only provide strategies based on the actual exposures provided. If unsure, state uncertainty clearly.
+
+Provide advanced mitigation strategies for these high-risk exposures:
 
 ${JSON.stringify(highRiskResults.map(r => ({
   source: r.source_name,
@@ -446,7 +464,10 @@ Go beyond simple deletion. Include:
 
       // Generate comprehensive report with AI
       const reportData = await base44.integrations.Core.InvokeLLM({
-        prompt: `Generate a comprehensive Digital Footprint Report for this profile:
+        prompt: `IMPORTANT:
+Never fabricate breach data, impersonation findings, personal records, or any PII. Only report actual findings from the data provided. If unsure, state uncertainty clearly. Never invent people, platforms, or profiles.
+
+Generate a comprehensive Digital Footprint Report for this profile:
 
 PROFILE STATISTICS:
 - Total Identifiers Monitored: ${personalData.length}

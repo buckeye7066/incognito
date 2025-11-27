@@ -42,7 +42,6 @@ import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, 
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
-import ErrorBoundary from './components/common/ErrorBoundary';
 
 export default function Layout({ children, currentPageName }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -54,6 +53,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'AI Insights', path: 'AIInsights', icon: Brain },
     { name: 'Vault', path: 'Vault', icon: Database },
     { name: 'Scans', path: 'Scans', icon: Scan },
+    { name: 'Identity Scan', path: 'IdentityScan', icon: Shield },
     { name: 'Findings', path: 'Findings', icon: Eye },
     { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
@@ -107,7 +107,6 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
-    <ErrorBoundary>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-950 to-slate-900">
       <style>{`
         :root {
@@ -199,6 +198,5 @@ export default function Layout({ children, currentPageName }) {
         onSave={handleCreateProfile}
       />
     </div>
-    </ErrorBoundary>
   );
 }

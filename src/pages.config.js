@@ -11,6 +11,7 @@ import SpamTracker from './pages/SpamTracker';
 import MonitoringHub from './pages/MonitoringHub';
 import SocialMediaHub from './pages/SocialMediaHub';
 import ThreatIntelligence from './pages/ThreatIntelligence';
+import IdentityScan from './pages/IdentityScan';
 import __Layout from './Layout.jsx';
 
 
@@ -28,6 +29,7 @@ export const PAGES = {
     "MonitoringHub": MonitoringHub,
     "SocialMediaHub": SocialMediaHub,
     "ThreatIntelligence": ThreatIntelligence,
+    "IdentityScan": IdentityScan,
 }
 
 export const pagesConfig = {

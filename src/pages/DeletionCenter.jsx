@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import { Trash2, Mail, FileText, CheckCircle2, Clock, AlertCircle, RefreshCw, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AutomatedTracking from '../components/deletion/AutomatedTracking';
 import BulkDeletionPanel from '../components/deletion/BulkDeletionPanel';
@@ -62,6 +62,28 @@ export default function DeletionCenter() {
       queryClient.invalidateQueries(['deletionRequests']);
     }
   });
+
+  const deleteRequestMutation = useMutation({
+    mutationFn: (id) => base44.entities.DeletionRequest.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['deletionRequests']);
+    }
+  });
+
+  const deleteAllFailedRequests = async () => {
+    const failedRequests = deletionRequests.filter(r => r.status === 'failed');
+    if (failedRequests.length === 0) {
+      alert('No failed requests to delete');
+      return;
+    }
+    
+    if (!confirm(`Delete ${failedRequests.length} failed requests?`)) return;
+    
+    for (const req of failedRequests) {
+      await base44.entities.DeletionRequest.delete(req.id);
+    }
+    queryClient.invalidateQueries(['deletionRequests']);
+  };
 
   const removalCandidates = scanResults.filter(
     r => r.status === 'removal_requested' || r.status === 'new' || r.status === 'monitoring'
@@ -428,7 +450,20 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
 
         {/* Active Requests */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-white">Active Requests</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Active Requests</h2>
+            {deletionRequests.filter(r => r.status === 'failed').length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={deleteAllFailedRequests}
+                className="bg-red-600/20 border-red-500/50 text-red-300 hover:bg-red-600/30"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear Failed ({deletionRequests.filter(r => r.status === 'failed').length})
+              </Button>
+            )}
+          </div>
           {deletionRequests.length > 0 ? (
             deletionRequests.map((request) => {
               const relatedResult = scanResults.find(r => r.id === request.scan_result_id);
@@ -445,7 +480,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                           {getStatusIcon(request.status)}
                           <div>
                             <h3 className="font-semibold text-white">
-                              {relatedResult?.source_name || 'Unknown Source'}
+                              {relatedResult?.source_name || request.notes?.split(' ')[0] || 'Data Broker Request'}
                             </h3>
                             <p className="text-xs text-purple-400">
                               {new Date(request.request_date).toLocaleDateString()}
@@ -461,39 +496,65 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                         </span>
                       </div>
 
-                      <p className="text-sm text-purple-300 mb-3">
+                      <p className="text-sm text-purple-300 mb-1">
                         Method: {request.removal_method?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </p>
-
-                      {request.status !== 'completed' && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateRequestMutation.mutate({
-                              id: request.id,
-                              data: { status: 'in_progress' }
-                            })}
-                            className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
-                          >
-                            Mark In Progress
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateRequestMutation.mutate({
-                              id: request.id,
-                              data: { 
-                                status: 'completed',
-                                completion_date: new Date().toISOString().split('T')[0]
-                              }
-                            })}
-                            className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
-                          >
-                            Mark Complete
-                          </Button>
-                        </div>
+                      
+                      {request.contact_email && (
+                        <p className="text-xs text-gray-400 mb-1">
+                          Contact: {request.contact_email}
+                        </p>
                       )}
+                      
+                      {request.response_received && (
+                        <p className="text-xs text-gray-400 mb-3">
+                          {request.response_received}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 mt-3">
+                        {request.status !== 'completed' && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateRequestMutation.mutate({
+                                id: request.id,
+                                data: { status: 'in_progress' }
+                              })}
+                              className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
+                            >
+                              Mark In Progress
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateRequestMutation.mutate({
+                                id: request.id,
+                                data: { 
+                                  status: 'completed',
+                                  completion_date: new Date().toISOString().split('T')[0]
+                                }
+                              })}
+                              className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
+                            >
+                              Mark Complete
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm('Delete this request?')) {
+                              deleteRequestMutation.mutate(request.id);
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>

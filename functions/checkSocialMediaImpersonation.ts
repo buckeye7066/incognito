@@ -43,13 +43,12 @@ Deno.serve(async (req) => {
       });
 
       const prompt = `IMPORTANT SAFETY RULES:
-- Never fabricate impersonation profiles, identities, or findings.
-- Only report findings with concrete, verifiable evidence from real sources.
-- If unsure about any finding, state uncertainty clearly.
-- Never create fake people, companies, usernames, or platforms.
-- Never state someone is impersonating a user unless multiple positive indicators exist.
-- If findings are inconclusive, state ambiguity instead of certainty.
-- If no impersonation is found, return an empty array - do not invent findings.
+- NEVER fabricate breach data, impersonation findings, exposures, or personal details.
+- NEVER invent platforms, people, websites, or records.
+- NEVER guess. If unsure, explicitly say 'uncertain.'
+- ONLY use the JSON evidence provided.
+- If a detail is not present in the evidence, DO NOT add it.
+- If no impersonation is found, return an empty findings array.
 
 You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
 
@@ -231,7 +230,6 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
                 hasPlaceholders(finding.misused_data_details.education)
               ))) {
             // SECURITY: Do not log usernames
-            console.log('Skipping finding with placeholder data');
             continue;
           }
 
@@ -249,7 +247,6 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
 
           if (!hasVaultMatch) {
             // SECURITY: Do not log usernames
-            console.log('Skipping finding - no vault data match');
             continue;
           }
           
@@ -336,8 +333,8 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
     // SECURITY: Do not log full error details
     console.error('Impersonation check error occurred');
     return Response.json({ 
-      error: error.message,
-      details: 'Failed to check for social media impersonation'
+      error: 'Failed to check for social media impersonation',
+      details: 'An error occurred during impersonation check'
     }, { status: 500 });
   }
 });

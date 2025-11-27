@@ -33,13 +33,14 @@ Deno.serve(async (req) => {
     }));
 
     const prompt = `IMPORTANT SAFETY RULES:
-    - Never fabricate breach results, impersonation profiles, card data, identities, exposures, or search results.
-    - Only use the JSON data provided and verified internet sources.
-    - If unsure about any finding, state uncertainty clearly.
-    - Never create fake people, companies, or platforms.
-    - If no exposures are found, return an empty array - do not invent findings.
+- NEVER fabricate breach data, impersonation findings, exposures, or personal details.
+- NEVER invent platforms, people, websites, or records.
+- NEVER guess. If unsure, explicitly say 'uncertain.'
+- ONLY use the JSON evidence provided.
+- If a detail is not present in the evidence, DO NOT add it.
+- It is better to return an empty array than false positives.
 
-    You are a precise data exposure detection system. Your job is to find REAL, VERIFIABLE places where this person's data appears publicly online.
+You are a precise data exposure detection system. Your job is to find REAL, VERIFIABLE places where this person's data appears publicly online.
 
 === USER'S PERSONAL DATA TO SEARCH FOR ===
 ${searchableData.map(d => `${d.type}: "${d.value}"`).join('\n')}
@@ -193,10 +194,11 @@ Return ONLY verified, real exposures. It's better to return an empty array than 
     });
 
   } catch (error) {
-    console.error('Data exposure detection error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Data exposure detection error occurred');
     return Response.json({ 
-      error: error.message,
-      details: 'Failed to detect data exposures'
+      error: 'Failed to detect data exposures',
+      details: 'An error occurred during exposure detection'
     }, { status: 500 });
   }
 });

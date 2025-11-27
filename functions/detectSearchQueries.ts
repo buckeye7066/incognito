@@ -26,59 +26,70 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build search queries to monitor
+    // Build searchable data
     const searchableData = personalData.map(d => ({
       type: d.data_type,
       value: d.value
     }));
 
-    const prompt = `You are a data exposure detection AI. Search for where this person's information appears PUBLICLY INDEXED on the internet:
+    const prompt = `You are a precise data exposure detection system. Your job is to find REAL, VERIFIABLE places where this person's data appears publicly online.
 
-Personal Data to Search For:
-${searchableData.map(d => `${d.type}: ${d.value}`).join('\n')}
+=== USER'S PERSONAL DATA TO SEARCH FOR ===
+${searchableData.map(d => `${d.type}: "${d.value}"`).join('\n')}
 
-SEARCH THESE SOURCES FOR PUBLIC EXPOSURES:
-1. People Search Sites: Spokeo, BeenVerified, WhitePages, TruePeopleSearch, FastPeopleSearch, Radaris, Intelius, PeopleFinder
-2. Data Broker Sites: Acxiom, LexisNexis, Experian (public records)
-3. Social Media: Facebook, Twitter/X, Instagram, LinkedIn, TikTok, Reddit profiles
-4. Public Records: Court records, property records, voter registration, business filings
-5. Professional Sites: LinkedIn, company directories, business listings
-6. Other: News articles, forum posts, review sites, comment sections
+=== SEARCH METHODOLOGY ===
+Search the internet for ACTUAL appearances of this data on:
 
-Report each place where this person's data appears publicly as a "finding".
+1. PEOPLE SEARCH / DATA BROKERS (high priority):
+   - Spokeo.com, BeenVerified.com, WhitePages.com
+   - TruePeopleSearch.com, FastPeopleSearch.com
+   - Radaris.com, Intelius.com, PeopleFinder.com
+   - MyLife.com, USSearch.com, Pipl.com
 
-For each detected search query that matches this person's data, provide:
-- search_platform: where the search was detected
-- query_detected: the actual search query
-- matched_data_types: array of data types that were matched (e.g., ["full_name", "address"])
-- matched_values: array of actual values matched
-- searcher_identity: who performed the search (username, name, or "Anonymous" if unknown)
-- searcher_ip: IP address if detectable, or "Unknown"
-- device_info: device/browser information if available
-- search_context: what the searcher was likely looking for
-- risk_level: critical, high, medium, or low
-- detected_date: ISO timestamp when search occurred
-- geographic_origin: specific location (City, State, Country format)
-- ai_analysis: your analysis of intent and risk
+2. PUBLIC RECORDS:
+   - Property records, court records
+   - Business registrations, LLC filings
+   - Voter registration databases
+   - Professional licenses
 
-MATCHING RULES:
-- For NAME matches (full_name, alias): Require AT LEAST TWO (2) identifiers to prevent false positives from common names
-- For ALL OTHER data types (email, phone, address, SSN, etc.): Only ONE (1) identifier match is sufficient
+3. SOCIAL MEDIA (public profiles):
+   - LinkedIn, Facebook, Twitter/X, Instagram
+   - Reddit, TikTok, YouTube
 
-Examples:
-- ✓ VALID: Query contains user's email address (1 match enough)
-- ✓ VALID: Query contains user's phone number (1 match enough)  
-- ✓ VALID: Query contains full_name + any other identifier (2 matches for name)
-- ✗ INVALID: Query contains only a common name without other identifiers
+4. OTHER PUBLIC SOURCES:
+   - News articles mentioning the person
+   - Forum posts, blog comments
+   - Review sites (Yelp, Google Reviews)
+   - Company websites, directories
 
-IMPORTANT: For searcher_identity, try to identify if it's:
-- A known person's name
-- A social media username
-- An email address
-- A company/organization
-- "Anonymous" if truly untraceable
+=== STRICT MATCHING REQUIREMENTS ===
 
-Return JSON with findings array. Only include real, detected searches with confidence >= 70%. Remember: name matches require 2+ identifiers, all other data types require only 1.`;
+CRITICAL: Only report findings where you have HIGH CONFIDENCE (80%+) that the data matches.
+
+For NAME matches: Require the EXACT full name + at least ONE other matching identifier (address, phone, email, employer)
+For EMAIL matches: Exact email address match only
+For PHONE matches: Exact phone number match only  
+For ADDRESS matches: Exact or very close address match (same street address)
+For OTHER data: Exact match required
+
+=== OUTPUT FORMAT ===
+
+For each VERIFIED exposure, provide:
+- source_name: The website/platform name (e.g., "Spokeo", "WhitePages")
+- source_url: Direct URL if available, or base site URL
+- data_found: EXACTLY what data appears (verbatim quote)
+- matched_data_types: Which vault data types were matched
+- matched_values: The exact values that matched
+- risk_level: critical/high/medium/low based on data sensitivity
+- ai_analysis: Brief explanation of the exposure and risk
+
+=== WHAT NOT TO INCLUDE ===
+- Do NOT make up findings
+- Do NOT report if match confidence is below 80%
+- Do NOT include sites you cannot verify have the data
+- Do NOT invent URLs or fake sources
+
+Return ONLY verified, real exposures. It's better to return an empty array than false positives.`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
@@ -91,19 +102,23 @@ Return JSON with findings array. Only include real, detected searches with confi
             items: {
               type: "object",
               properties: {
-                search_platform: { type: "string" },
-                query_detected: { type: "string" },
+                source_name: { type: "string", description: "Site name like Spokeo, WhitePages, etc." },
+                source_url: { type: "string", description: "URL where data was found" },
+                data_found: { type: "string", description: "Exact verbatim data shown on the source" },
                 matched_data_types: { type: "array", items: { type: "string" } },
                 matched_values: { type: "array", items: { type: "string" } },
-                searcher_identity: { type: "string" },
-                searcher_ip: { type: "string" },
-                device_info: { type: "string" },
-                search_context: { type: "string" },
-                risk_level: { type: "string" },
-                detected_date: { type: "string" },
-                geographic_origin: { type: "string" },
-                ai_analysis: { type: "string" }
+                risk_level: { type: "string", enum: ["critical", "high", "medium", "low"] },
+                ai_analysis: { type: "string" },
+                confidence_score: { type: "number", description: "0-100 confidence in this match" }
               }
+            }
+          },
+          search_summary: {
+            type: "object",
+            properties: {
+              sources_checked: { type: "number" },
+              exposures_found: { type: "number" },
+              highest_risk: { type: "string" }
             }
           }
         }
@@ -112,7 +127,7 @@ Return JSON with findings array. Only include real, detected searches with confi
 
     const findings = result.findings || [];
     
-    // Filter: name-only matches require 2+ identifiers, all other types need only 1
+    // Filter: only keep findings with confidence >= 80 and proper matches
     const isNameOnlyMatch = (types) => {
       if (!types || types.length === 0) return false;
       const nameTypes = ['full_name', 'alias', 'name'];
@@ -120,9 +135,15 @@ Return JSON with findings array. Only include real, detected searches with confi
     };
     
     const validFindings = findings.filter(f => {
+      // Must have confidence >= 80
+      if (f.confidence_score && f.confidence_score < 80) return false;
+      
       const types = f.matched_data_types || [];
       if (types.length === 0) return false;
+      
+      // Name-only matches need 2+ identifiers
       if (isNameOnlyMatch(types)) return types.length >= 2;
+      
       return true;
     });
     
@@ -130,28 +151,23 @@ Return JSON with findings array. Only include real, detected searches with confi
     for (const finding of validFindings) {
       await base44.asServiceRole.entities.SearchQueryFinding.create({
         profile_id: profileId,
-        search_platform: finding.search_platform,
-        query_detected: finding.query_detected,
+        search_platform: finding.source_name,
+        query_detected: finding.data_found,
         matched_data_types: finding.matched_data_types || [],
         matched_values: finding.matched_values || [],
-        searcher_identity: finding.searcher_identity || 'Anonymous',
-        searcher_ip: finding.searcher_ip || 'Unknown',
-        device_info: finding.device_info || 'Unknown',
-        search_context: finding.search_context,
         risk_level: finding.risk_level,
-        detected_date: finding.detected_date || new Date().toISOString(),
-        geographic_origin: finding.geographic_origin || 'Unknown',
+        detected_date: new Date().toISOString(),
         ai_analysis: finding.ai_analysis,
         status: 'new'
       });
 
-      // Create notification for high-risk searches
+      // Create notification for high-risk findings
       if (finding.risk_level === 'critical' || finding.risk_level === 'high') {
         await base44.asServiceRole.entities.NotificationAlert.create({
           profile_id: profileId,
           alert_type: 'high_risk_alert',
-          title: `${finding.risk_level.toUpperCase()}: Someone Searched for Your Data`,
-          message: `Detected search query on ${finding.search_platform}: "${finding.query_detected}". ${finding.ai_analysis}`,
+          title: `Data Found on ${finding.source_name}`,
+          message: `Your personal data appears on ${finding.source_name}. ${finding.ai_analysis}`,
           severity: finding.risk_level === 'critical' ? 'critical' : 'high',
           is_read: false,
           threat_indicators: finding.matched_data_types
@@ -163,16 +179,17 @@ Return JSON with findings array. Only include real, detected searches with confi
       success: true,
       findingsCount: validFindings.length,
       findings: validFindings,
+      summary: result.search_summary,
       message: validFindings.length > 0
-        ? `Detected ${validFindings.length} search quer${validFindings.length === 1 ? 'y' : 'ies'} matching your data`
-        : 'No search queries detected at this time'
+        ? `Found your data on ${validFindings.length} source${validFindings.length === 1 ? '' : 's'}`
+        : 'No verified data exposures found'
     });
 
   } catch (error) {
-    console.error('Search query detection error:', error);
+    console.error('Data exposure detection error:', error);
     return Response.json({ 
       error: error.message,
-      details: 'Failed to detect search queries'
+      details: 'Failed to detect data exposures'
     }, { status: 500 });
   }
 });

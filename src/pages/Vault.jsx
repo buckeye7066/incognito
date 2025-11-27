@@ -100,8 +100,24 @@ export default function Vault() {
     return acc;
   }, {});
 
-  const maskValue = (value) => {
+  const maskValue = (value, dataType) => {
     if (!value) return '';
+    // Enhanced masking based on data type
+    if (dataType === 'email') {
+      return value.replace(/(.{2}).+(@.+)/, "$1***$2");
+    }
+    if (dataType === 'phone') {
+      return value.replace(/\d(?=\d{4})/g, '*');
+    }
+    if (dataType === 'address') {
+      // Hide house number
+      return value.replace(/^\d+\s+/, "*** ");
+    }
+    if (dataType === 'ssn' || dataType === 'credit_card' || dataType === 'bank_account') {
+      // Only show last 4
+      return '***-**-' + value.slice(-4);
+    }
+    // Default masking
     if (value.length <= 4) return '•'.repeat(value.length);
     return value.slice(0, 2) + '•'.repeat(value.length - 4) + value.slice(-2);
   };
@@ -270,7 +286,7 @@ export default function Vault() {
                             <p className="text-xs text-purple-400 mb-1">{item.label}</p>
                           )}
                           <p className="text-white font-mono text-sm truncate">
-                            {showValues ? item.value : maskValue(item.value)}
+                            {showValues ? item.value : maskValue(item.value, item.data_type)}
                           </p>
                         </div>
                         <Button

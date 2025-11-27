@@ -12,6 +12,8 @@ import MonitoringHub from './pages/MonitoringHub';
 import SocialMediaHub from './pages/SocialMediaHub';
 import ThreatIntelligence from './pages/ThreatIntelligence';
 import IdentityScan from './pages/IdentityScan';
+import FixExposure from './pages/FixExposure';
+import LegalSupport from './pages/LegalSupport';
 import __Layout from './Layout.jsx';
 
 
@@ -30,6 +32,8 @@ export const PAGES = {
     "SocialMediaHub": SocialMediaHub,
     "ThreatIntelligence": ThreatIntelligence,
     "IdentityScan": IdentityScan,
+    "FixExposure": FixExposure,
+    "LegalSupport": LegalSupport,
 }
 
 export const pagesConfig = {

@@ -42,7 +42,15 @@ Deno.serve(async (req) => {
         vaultValues[d.data_type].push(d.value);
       });
 
-      const prompt = `You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
+      const prompt = `IMPORTANT:
+- Never fabricate breach results, impersonation profiles, card data, identities, exposures, or search results.
+- Only use the JSON data provided.
+- If unsure, state uncertainty clearly.
+- Never create fake people, companies, or platforms.
+- Never state someone is impersonating a user unless multiple positive indicators exist.
+- If findings are inconclusive, state ambiguity instead of certainty.
+
+You are INCÓGNITO, a professional-grade identity forensic analyst. Your mission: find accounts using THIS SPECIFIC USER'S data and extract EXACT VERBATIM evidence.
 
 === VICTIM'S LEGITIMATE PROFILE ===
 Platform: ${legitimateProfile.platform}
@@ -221,7 +229,7 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
                 hasPlaceholders(finding.misused_data_details.workplace) ||
                 hasPlaceholders(finding.misused_data_details.education)
               ))) {
-            console.log('Skipping finding with placeholder data:', finding.suspicious_username);
+            // Skipping finding with placeholder data
             continue;
           }
 
@@ -238,7 +246,7 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
           const hasVaultMatch = vaultValuesFlat.some(val => val && val.length > 3 && findingText.includes(val));
 
           if (!hasVaultMatch) {
-            console.log('Skipping finding - no vault data match:', finding.suspicious_username);
+            // Skipping finding - no vault data match
             continue;
           }
           
@@ -322,7 +330,7 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
     });
 
   } catch (error) {
-    console.error('Impersonation check error:', error);
+    console.error('Impersonation check error occurred');
     return Response.json({ 
       error: error.message,
       details: 'Failed to check for social media impersonation'

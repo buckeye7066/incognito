@@ -33,7 +33,15 @@ Deno.serve(async (req) => {
     }
 
     // INCÓGNITO comprehensive monitoring prompt
-    const monitoringPrompt = `You are INCÓGNITO, a professional-grade identity forensic analyst. Extract EXACT VERBATIM content where this person's data appears publicly.
+    const monitoringPrompt = `IMPORTANT:
+    - Never fabricate breach results, impersonation profiles, card data, identities, exposures, or search results.
+    - Only use the JSON data provided.
+    - If unsure, state uncertainty clearly.
+    - Never create fake people, companies, or platforms.
+    - Never state someone is impersonating a user unless multiple positive indicators exist.
+    - If findings are inconclusive, state ambiguity instead of certainty.
+
+    You are INCÓGNITO, a professional-grade identity forensic analyst. Extract EXACT VERBATIM content where this person's data appears publicly.
 
 === VICTIM'S PROTECTED DATA (VAULT) ===
 ${personalData.map(d => `${d.data_type}: "${d.value}"`).join('\n')}

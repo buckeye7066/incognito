@@ -40,7 +40,24 @@ Deno.serve(async (req) => {
 
     const aliasData = await response.json();
 
-    // Store in database
+    // Check for duplicate - prevent creating same alias twice
+    const existingAliases = await base44.asServiceRole.entities.DisposableCredential.filter({
+      profile_id: profileId,
+      credential_type: 'email',
+      created_for_website: website || ''
+    });
+    
+    if (existingAliases.length > 0 && existingAliases.some(a => a.is_active)) {
+      return Response.json({
+        success: false,
+        error: 'An active alias already exists for this website',
+        existing_alias: existingAliases.find(a => a.is_active)?.credential_value?.replace(/^(.)(.*)(@.+)$/, '$1***$3')
+      }, { status: 409 });
+    }
+
+    // Store in database with expiry support (30 days default)
+    const expiryDate = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)).toISOString();
+    
     await base44.asServiceRole.entities.DisposableCredential.create({
       profile_id: profileId,
       credential_type: 'email',
@@ -48,12 +65,15 @@ Deno.serve(async (req) => {
       credential_value: aliasData.email,
       purpose: purpose || 'Email Alias',
       created_for_website: website || '',
-      is_active: true
+      expiry_date: expiryDate,
+      is_active: true,
+      revoked: false
     });
 
     return Response.json({
       success: true,
-      alias: aliasData.email
+      alias: aliasData.email,
+      expires_at: expiryDate
     });
 
   } catch (error) {

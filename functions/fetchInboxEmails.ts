@@ -95,7 +95,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Fetch emails error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Fetch emails error occurred');
     return Response.json({ 
       error: error.message,
       details: 'Failed to fetch inbox emails'

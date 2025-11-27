@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Bulk delete error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Bulk delete error occurred');
     return Response.json({ 
       error: error.message,
       details: 'Failed to delete emails'

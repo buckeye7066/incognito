@@ -230,7 +230,8 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
                 hasPlaceholders(finding.misused_data_details.workplace) ||
                 hasPlaceholders(finding.misused_data_details.education)
               ))) {
-            console.log('Skipping finding with placeholder data:', finding.suspicious_username);
+            // SECURITY: Do not log usernames
+            console.log('Skipping finding with placeholder data');
             continue;
           }
 
@@ -247,7 +248,8 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
           const hasVaultMatch = vaultValuesFlat.some(val => val && val.length > 3 && findingText.includes(val));
 
           if (!hasVaultMatch) {
-            console.log('Skipping finding - no vault data match:', finding.suspicious_username);
+            // SECURITY: Do not log usernames
+            console.log('Skipping finding - no vault data match');
             continue;
           }
           
@@ -331,7 +333,8 @@ CRITICAL: Only return findings with Identity Match Score >= 60 and at least one 
     });
 
   } catch (error) {
-    console.error('Impersonation check error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Impersonation check error occurred');
     return Response.json({ 
       error: error.message,
       details: 'Failed to check for social media impersonation'

@@ -155,7 +155,8 @@ ${aiResponse.manualUrl || scanResult.source_url}`;
     });
 
   } catch (error) {
-    console.error('Automated platform deletion error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Automated platform deletion error occurred');
     return Response.json({ 
       error: 'Automation failed', 
       details: error.message 

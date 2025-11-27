@@ -59,25 +59,18 @@ Deno.serve(async (req) => {
       social_media: 1.2,
       forum: 1.5,
       people_finder: 1.7,
-      court_record: 1.6,
-      paste: 1.5,
-      news: 1.0,
       other: 1.0
     };
 
-    // Impersonation weight
-    const impersonationWeight = 25;
-    
-    // Public visibility multipliers (higher exposure = higher risk)
-    const publicVisibilityMultipliers = {
-      google_indexed: 1.5,
-      twitter_public: 1.3,
-      reddit_public: 1.3,
-      facebook_public: 1.4
-    };
-
     // Analyze data correlations
-    const correlationPrompt = `Analyze the following personal data for correlation risks:
+    const correlationPrompt = `IMPORTANT SAFETY RULES:
+- Never fabricate risk correlations, threats, or exposures.
+- Only analyze the data provided - do not invent additional data points.
+- If unsure about correlation risk, state uncertainty clearly.
+- Never create fake breach scenarios or threat actors.
+- Base all analysis strictly on the provided data.
+
+Analyze the following personal data for correlation risks:
 
 ${personalData.map(d => `${d.data_type}: ${d.monitoring_enabled ? 'monitored' : 'not monitored'}`).join('\n')}
 
@@ -168,36 +161,11 @@ Return JSON with:
         return sum + (severityScores[f.severity] || 30);
       }, 0);
 
-    // Calculate impersonation risk
-    const impersonationFindings = socialFindings.filter(f => 
-      f.finding_type === 'impersonation' || f.finding_type === 'identity_theft'
-    );
-    const impersonationRisk = impersonationFindings.length * impersonationWeight;
-
-    // Calculate confirmed PII match bonus (name+2 rule findings get extra weight)
-    const confirmedPIIMatches = scanResults.filter(r => {
-      const matchedFields = r.metadata?.matched_fields || r.data_exposed || [];
-      const nonNameFields = matchedFields.filter(f => !f?.toLowerCase().includes('name'));
-      return nonNameFields.length >= 2;
-    });
-    const confirmedMatchBonus = confirmedPIIMatches.length * 5;
-
-    // Frequency penalty - more appearances = higher risk
-    const frequencyPenalty = Math.min(20, scanResults.length * 1.5);
-
-    // Calculate overall risk score with all factors
+    // Calculate overall risk score
     const exposureCount = scanResults.length + socialFindings.length;
-    const baseAverageRisk = exposureCount > 0 
+    const averageRisk = exposureCount > 0 
       ? (totalRisk + socialRisk) / exposureCount 
       : 0;
-    
-    // Combine all risk factors
-    const averageRisk = Math.min(100, 
-      baseAverageRisk + 
-      impersonationRisk + 
-      confirmedMatchBonus + 
-      frequencyPenalty
-    );
 
     // Update scan results with advanced scores
     for (const enhanced of enhancedScanResults) {
@@ -234,7 +202,8 @@ Return JSON with:
     });
 
   } catch (error) {
-    console.error('Advanced risk calculation error:', error);
+    // SECURITY: Do not log full error details
+    console.error('Advanced risk calculation error occurred');
     return Response.json({ 
       error: error.message,
       details: 'Failed to calculate advanced risk score'

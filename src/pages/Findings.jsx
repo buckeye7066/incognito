@@ -11,6 +11,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 import AutomatedDeletionModal from '../components/deletion/AutomatedDeletionModal';
 
+// SECURITY: PII masking functions
+const maskEmail = (email) => {
+  if (!email) return '[redacted]';
+  return email.replace(/(.{2}).+(@.+)/, "$1***$2");
+};
+const maskPhone = (phone) => {
+  if (!phone) return '[redacted]';
+  return phone.replace(/\d(?=\d{4})/g, '*');
+};
+const maskAddress = (addr) => {
+  if (!addr) return '[redacted]';
+  return addr.replace(/^\d+\s+/, "*** ");
+};
+
 export default function Findings() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('all');
@@ -750,11 +764,18 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                               <div className="mt-2">
                                 <p className="text-xs text-red-300 font-semibold mb-1">Your data found:</p>
                                 <div className="flex flex-wrap gap-1">
-                                  {aiAnalysis[result.id].my_data_found.map((data, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 rounded bg-red-600/30 text-red-200 text-xs">
-                                      {data}
-                                    </span>
-                                  ))}
+                                  {aiAnalysis[result.id].my_data_found.map((data, idx) => {
+                                    // SECURITY: Mask sensitive data in display
+                                    let maskedData = data;
+                                    if (data.includes('@')) maskedData = maskEmail(data);
+                                    else if (/\d{10,}/.test(data)) maskedData = maskPhone(data);
+                                    else if (/\d+\s+\w+/.test(data)) maskedData = maskAddress(data);
+                                    return (
+                                      <span key={idx} className="px-2 py-0.5 rounded bg-red-600/30 text-red-200 text-xs">
+                                        {maskedData}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

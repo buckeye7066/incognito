@@ -1,26 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import StatCard from '../components/shared/StatCard';
-import RiskBadge from '../components/shared/RiskBadge';
-import { Shield, Eye, Trash2, AlertTriangle, TrendingDown, ArrowRight, Brain, Sparkles, Loader2, Bell } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { motion } from 'framer-motion';
-import RiskTrendsChart from '../components/dashboard/RiskTrendsChart';
-import CorrelationRiskCard from '../components/dashboard/CorrelationRiskCard';
-import FindingDetailModal from '../components/dashboard/FindingDetailModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Dashboard() {
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
-  const [analyzingRisk, setAnalyzingRisk] = useState(false);
-  const [checkingBreaches, setCheckingBreaches] = useState(false);
-  const [correlations, setCorrelations] = useState(null);
-  const [selectedFinding, setSelectedFinding] = useState(null);
-  const [showFindingModal, setShowFindingModal] = useState(false);
+  const queryClient = useQueryClient();
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanStatus, setScanStatus] = useState('');
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
@@ -42,21 +37,6 @@ export default function Dashboard() {
     queryFn: () => base44.entities.DeletionRequest.list()
   });
 
-  const { data: allAIInsights = [] } = useQuery({
-    queryKey: ['aiInsights'],
-    queryFn: () => base44.entities.AIInsight.list()
-  });
-
-  const { data: allSpamIncidents = [] } = useQuery({
-    queryKey: ['spamIncidents'],
-    queryFn: () => base44.entities.SpamIncident.list()
-  });
-
-  const { data: allReports = [] } = useQuery({
-    queryKey: ['digitalFootprintReports'],
-    queryFn: () => base44.entities.DigitalFootprintReport.list()
-  });
-
   const { data: allProfiles = [] } = useQuery({
     queryKey: ['profiles'],
     queryFn: () => base44.entities.Profile.list()
@@ -69,400 +49,391 @@ export default function Dashboard() {
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
   const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
-  const aiInsights = allAIInsights.filter(i => !activeProfileId || i.profile_id === activeProfileId);
-  const spamIncidents = allSpamIncidents.filter(i => !activeProfileId || i.profile_id === activeProfileId);
 
-  const activeFindings = scanResults.filter(r => r.status === 'new' || r.status === 'monitoring');
-  const highRiskFindings = scanResults.filter(r => r.risk_score >= 70);
-  const darkWebFindings = scanResults.filter(r => r.metadata?.scan_type === 'dark_web');
-  const completedRemovals = deletionRequests.filter(r => r.status === 'completed');
-  
-  const avgRiskScore = scanResults.length > 0 
-    ? Math.round(scanResults.reduce((sum, r) => sum + (r.risk_score || 0), 0) / scanResults.length)
-    : 0;
+  // Calculate stats like Cloaked
+  const totalExposures = scanResults.length + searchQueries.length;
+  const dataBrokerExposures = searchQueries.length;
+  const breachExposures = scanResults.filter(r => r.source_type === 'breach_database').length;
+  const removalsInProgress = deletionRequests.filter(r => r.status === 'pending' || r.status === 'in_progress').length;
+  const removalsCompleted = deletionRequests.filter(r => r.status === 'completed').length;
 
-  // Combine leaks and inquiries for Recent Findings
-  const recentLeaks = scanResults.map(r => ({ ...r, type: 'leak' }));
-  const recentInquiries = searchQueries.map(q => ({ ...q, type: 'inquiry' }));
-  const recentFindings = [...recentLeaks, ...recentInquiries]
-    .sort((a, b) => new Date(b.created_date || b.detected_date) - new Date(a.created_date || a.detected_date))
-    .slice(0, 8);
+  // Risk score calculation
+  const calculateRiskScore = () => {
+    if (totalExposures === 0) return 0;
+    const highRisk = scanResults.filter(r => r.risk_score >= 70).length;
+    const criticalExposures = searchQueries.filter(q => q.risk_level === 'critical' || q.risk_level === 'high').length;
+    return Math.min(100, Math.round((highRisk * 15 + criticalExposures * 10 + totalExposures * 2)));
+  };
 
-  const criticalInsights = aiInsights.filter(i => i.severity === 'critical' || i.severity === 'high');
-  const unreadInsights = aiInsights.filter(i => !i.is_read);
+  const riskScore = calculateRiskScore();
 
-  const reports = allReports.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  // Data type icons
+  const getDataTypeIcon = (type) => {
+    const icons = {
+      email: Mail,
+      phone: Phone,
+      address: MapPin,
+      full_name: User,
+      credit_card: CreditCard,
+      ssn: FileText,
+    };
+    return icons[type] || Database;
+  };
 
-  const handleAdvancedRiskAnalysis = async () => {
+  // Run comprehensive scan like Cloaked
+  const runFullScan = async () => {
     if (!activeProfileId) {
       alert('Please select a profile first');
       return;
     }
 
-    setAnalyzingRisk(true);
+    setScanning(true);
+    setScanProgress(0);
+
     try {
-      const response = await base44.functions.invoke('calculateAdvancedRiskScore', {
-        profileId: activeProfileId
-      });
-
-      setCorrelations(response.data.high_risk_combinations);
-      alert(`Advanced risk analysis complete! Found ${response.data.high_risk_combinations.length} high-risk data correlations.`);
-    } catch (error) {
-      alert('Risk analysis failed: ' + error.message);
-    } finally {
-      setAnalyzingRisk(false);
-    }
-  };
-
-  const handleFindingClick = (finding) => {
-    setSelectedFinding(finding);
-    setShowFindingModal(true);
-  };
-
-  const handleCheckBreachAlerts = async () => {
-    if (!activeProfileId) {
-      alert('Please select a profile first');
-      return;
-    }
-
-    setCheckingBreaches(true);
-    try {
-      const response = await base44.functions.invoke('checkBreachAlerts', {
-        profileId: activeProfileId
-      });
-
-      if (response.data.alertsCreated > 0) {
-        alert(`⚠️ ${response.data.alertsCreated} new breach alert(s) created! Check your notifications.`);
-      } else {
-        alert('✓ No new breaches affecting your data were found.');
+      // Step 1: Check data brokers
+      setScanStatus('Scanning 120+ data broker sites...');
+      setScanProgress(20);
+      await base44.functions.invoke('detectSearchQueries', { profileId: activeProfileId });
+      
+      // Step 2: Check breach databases
+      setScanStatus('Checking breach databases...');
+      setScanProgress(50);
+      const emails = personalData.filter(d => d.data_type === 'email' && d.monitoring_enabled);
+      if (emails.length > 0) {
+        await base44.functions.invoke('checkBreaches', {
+          profileId: activeProfileId,
+          identifiers: emails.map(e => ({ id: e.id, data_type: e.data_type, value: e.value }))
+        });
       }
+
+      // Step 3: Check social media
+      setScanStatus('Scanning social media...');
+      setScanProgress(80);
+      await base44.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+
+      setScanProgress(100);
+      setScanStatus('Scan complete!');
+      
+      // Refresh data
+      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries(['searchQueryFindings']);
+      queryClient.invalidateQueries(['socialMediaFindings']);
+
+      setTimeout(() => {
+        setScanning(false);
+        setScanProgress(0);
+        setScanStatus('');
+      }, 2000);
+
     } catch (error) {
-      alert('Breach check failed: ' + error.message);
-    } finally {
-      setCheckingBreaches(false);
+      console.error('Scan error:', error);
+      setScanStatus('Scan completed with some errors');
+      setTimeout(() => {
+        setScanning(false);
+        setScanProgress(0);
+        setScanStatus('');
+      }, 2000);
     }
   };
+
+  const getRiskColor = (score) => {
+    if (score >= 70) return { bg: 'from-red-600 to-red-500', text: 'text-red-400', label: 'High Risk' };
+    if (score >= 40) return { bg: 'from-orange-600 to-amber-500', text: 'text-orange-400', label: 'Medium Risk' };
+    if (score > 0) return { bg: 'from-yellow-600 to-yellow-500', text: 'text-yellow-400', label: 'Low Risk' };
+    return { bg: 'from-green-600 to-green-500', text: 'text-green-400', label: 'Protected' };
+  };
+
+  const risk = getRiskColor(riskScore);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-4xl font-bold text-white">Privacy Dashboard</h1>
-            {activeProfile && (
-              <Badge className="bg-red-600/20 text-red-300 border-red-600/40 px-3 py-1 text-lg">
-                {activeProfile.name}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-white mb-2">
+          {activeProfile ? `${activeProfile.name}'s Privacy Report` : 'Your Privacy Report'}
+        </h1>
+        <p className="text-gray-400">See where your personal information is exposed online</p>
+      </div>
+
+      {/* Main Risk Score Card - Like Cloaked */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card rounded-3xl p-8 glow-border relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 to-purple-600/5" />
+        
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            {/* Risk Score Circle */}
+            <div className="flex flex-col items-center">
+              <div className={`w-40 h-40 rounded-full bg-gradient-to-br ${risk.bg} flex items-center justify-center shadow-2xl`}>
+                <div className="w-32 h-32 rounded-full bg-slate-900 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-bold text-white">{riskScore}</span>
+                  <span className="text-xs text-gray-400 uppercase tracking-wider">Risk Score</span>
+                </div>
+              </div>
+              <Badge className={`mt-4 ${risk.text} bg-slate-800 border-0 px-4 py-1`}>
+                {risk.label}
               </Badge>
-            )}
-          </div>
-          <p className="text-gray-300">Monitor and minimize your digital footprint</p>
-        </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={handleCheckBreachAlerts}
-            disabled={checkingBreaches}
-            className="bg-gradient-to-r from-red-600 to-pink-600"
-          >
-            {checkingBreaches ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              <>
-                <Bell className="w-4 h-4 mr-2" />
-                Check Breach Alerts
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleAdvancedRiskAnalysis}
-            disabled={analyzingRisk}
-            className="bg-gradient-to-r from-orange-600 to-red-600"
-          >
-            {analyzingRisk ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Brain className="w-4 h-4 mr-2" />
-                Run Advanced Risk Analysis
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <StatCard
-          title="Identifiers Monitored"
-          value={personalData.filter(p => p.monitoring_enabled).length}
-          icon={Shield}
-          color="purple"
-          trend={`${personalData.length} total in vault`}
-          href={createPageUrl('Vault')}
-        />
-        <StatCard
-          title="Active Findings"
-          value={activeFindings.length}
-          icon={Eye}
-          color="amber"
-          trend={`${highRiskFindings.length} high risk`}
-          href={createPageUrl('Findings')}
-        />
-        <StatCard
-          title="Dark Web Breaches"
-          value={darkWebFindings.length}
-          icon={AlertTriangle}
-          color="red"
-          trend={darkWebFindings.length > 0 ? 'Requires action' : 'None detected'}
-          href={createPageUrl('Findings')}
-        />
-        <StatCard
-          title="Avg Risk Score"
-          value={avgRiskScore}
-          icon={TrendingDown}
-          color={avgRiskScore >= 70 ? 'red' : avgRiskScore >= 40 ? 'amber' : 'green'}
-          trend={avgRiskScore < 50 ? 'Looking good' : 'Needs attention'}
-          href={createPageUrl('Scans')}
-        />
-        <StatCard
-          title="Successful Removals"
-          value={completedRemovals.length}
-          icon={Trash2}
-          color="green"
-          trend={`${deletionRequests.filter(r => r.status === 'pending').length} pending`}
-          href={createPageUrl('DeletionCenter')}
-        />
-        <StatCard
-          title="Spam (30 Days)"
-          value={spamIncidents.filter(i => {
-            const date = new Date(i.date_received);
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            return date >= thirtyDaysAgo;
-          }).length}
-          icon={Shield}
-          color="amber"
-          trend={`${spamIncidents.length} total logged`}
-          href={createPageUrl('SpamTracker')}
-        />
-      </div>
-
-      {/* AI Insights Alert */}
-      {criticalInsights.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card rounded-2xl p-6 border-2 border-amber-500/50 bg-amber-500/5"
-        >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <Brain className="w-6 h-6 text-amber-400 animate-pulse" />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-xl font-bold text-white">AI Insights Available</h3>
-                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
-                  {criticalInsights.length} Critical
-                </Badge>
-                {unreadInsights.length > 0 && (
-                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">
-                    {unreadInsights.length} Unread
-                  </Badge>
-                )}
+
+            {/* Exposure Summary */}
+            <div className="flex-1 grid grid-cols-2 gap-6">
+              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-red-500/20">
+                <Database className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                <p className="text-3xl font-bold text-white">{dataBrokerExposures}</p>
+                <p className="text-sm text-gray-400">Data Broker Sites</p>
               </div>
-              <p className="text-purple-300 mb-3">
-                AI has detected critical patterns and generated actionable recommendations for your digital footprint.
-              </p>
-              <Link to={createPageUrl('AIInsights')}>
-                <Button className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  View AI Insights
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Risk Trends and Correlations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Footprint Score */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="glass-card rounded-2xl p-8 glow-border"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Your Digital Footprint Score</h2>
-              <p className="text-purple-300">Lower is better — track your progress over time</p>
-            </div>
-            <div className="text-right">
-              <div className="text-5xl font-bold text-white mb-1">{avgRiskScore}</div>
-              <div className="flex items-center gap-2 text-green-400 text-sm">
-                <TrendingDown className="w-4 h-4" />
-                <span>Improving</span>
+              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-orange-500/20">
+                <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2" />
+                <p className="text-3xl font-bold text-white">{breachExposures}</p>
+                <p className="text-sm text-gray-400">Breach Exposures</p>
+              </div>
+              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-yellow-500/20">
+                <Loader2 className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                <p className="text-3xl font-bold text-white">{removalsInProgress}</p>
+                <p className="text-sm text-gray-400">Removals In Progress</p>
+              </div>
+              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-green-500/20">
+                <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                <p className="text-3xl font-bold text-white">{removalsCompleted}</p>
+                <p className="text-sm text-gray-400">Successfully Removed</p>
               </div>
             </div>
           </div>
-          
-          {/* Progress Bar */}
-          <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${avgRiskScore}%` }}
-              transition={{ duration: 1, ease: 'easeOut' }}
-              className={`h-full rounded-full ${
-                avgRiskScore >= 70 ? 'bg-gradient-to-r from-red-600 to-red-400' :
-                avgRiskScore >= 40 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
-                'bg-gradient-to-r from-green-600 to-green-400'
+
+          {/* Scan Button */}
+          <div className="mt-8 flex justify-center">
+            <Button
+              size="lg"
+              onClick={runFullScan}
+              disabled={scanning || personalData.length === 0}
+              className={`px-8 py-6 text-lg rounded-full ${
+                scanning 
+                  ? 'bg-slate-700' 
+                  : 'bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700'
               }`}
-            />
+            >
+              {scanning ? (
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>{scanStatus}</span>
+                </div>
+              ) : (
+                <>
+                  <Eye className="w-5 h-5 mr-2" />
+                  Scan for Exposures
+                </>
+              )}
+            </Button>
           </div>
-        </motion.div>
 
-        {correlations && <CorrelationRiskCard correlations={correlations} />}
-      </div>
+          {/* Scan Progress */}
+          <AnimatePresence>
+            {scanning && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-6"
+              >
+                <Progress value={scanProgress} className="h-2 bg-slate-700" />
+                <p className="text-center text-sm text-gray-400 mt-2">{scanProgress}% complete</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-      {/* Risk Trends Chart */}
-      {reports.length > 0 && <RiskTrendsChart reports={reports} />}
+          {personalData.length === 0 && (
+            <p className="text-center text-amber-400 mt-4 text-sm">
+              Add your personal data to the Vault to start scanning
+            </p>
+          )}
+        </div>
+      </motion.div>
 
-      {/* Recent Findings */}
+      {/* What We Monitor */}
       <Card className="glass-card border-purple-500/20">
-        <CardHeader className="border-b border-purple-500/20">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-bold text-white">Recent Findings</CardTitle>
-            <Link to={createPageUrl('Findings')}>
-              <Button variant="ghost" className="bg-gray-700 border border-gray-600 text-gray-200 hover:bg-gray-600">
-                View All <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Shield className="w-5 h-5 text-purple-400" />
+            Your Protected Data ({personalData.filter(d => d.monitoring_enabled).length} items)
+          </CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
-          {recentFindings.length > 0 ? (
-            <div className="space-y-4">
-              {recentFindings.map((finding) => (
-                <motion.div
-                  key={finding.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  onClick={() => handleFindingClick(finding)}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer hover:bg-slate-800/50"
-                >
-                  <div className="flex-1">
+        <CardContent>
+          {personalData.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {personalData.filter(d => d.monitoring_enabled).slice(0, 8).map((data) => {
+                const Icon = getDataTypeIcon(data.data_type);
+                const exposureCount = [...scanResults, ...searchQueries].filter(r => 
+                  r.matched_data_types?.includes(data.data_type) ||
+                  r.data_exposed?.includes(data.data_type)
+                ).length;
+
+                return (
+                  <div
+                    key={data.id}
+                    className={`p-4 rounded-xl border ${
+                      exposureCount > 0 
+                        ? 'bg-red-500/10 border-red-500/30' 
+                        : 'bg-green-500/10 border-green-500/30'
+                    }`}
+                  >
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-white">
-                        {finding.type === 'leak' ? finding.source_name : finding.query_detected}
-                      </h3>
-                      {finding.type === 'leak' ? (
-                        <RiskBadge score={finding.risk_score} size="sm" />
-                      ) : (
-                        <Badge className={`
-                          ${finding.risk_level === 'critical' ? 'bg-red-600/20 text-red-300 border-red-600/40' : ''}
-                          ${finding.risk_level === 'high' ? 'bg-orange-600/20 text-orange-300 border-orange-600/40' : ''}
-                          ${finding.risk_level === 'medium' ? 'bg-amber-600/20 text-amber-300 border-amber-600/40' : ''}
-                          ${finding.risk_level === 'low' ? 'bg-green-600/20 text-green-300 border-green-600/40' : ''}
-                        `}>
-                          {finding.risk_level?.toUpperCase()} INQUIRY
-                        </Badge>
-                      )}
-                      <Badge className={finding.type === 'leak' ? 'bg-red-900/40 text-red-200' : 'bg-amber-900/40 text-amber-200'}>
-                        {finding.type === 'leak' ? '🔓 LEAK' : '🔍 INQUIRY'}
-                      </Badge>
+                      <Icon className={`w-5 h-5 ${exposureCount > 0 ? 'text-red-400' : 'text-green-400'}`} />
+                      <span className="text-sm text-gray-300 capitalize">{data.data_type.replace(/_/g, ' ')}</span>
                     </div>
-                    <p className="text-sm text-gray-300">
-                      {finding.type === 'leak' 
-                        ? finding.source_type?.replace(/_/g, ' ')
-                        : `${finding.search_platform} - ${finding.searcher_identity || 'Unknown'}`
-                      }
-                    </p>
+                    <p className="text-xs text-gray-500 truncate">{data.value.slice(0, 20)}...</p>
+                    <div className="flex items-center gap-1 mt-2">
+                      {exposureCount > 0 ? (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-400" />
+                          <span className="text-xs text-red-400">{exposureCount} exposures</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span className="text-xs text-green-400">Protected</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400">
-                      {new Date(finding.created_date || finding.detected_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
-              <Shield className="w-12 h-12 text-purple-500 mx-auto mb-3" />
-              <p className="text-purple-300 mb-2">No findings yet</p>
-              <p className="text-sm text-purple-400">Run your first scan to discover exposures</p>
+              <Shield className="w-12 h-12 text-purple-500 mx-auto mb-3 opacity-50" />
+              <p className="text-purple-300 mb-4">No data in your vault yet</p>
+              <Link to={createPageUrl('Vault')}>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
+                  Add Your Data
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {personalData.length > 8 && (
+            <div className="text-center mt-4">
+              <Link to={createPageUrl('Vault')}>
+                <Button variant="ghost" className="text-purple-400">
+                  View all {personalData.length} items <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Link to={createPageUrl('AIInsights')} className="block">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="glass-card rounded-xl p-6 hover:glow-border transition-all duration-300 cursor-pointer border-purple-500/30"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <Brain className="w-8 h-8 text-purple-400" />
-              {unreadInsights.length > 0 && (
-                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              )}
+      {/* Recent Exposures */}
+      {totalExposures > 0 && (
+        <Card className="glass-card border-red-500/20">
+          <CardHeader className="border-b border-red-500/20">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                Recent Exposures
+              </CardTitle>
+              <Link to={createPageUrl('Findings')}>
+                <Button variant="ghost" className="text-red-400 hover:text-red-300">
+                  View All <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
             </div>
-            <h3 className="text-lg font-semibold text-white mb-1">AI Insights</h3>
-            <p className="text-sm text-purple-300">Get AI recommendations</p>
-          </motion.div>
-        </Link>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-3">
+              {[...scanResults.slice(0, 3), ...searchQueries.slice(0, 3)]
+                .sort((a, b) => new Date(b.created_date || b.detected_date) - new Date(a.created_date || a.detected_date))
+                .slice(0, 5)
+                .map((item, idx) => {
+                  const isBreach = !!item.source_name;
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="flex items-center justify-between p-4 rounded-xl bg-slate-800/50 border border-red-500/20"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          isBreach ? 'bg-red-500/20' : 'bg-orange-500/20'
+                        }`}>
+                          {isBreach ? (
+                            <AlertTriangle className="w-5 h-5 text-red-400" />
+                          ) : (
+                            <Database className="w-5 h-5 text-orange-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">
+                            {isBreach ? item.source_name : item.search_platform}
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            {isBreach ? 'Data Breach' : 'Data Broker'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge className={`${
+                          (item.risk_score >= 70 || item.risk_level === 'high' || item.risk_level === 'critical')
+                            ? 'bg-red-500/20 text-red-300'
+                            : 'bg-orange-500/20 text-orange-300'
+                        }`}>
+                          {isBreach ? `${item.risk_score}%` : item.risk_level?.toUpperCase()}
+                        </Badge>
+                        <Link to={createPageUrl('DeletionCenter')}>
+                          <Button size="sm" variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/20">
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Remove
+                          </Button>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link to={createPageUrl('Vault')} className="block">
           <motion.div
             whileHover={{ scale: 1.02 }}
-            className="glass-card rounded-xl p-6 hover:glow-border transition-all duration-300 cursor-pointer"
+            className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full"
           >
-            <Shield className="w-8 h-8 text-purple-400 mb-3" />
-            <h3 className="text-lg font-semibold text-white mb-1">Add to Vault</h3>
-            <p className="text-sm text-purple-300">Store identifiers to monitor</p>
+            <Shield className="w-10 h-10 text-purple-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Add to Vault</h3>
+            <p className="text-sm text-gray-400">Add emails, phones, addresses to monitor</p>
           </motion.div>
         </Link>
-        
-        <Link to={createPageUrl('Scans')} className="block">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="glass-card rounded-xl p-6 hover:glow-border transition-all duration-300 cursor-pointer"
-          >
-            <Eye className="w-8 h-8 text-purple-400 mb-3" />
-            <h3 className="text-lg font-semibold text-white mb-1">Run Scan</h3>
-            <p className="text-sm text-purple-300">Check for new exposures</p>
-          </motion.div>
-        </Link>
-        
+
         <Link to={createPageUrl('DeletionCenter')} className="block">
           <motion.div
             whileHover={{ scale: 1.02 }}
-            className="glass-card rounded-xl p-6 hover:glow-border transition-all duration-300 cursor-pointer"
+            className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full"
           >
-            <Trash2 className="w-8 h-8 text-purple-400 mb-3" />
-            <h3 className="text-lg font-semibold text-white mb-1">Remove Data</h3>
-            <p className="text-sm text-purple-300">Request deletions</p>
+            <Trash2 className="w-10 h-10 text-red-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Remove My Data</h3>
+            <p className="text-sm text-gray-400">Request removal from {dataBrokerExposures} sites</p>
+          </motion.div>
+        </Link>
+
+        <Link to={createPageUrl('Findings')} className="block">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full"
+          >
+            <Eye className="w-10 h-10 text-amber-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">View All Exposures</h3>
+            <p className="text-sm text-gray-400">See detailed breakdown of {totalExposures} findings</p>
           </motion.div>
         </Link>
       </div>
-
-      {/* Finding Detail Modal */}
-      <FindingDetailModal
-        finding={selectedFinding}
-        open={showFindingModal}
-        onClose={() => {
-          setShowFindingModal(false);
-          setSelectedFinding(null);
-        }}
-      />
     </div>
   );
 }

@@ -1,31 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-
-// Known functions in this app - hardcoded since Deno Deploy doesn't allow filesystem enumeration
-const KNOWN_FUNCTIONS = [
-  'automateDataDeletion',
-  'automatedPlatformDeletion',
-  'automateGDPRDeletion',
-  'bulkDeleteEmails',
-  'calculateAdvancedRiskScore',
-  'checkBreachAlerts',
-  'checkBreaches',
-  'checkClassActions',
-  'checkHIBP',
-  'checkSocialMediaImpersonation',
-  'correlateProfileData',
-  'detectSearchQueries',
-  'fetchInboxEmails',
-  'findAttorneys',
-  'fixExposure',
-  'generateEmailAlias',
-  'generateEvidencePacket',
-  'generateVirtualCard',
-  'monitorDeletionResponses',
-  'monitorEmails',
-  'monitorSocialMedia',
-  'runIdentityScan',
-  'systemSelfCheck'
-];
+import { getSurfaceMap, dryRunAllSurfaces, getSurfaceStats } from './shared/surfaceMapper.js';
 
 // Known entities in this app
 const KNOWN_ENTITIES = [
@@ -146,45 +120,82 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================
-    // 3. BACKEND FUNCTION ENDPOINT CHECKS
+    // 3. SURFACE MAPPER - DISCOVER ALL EXECUTABLE SURFACES
     // ===========================================
-    const baseUrl = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/[^\/]*$/, '') || '';
+    let surfaceMap = [];
+    let surfaceStats = {};
     
-    for (const fnName of KNOWN_FUNCTIONS) {
-      if (fnName === 'systemSelfCheck') continue; // Skip self
+    try {
+      surfaceMap = await getSurfaceMap();
+      surfaceStats = getSurfaceStats();
       
-      try {
-        // Use the SDK to invoke the function with selfTest flag
-        const response = await Promise.race([
-          base44.functions.invoke(fnName, { _selfTest: '1' }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Function timeout (15s)')), 15000))
-        ]);
-        
-        checks.push({
-          category: 'function',
-          name: `Function: ${fnName}`,
-          ok: true,
-          error: null,
-          filePath: `functions/${fnName}.js`,
-          responseStatus: response?.status || 200
-        });
-      } catch (e) {
-        // Some functions will fail due to missing params - that's expected
-        const isExpectedError = e.message?.includes('required') || 
-                               e.message?.includes('profileId') ||
-                               e.message?.includes('Unauthorized') ||
-                               e.message?.includes('timeout');
-        
-        checks.push({
-          category: 'function',
-          name: `Function: ${fnName}`,
-          ok: isExpectedError, // Expected errors are OK
-          error: isExpectedError ? null : e.message,
-          warning: isExpectedError ? `Expected error: ${e.message}` : null,
-          filePath: `functions/${fnName}.js`,
-          stack: isExpectedError ? null : e.stack
-        });
+      checks.push({
+        category: 'surface_discovery',
+        name: 'Surface Mapper',
+        ok: true,
+        error: null,
+        details: `Discovered ${surfaceMap.length} surfaces: ${Object.entries(surfaceStats.byType).map(([k,v]) => `${v} ${k}s`).join(', ')}`
+      });
+    } catch (e) {
+      checks.push({
+        category: 'surface_discovery',
+        name: 'Surface Mapper',
+        ok: false,
+        error: e.message,
+        stack: e.stack
+      });
+    }
+
+    // ===========================================
+    // 4. DRY-RUN ALL SURFACES
+    // ===========================================
+    try {
+      const dryRunResults = await dryRunAllSurfaces(base44);
+      
+      // Add summary check
+      checks.push({
+        category: 'surface_dryrun',
+        name: 'Surface Dry-Run Summary',
+        ok: dryRunResults.failed === 0,
+        error: dryRunResults.failed > 0 ? `${dryRunResults.failed} surfaces failed dry-run` : null,
+        details: `Passed: ${dryRunResults.passed}, Failed: ${dryRunResults.failed}, Skipped: ${dryRunResults.skipped}`
+      });
+
+      // Add individual surface results
+      for (const result of dryRunResults.results) {
+        if (result.skipped) {
+          checks.push({
+            category: 'function',
+            name: `Surface: ${result.name}`,
+            ok: true,
+            warning: result.skipReason,
+            filePath: result.filePath,
+            surfaceType: result.type
+          });
+        } else {
+          checks.push({
+            category: 'function',
+            name: `Surface: ${result.name}`,
+            ok: result.ok,
+            error: result.error,
+            warning: result.warning,
+            filePath: result.filePath,
+            stack: result.errorStack,
+            offendingCode: result.offendingCode,
+            errorLine: result.errorLine,
+            duration_ms: result.duration_ms,
+            surfaceType: result.type
+          });
+        }
       }
+    } catch (e) {
+      checks.push({
+        category: 'surface_dryrun',
+        name: 'Surface Dry-Run',
+        ok: false,
+        error: `Dry-run execution failed: ${e.message}`,
+        stack: e.stack
+      });
     }
 
     // ===========================================

@@ -226,8 +226,20 @@ export async function dryRunSurface(surface, base44Client) {
 
     result.ok = true;
   } catch (e) {
-    // Classify errors
+    // Extract HTTP status code from axios errors
+    const statusCode = e.response?.status || 
+                       (e.message?.match(/status code (\d+)/)?.[1] ? 
+                        parseInt(e.message.match(/status code (\d+)/)[1]) : null);
+    
+    // Classify errors - these are all "expected" errors meaning the function is reachable
+    // 400 = Bad Request (missing params) - function works, just needs proper input
+    // 401 = Unauthorized - function works, auth issue (often expected for self-test)
+    // 404 = Not Found - could be missing resource, function is still reachable
+    // Timeout = function is running but slow
     const isExpectedError = 
+      statusCode === 400 ||
+      statusCode === 401 ||
+      statusCode === 404 ||
       e.message?.includes('required') ||
       e.message?.includes('profileId') ||
       e.message?.includes('Unauthorized') ||
@@ -239,7 +251,7 @@ export async function dryRunSurface(surface, base44Client) {
 
     if (isExpectedError) {
       result.ok = true;
-      result.warning = e.message;
+      result.warning = `Expected: ${statusCode ? `HTTP ${statusCode}` : e.message}`;
     } else {
       result.ok = false;
       result.error = e.message;

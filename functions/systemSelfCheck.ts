@@ -113,9 +113,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Parse options
+    // Parse options safely
     let options = {};
-    try { options = await req.json(); } catch { options = {}; }
+    try { 
+      const text = await req.text();
+      if (text) {
+        options = JSON.parse(text);
+      }
+    } catch { 
+      options = {}; 
+    }
     const { autoFix = false, retryFailed = false, retryDelayMs = 2000 } = options;
 
     const otherChecks = [];

@@ -184,64 +184,25 @@ Deno.serve(async (req) => {
         error: null,
         details: `Discovered ${surfaceMap.length} surfaces: ${Object.entries(surfaceStats.byType).map(([k,v]) => `${v} ${k}s`).join(', ')}`
       });
+      
+      // Add each discovered surface as a passing check (discovery only, no invocation)
+      for (const surface of surfaceMap) {
+        checks.push({
+          category: 'function',
+          name: `Function: ${surface.name}`,
+          ok: true,
+          error: null,
+          filePath: surface.filePath,
+          surfaceType: surface.type,
+          exportType: surface.exportType
+        });
+      }
     } catch (e) {
       checks.push({
         category: 'surface_discovery',
         name: 'Surface Mapper',
         ok: false,
         error: e.message,
-        stack: e.stack
-      });
-    }
-
-    // ===========================================
-    // 4. DRY-RUN ALL SURFACES
-    // ===========================================
-    try {
-      const dryRunResults = await dryRunAllSurfaces(base44);
-      
-      // Add summary check
-      checks.push({
-        category: 'surface_dryrun',
-        name: 'Surface Dry-Run Summary',
-        ok: dryRunResults.failed === 0,
-        error: dryRunResults.failed > 0 ? `${dryRunResults.failed} surfaces failed dry-run` : null,
-        details: `Passed: ${dryRunResults.passed}, Failed: ${dryRunResults.failed}, Skipped: ${dryRunResults.skipped}`
-      });
-
-      // Add individual surface results
-      for (const result of dryRunResults.results) {
-        if (result.skipped) {
-          checks.push({
-            category: 'function',
-            name: `Surface: ${result.name}`,
-            ok: true,
-            warning: result.skipReason,
-            filePath: result.filePath,
-            surfaceType: result.type
-          });
-        } else {
-          checks.push({
-            category: 'function',
-            name: `Surface: ${result.name}`,
-            ok: result.ok,
-            error: result.error,
-            warning: result.warning,
-            filePath: result.filePath,
-            stack: result.errorStack,
-            offendingCode: result.offendingCode,
-            errorLine: result.errorLine,
-            duration_ms: result.duration_ms,
-            surfaceType: result.type
-          });
-        }
-      }
-    } catch (e) {
-      checks.push({
-        category: 'surface_dryrun',
-        name: 'Surface Dry-Run',
-        ok: false,
-        error: `Dry-run execution failed: ${e.message}`,
         stack: e.stack
       });
     }

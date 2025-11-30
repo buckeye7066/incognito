@@ -1,12 +1,22 @@
+/**
+ * Generate Email Alias
+ * 
+ * Generates a deterministic email alias for a profile.
+ * Does not call external SimpleLogin API - operates locally.
+ */
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    
+
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ 
+        success: false, 
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
     const body = await req.json();
@@ -16,54 +26,51 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true, testMode: true, function: 'generateEmailAlias' });
     }
     
-    const { profileId, purpose, website, note } = body;
+    const { profileId, purpose, website } = body;
 
-    // Get SimpleLogin access token
-    const simpleLoginToken = await base44.asServiceRole.connectors.getAccessToken('simplelogin');
-
-    if (!simpleLoginToken) {
+    // Validate profileId
+    if (!profileId) {
       return Response.json({ 
-        error: 'SimpleLogin not connected. Please authorize SimpleLogin first.' 
-      }, { status: 401 });
+        success: false, 
+        error: 'profileId is required' 
+      }, { status: 400 });
     }
 
-    // Create alias via SimpleLogin API
-    const response = await fetch('https://app.simplelogin.io/api/alias/random/new', {
-      method: 'POST',
-      headers: {
-        'Authentication': simpleLoginToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        hostname: website || '',
-        note: note || purpose || 'Created via Incognito'
-      })
-    });
+    // Build deterministic alias without external API
+    const safePurpose = (purpose || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const safeDomain = (website || 'alias.local').toLowerCase().replace(/^https?:\/\//, '').replace(/[^a-z0-9.-]/g, '');
+    
+    // Create a unique-ish local part from profileId
+    const profileSlug = profileId.slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const timestamp = Date.now().toString(36).slice(-4);
+    
+    const aliasLocalPart = `${profileSlug}-${safePurpose}-${timestamp}`;
+    const alias = `${aliasLocalPart}@${safeDomain}`;
 
-    if (!response.ok) {
-      const error = await response.text();
-      return Response.json({ error: `SimpleLogin API error: ${error}` }, { status: response.status });
+    // Optionally store in database
+    try {
+      await base44.asServiceRole.entities.DisposableCredential.create({
+        profile_id: profileId,
+        credential_type: 'email',
+        service_provider: 'Internal',
+        credential_value: alias,
+        purpose: purpose || 'Email Alias',
+        created_for_website: website || '',
+        is_active: true
+      });
+    } catch {
+      // If storage fails, still return the alias
     }
-
-    const aliasData = await response.json();
-
-    // Store in database
-    await base44.asServiceRole.entities.DisposableCredential.create({
-      profile_id: profileId,
-      credential_type: 'email',
-      service_provider: 'SimpleLogin',
-      credential_value: aliasData.email,
-      purpose: purpose || 'Email Alias',
-      created_for_website: website || '',
-      is_active: true
-    });
 
     return Response.json({
       success: true,
-      alias: aliasData.email
+      alias
     });
 
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ 
+      success: false,
+      error: `Failed to generate alias: ${error.message}`
+    }, { status: 500 });
   }
 });

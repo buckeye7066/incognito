@@ -16,9 +16,9 @@ const CATEGORY_ICONS = {
   environment: Settings,
   database: Database,
   function: Code,
+  entity: Database,
   integration: Zap,
   isolation: Lock,
-  static_analysis: FileWarning,
   access: Shield,
   system: AlertTriangle
 };
@@ -27,9 +27,9 @@ const CATEGORY_COLORS = {
   environment: 'text-blue-400',
   database: 'text-purple-400',
   function: 'text-cyan-400',
+  entity: 'text-indigo-400',
   integration: 'text-yellow-400',
   isolation: 'text-red-400',
-  static_analysis: 'text-orange-400',
   access: 'text-green-400',
   system: 'text-gray-400'
 };
@@ -282,12 +282,23 @@ export default function SystemSelfCheck() {
     setExpandedContamination(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
 
+  const getAllChecks = () => {
+    if (!results) return [];
+    const other = results.otherChecks || [];
+    const funcs = (results.functionChecks || []).map(f => ({
+      ...f,
+      category: 'function',
+      name: `${f.functionName} (${f.filePath})`
+    }));
+    return [...other, ...funcs];
+  };
+
   const getFilteredChecks = () => {
-    if (!results?.checks) return [];
-    if (activeTab === 'all') return results.checks;
-    if (activeTab === 'failed') return results.checks.filter(c => !c.ok);
-    if (activeTab === 'warnings') return results.checks.filter(c => c.warning);
-    return results.checks.filter(c => c.category === activeTab);
+    const all = getAllChecks();
+    if (activeTab === 'all') return all;
+    if (activeTab === 'failed') return all.filter(c => !c.ok);
+    if (activeTab === 'functions') return all.filter(c => c.category === 'function');
+    return all.filter(c => c.category === activeTab);
   };
 
   // Admin check
@@ -444,22 +455,26 @@ export default function SystemSelfCheck() {
                 </div>
               </div>
 
-              <div className="flex gap-6">
+              <div className="flex gap-4 flex-wrap">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-white">{results.summary?.total || 0}</p>
+                  <p className="text-3xl font-bold text-white">{results.summary?.totalChecks || 0}</p>
                   <p className="text-xs text-gray-400">Total</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-green-400">{results.summary?.passed || 0}</p>
-                  <p className="text-xs text-gray-400">Passed</p>
+                  <p className="text-3xl font-bold text-cyan-400">{results.summary?.totalFunctions || 0}</p>
+                  <p className="text-xs text-gray-400">Functions</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-red-400">{results.summary?.failed || 0}</p>
-                  <p className="text-xs text-gray-400">Failed</p>
+                  <p className="text-3xl font-bold text-green-400">{results.summary?.functionsPassed || 0}</p>
+                  <p className="text-xs text-gray-400">Fn Passed</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-yellow-400">{results.summary?.warnings || 0}</p>
-                  <p className="text-xs text-gray-400">Warnings</p>
+                  <p className="text-3xl font-bold text-red-400">{results.summary?.functionsFailed || 0}</p>
+                  <p className="text-xs text-gray-400">Fn Failed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-purple-400">{results.summary?.otherChecksPassed || 0}</p>
+                  <p className="text-xs text-gray-400">Other OK</p>
                 </div>
               </div>
             </div>
@@ -554,16 +569,15 @@ export default function SystemSelfCheck() {
           <CardContent className="p-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="bg-slate-900/50 mb-4 flex-wrap h-auto gap-1">
-                <TabsTrigger value="all">All ({results.checks?.length || 0})</TabsTrigger>
+                <TabsTrigger value="all">All ({getAllChecks().length})</TabsTrigger>
                 <TabsTrigger value="failed" className="text-red-400">
-                  Failed ({results.checks?.filter(c => !c.ok).length || 0})
+                  Failed ({getAllChecks().filter(c => !c.ok).length})
                 </TabsTrigger>
-                <TabsTrigger value="warnings" className="text-yellow-400">
-                  Warnings ({results.checks?.filter(c => c.warning).length || 0})
+                <TabsTrigger value="functions">
+                  Functions ({results.functionChecks?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="environment">Environment</TabsTrigger>
-                <TabsTrigger value="database">Database</TabsTrigger>
-                <TabsTrigger value="function">Functions</TabsTrigger>
+                <TabsTrigger value="entity">Entities</TabsTrigger>
                 <TabsTrigger value="isolation">Isolation</TabsTrigger>
               </TabsList>
 

@@ -1,5 +1,130 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
+// Remediation suggestions for common issues
+const REMEDIATION_MAP = {
+  // Environment variable issues
+  'Missing required environment variable': {
+    suggestion: 'Go to Dashboard → Settings → Environment Variables and add the missing variable.',
+    autoFix: false,
+    severity: 'critical'
+  },
+  'Optional environment variable not set': {
+    suggestion: 'Consider adding this variable in Dashboard → Settings → Environment Variables for full functionality.',
+    autoFix: false,
+    severity: 'warning'
+  },
+  // Entity issues
+  'Entity not found in SDK': {
+    suggestion: 'Create the entity schema in entities/{EntityName}.json or check for typos in entity name.',
+    autoFix: false,
+    severity: 'critical'
+  },
+  'Permission denied': {
+    suggestion: 'Check entity security rules in the dashboard. Ensure the user role has access.',
+    autoFix: false,
+    severity: 'high'
+  },
+  // Data integrity issues
+  'records without profile_id': {
+    suggestion: 'Run data cleanup to assign orphaned records to profiles or delete them.',
+    autoFix: true,
+    fixAction: 'cleanupOrphanedRecords',
+    severity: 'high'
+  },
+  // Integration issues
+  'Core integration not available': {
+    suggestion: 'Contact Base44 support - core integrations should always be available.',
+    autoFix: false,
+    severity: 'critical'
+  },
+  // Service role issues
+  'Service role': {
+    suggestion: 'Ensure backend functions are enabled in Dashboard → Settings → Backend Functions.',
+    autoFix: false,
+    severity: 'critical'
+  }
+};
+
+/**
+ * Gets remediation suggestion for a failed check
+ */
+function getRemediation(check) {
+  if (check.ok) return null;
+  
+  const errorMsg = check.error || '';
+  
+  for (const [pattern, remediation] of Object.entries(REMEDIATION_MAP)) {
+    if (errorMsg.toLowerCase().includes(pattern.toLowerCase())) {
+      return {
+        ...remediation,
+        matchedPattern: pattern
+      };
+    }
+  }
+  
+  // Default remediation for unknown errors
+  return {
+    suggestion: 'Review the error message and stack trace. Check the function code for issues.',
+    autoFix: false,
+    severity: 'medium'
+  };
+}
+
+/**
+ * Attempts to auto-fix certain issues
+ */
+async function attemptAutoFix(check, base44, fixAction) {
+  const results = { success: false, message: '', fixed: 0 };
+  
+  try {
+    switch (fixAction) {
+      case 'cleanupOrphanedRecords':
+        // Get all profiles to find valid profile_ids
+        const profiles = await base44.asServiceRole.entities.Profile.list();
+        const validProfileIds = new Set(profiles.map(p => p.id));
+        
+        if (validProfileIds.size === 0) {
+          results.message = 'No profiles exist. Create a profile first.';
+          return results;
+        }
+        
+        const defaultProfileId = profiles[0]?.id;
+        
+        // Fix orphaned PersonalData
+        const personalData = await base44.asServiceRole.entities.PersonalData.list();
+        for (const pd of personalData.filter(p => !p.profile_id)) {
+          await base44.asServiceRole.entities.PersonalData.update(pd.id, { profile_id: defaultProfileId });
+          results.fixed++;
+        }
+        
+        // Fix orphaned ScanResults
+        const scanResults = await base44.asServiceRole.entities.ScanResult.list();
+        for (const sr of scanResults.filter(s => !s.profile_id)) {
+          await base44.asServiceRole.entities.ScanResult.update(sr.id, { profile_id: defaultProfileId });
+          results.fixed++;
+        }
+        
+        // Fix orphaned DeletionRequests
+        const deletionReqs = await base44.asServiceRole.entities.DeletionRequest.list();
+        for (const dr of deletionReqs.filter(d => !d.profile_id)) {
+          await base44.asServiceRole.entities.DeletionRequest.update(dr.id, { profile_id: defaultProfileId });
+          results.fixed++;
+        }
+        
+        results.success = true;
+        results.message = `Assigned ${results.fixed} orphaned records to default profile.`;
+        break;
+        
+      default:
+        results.message = `Unknown fix action: ${fixAction}`;
+    }
+  } catch (e) {
+    results.message = `Auto-fix failed: ${e.message}`;
+  }
+  
+  return results;
+}
+
 // Known functions in this app (static registry - no runtime invocation needed)
 const KNOWN_FUNCTIONS = [
   'automateDataDeletion',
@@ -35,12 +160,19 @@ function buildCombinedErrorReport(checks, contamination, envMissing) {
 
   // Backend/middleware/API/database errors
   checks.filter(c => !c.ok).forEach(c => {
+    const remediation = c.remediation || getRemediation(c);
     report.push(
 `--------------------------------------------------
 ERROR IN: ${c.name}
 TYPE: ${c.category || 'unknown'}
 FILE: ${c.filePath ?? 'unknown'}
 MESSAGE: ${c.error ?? 'unknown'}
+SEVERITY: ${remediation?.severity || 'unknown'}
+
+HOW TO FIX:
+${remediation?.suggestion || 'Review error details and check documentation.'}
+${remediation?.autoFix ? '✓ Auto-fix available - run with autoFix: true' : ''}
+
 STACK:
 ${c.stack ?? 'no stack available'}
 
@@ -125,8 +257,24 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
+    // Parse request options
+    let options = {};
+    try {
+      options = await req.json();
+    } catch {
+      options = {};
+    }
+    
+    const { 
+      autoFix = false,           // Whether to attempt auto-fixes
+      retryFailed = false,       // Whether to retry failed checks
+      retryDelayMs = 2000,       // Delay before retry (ms)
+      maxRetries = 1             // Max retry attempts
+    } = options;
+
     const checks = [];
     const contaminationResults = [];
+    const autoFixResults = [];
 
     // ===========================================
     // 1. ENVIRONMENT VARIABLE CHECKS
@@ -382,6 +530,93 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================
+    // ADD REMEDIATION SUGGESTIONS TO FAILED CHECKS
+    // ===========================================
+    for (const check of checks) {
+      if (!check.ok) {
+        const remediation = getRemediation(check);
+        check.remediation = remediation;
+      }
+    }
+    
+    // ===========================================
+    // AUTO-FIX ATTEMPT (if enabled)
+    // ===========================================
+    if (autoFix) {
+      for (const check of checks.filter(c => !c.ok && c.remediation?.autoFix)) {
+        const fixResult = await attemptAutoFix(check, base44, check.remediation.fixAction);
+        autoFixResults.push({
+          checkName: check.name,
+          ...fixResult
+        });
+        
+        // If fix succeeded, mark for retry
+        if (fixResult.success) {
+          check.autoFixAttempted = true;
+          check.autoFixResult = fixResult;
+        }
+      }
+    }
+    
+    // ===========================================
+    // RETRY FAILED CHECKS (if enabled)
+    // ===========================================
+    let retryResults = null;
+    if (retryFailed && checks.some(c => !c.ok)) {
+      const failedChecks = checks.filter(c => !c.ok);
+      retryResults = {
+        attempted: failedChecks.length,
+        retryDelayMs,
+        retriedAt: null,
+        improvements: []
+      };
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      retryResults.retriedAt = new Date().toISOString();
+      
+      // Retry entity checks
+      for (const check of failedChecks) {
+        if (check.category === 'database' && check.name.startsWith('Entity:')) {
+          const entityName = check.name.replace('Entity: ', '');
+          try {
+            const entity = base44.entities[entityName];
+            if (entity) {
+              await entity.list('-created_date', 1);
+              check.ok = true;
+              check.error = null;
+              check.retriedSuccessfully = true;
+              retryResults.improvements.push(check.name);
+            }
+          } catch (e) {
+            check.retryError = e.message;
+          }
+        }
+        
+        // Retry isolation checks
+        if (check.category === 'isolation') {
+          try {
+            const allProfiles = await base44.asServiceRole.entities.Profile.list();
+            if (allProfiles.length > 0) {
+              // Re-check data integrity
+              const personalData = await base44.asServiceRole.entities.PersonalData.list();
+              const orphanedPD = personalData.filter(p => !p.profile_id).length;
+              
+              if (orphanedPD === 0) {
+                check.ok = true;
+                check.error = null;
+                check.retriedSuccessfully = true;
+                retryResults.improvements.push(check.name);
+              }
+            }
+          } catch (e) {
+            check.retryError = e.message;
+          }
+        }
+      }
+    }
+
+    // ===========================================
     // COMPILE RESULTS
     // ===========================================
     const passed = checks.filter(c => c.ok).length;
@@ -396,12 +631,14 @@ Deno.serve(async (req) => {
       passed,
       failed,
       warnings,
-      duration_ms: Date.now() - startTime
+      duration_ms: Date.now() - startTime,
+      autoFixEnabled: autoFix,
+      retryEnabled: retryFailed
     };
 
     const overallOk = failed === 0 && contaminationResults.filter(c => c.leak).length === 0;
 
-    // Build combined error report
+    // Build combined error report with remediation
     const combinedErrorReport = buildCombinedErrorReport(
       checks.filter(c => !c.ok),
       contaminationResults.filter(c => c.leak),
@@ -419,6 +656,11 @@ Deno.serve(async (req) => {
         missing: envMissing,
         ok: envMissing.length === 0
       },
+      autoFix: autoFix ? {
+        enabled: true,
+        results: autoFixResults
+      } : null,
+      retry: retryResults,
       timestamp: new Date().toISOString()
     };
 

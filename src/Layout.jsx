@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar } from 'lucide-react';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
@@ -62,7 +62,8 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
     { name: 'Profiles', path: 'Profiles', icon: Users },
-    { name: 'Settings', path: 'Settings', icon: Settings }
+    { name: 'Settings', path: 'Settings', icon: Settings },
+    { name: 'System Check', path: 'SystemSelfCheck', icon: Activity, adminOnly: true }
   ];
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({

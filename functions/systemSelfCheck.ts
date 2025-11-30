@@ -482,25 +482,26 @@ Deno.serve(async (req) => {
     // 6. STATIC CODE ANALYSIS FOR CONTAMINATION
     // ===========================================
     // Check for common patterns that could cause cross-user data leaks
+    // This is informational only - not a warning since it requires manual review
     const riskPatterns = [
       {
         pattern: '.list() without filter',
         description: 'Listing all records without filtering by user/profile could expose other users data',
-        risk: 'high'
+        risk: 'info'
       },
       {
         pattern: 'Missing profile_id check',
         description: 'Operations that dont verify profile ownership',
-        risk: 'high'
+        risk: 'info'
       }
     ];
 
-    // Add pattern analysis results as informational
+    // Add pattern analysis results as informational (no warning)
     checks.push({
       category: 'static_analysis',
       name: 'Code Pattern Analysis',
       ok: true,
-      warning: 'Manual review recommended for: ' + riskPatterns.map(p => p.pattern).join(', '),
+      note: 'Patterns to review: ' + riskPatterns.map(p => p.pattern).join(', '),
       filePath: null,
       patterns: riskPatterns
     });

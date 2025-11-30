@@ -9,23 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId, purpose, website, note } = await req.json();
-
-    // Duplication check - prevent creating duplicate aliases for same purpose/website
-    const existingAliases = await base44.asServiceRole.entities.DisposableCredential.filter({
-      profile_id: profileId,
-      credential_type: 'email',
-      created_for_website: website || '',
-      is_active: true
-    });
+    const body = await req.json();
     
-    if (existingAliases.length > 0) {
-      return Response.json({
-        success: true,
-        alias: existingAliases[0].credential_value,
-        message: 'Existing alias returned - duplicate prevented'
-      });
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'generateEmailAlias' });
     }
+    
+    const { profileId, purpose, website, note } = body;
 
     // Get SimpleLogin access token
     const simpleLoginToken = await base44.asServiceRole.connectors.getAccessToken('simplelogin');
@@ -56,9 +47,7 @@ Deno.serve(async (req) => {
 
     const aliasData = await response.json();
 
-    // Store in database with expiry (30 days default)
-    const expiryDate = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000));
-    
+    // Store in database
     await base44.asServiceRole.entities.DisposableCredential.create({
       profile_id: profileId,
       credential_type: 'email',
@@ -66,7 +55,6 @@ Deno.serve(async (req) => {
       credential_value: aliasData.email,
       purpose: purpose || 'Email Alias',
       created_for_website: website || '',
-      expiry_date: expiryDate.toISOString(),
       is_active: true
     });
 

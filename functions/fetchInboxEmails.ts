@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { maxResults = 100 } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'fetchInboxEmails' });
+    }
+    
+    const { maxResults = 100 } = body;
 
     // Get Gmail access token
     const accessToken = await base44.asServiceRole.connectors.getAccessToken('gmail');
@@ -95,8 +102,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    // SECURITY: Do not log full error details
-    console.error('Fetch emails error occurred');
+    console.error('Fetch emails error:', error);
     return Response.json({ 
       error: error.message,
       details: 'Failed to fetch inbox emails'

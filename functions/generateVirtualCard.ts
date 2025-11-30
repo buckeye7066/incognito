@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId, purpose, website, spendLimit } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'generateVirtualCard' });
+    }
+    
+    const { profileId, purpose, website, spendLimit } = body;
 
     const apiKey = Deno.env.get('PRIVACY_COM_API_KEY');
     

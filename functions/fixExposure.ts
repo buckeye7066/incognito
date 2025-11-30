@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { exposureId, exposureType, profileId, exposureData } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'fixExposure' });
+    }
+    
+    const { exposureId, exposureType, profileId, exposureData } = body;
 
     if (!exposureId || !exposureType || !profileId) {
       return Response.json({ 

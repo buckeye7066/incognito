@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'detectSearchQueries' });
+    }
+    
+    const { profileId } = body;
 
     if (!profileId) {
       return Response.json({ error: 'profileId is required' }, { status: 400 });

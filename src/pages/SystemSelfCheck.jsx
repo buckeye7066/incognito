@@ -343,7 +343,7 @@ export default function SystemSelfCheck() {
                 <Download className="w-4 h-4 mr-2" />
                 Download
               </Button>
-              {results.summary?.failed > 0 && (
+              {(results.summary?.functionsFailed > 0 || results.summary?.otherChecksFailed > 0) && (
                 <>
                   <Button
                     variant="outline"

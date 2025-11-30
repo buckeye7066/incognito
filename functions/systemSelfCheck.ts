@@ -1,6 +1,54 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { getSurfaceMap, dryRunAllSurfaces, getSurfaceStats } from './shared/surfaceMapper.js';
 
+/**
+ * Builds a consolidated error report from all check results
+ */
+function buildCombinedErrorReport(checks, contamination, envMissing) {
+  const report = [];
+
+  // Backend/middleware/API/database errors
+  checks.filter(c => !c.ok).forEach(c => {
+    report.push(
+`--------------------------------------------------
+ERROR IN: ${c.name}
+TYPE: ${c.category || 'unknown'}
+FILE: ${c.filePath ?? 'unknown'}
+MESSAGE: ${c.error ?? 'unknown'}
+STACK:
+${c.stack ?? 'no stack available'}
+
+OFFENDING CODE SNIPPET:
+${c.offendingCode ?? 'no snippet available'}
+--------------------------------------------------`);
+  });
+
+  // Contamination errors
+  contamination.forEach(leak => {
+    report.push(
+`--------------------------------------------------
+DATA CONTAMINATION LEAK DETECTED
+DESCRIPTION: ${leak.description}
+FUNCTION: ${leak.functionName}
+FILE: ${leak.filePath}
+
+OFFENDING CODE SNIPPET:
+${leak.offendingCode ?? 'no snippet available'}
+--------------------------------------------------`);
+  });
+
+  // Missing environment variables
+  if (envMissing.length > 0) {
+    report.push(
+`--------------------------------------------------
+MISSING ENVIRONMENT VARIABLES:
+${envMissing.join(', ')}
+--------------------------------------------------`);
+  }
+
+  return report.length > 0 ? report.join('\n\n') : 'No errors detected.';
+}
+
 // Known entities in this app
 const KNOWN_ENTITIES = [
   'Profile',
@@ -373,6 +421,9 @@ Deno.serve(async (req) => {
     const failed = checks.filter(c => !c.ok).length;
     const warnings = checks.filter(c => c.warning).length;
 
+    // Collect missing required env vars
+    const envMissing = REQUIRED_ENV_VARS.filter(v => !Deno.env.get(v));
+
     const summary = {
       total: checks.length,
       passed,
@@ -383,13 +434,23 @@ Deno.serve(async (req) => {
 
     const overallOk = failed === 0 && contaminationResults.filter(c => c.leak).length === 0;
 
+    // Build combined error report
+    const combinedErrorReport = buildCombinedErrorReport(
+      checks.filter(c => !c.ok),
+      contaminationResults.filter(c => c.leak),
+      envMissing
+    );
+
     const result = {
       ok: overallOk,
       summary,
+      combinedErrorReport,
+      errors: checks.filter(c => !c.ok),
       checks,
-      contamination: {
-        ok: contaminationResults.filter(c => c.leak).length === 0,
-        results: contaminationResults
+      contamination: contaminationResults.filter(c => c.leak),
+      env: {
+        missing: envMissing,
+        ok: envMissing.length === 0
       },
       timestamp: new Date().toISOString()
     };
@@ -401,10 +462,11 @@ Deno.serve(async (req) => {
           timestamp: new Date().toISOString(),
           summary,
           checks,
-          contamination: result.contamination,
+          contamination: { results: contaminationResults },
           user_email: user.email,
           app_name: Deno.env.get('BASE44_APP_ID') || 'unknown',
-          overall_ok: overallOk
+          overall_ok: overallOk,
+          combined_error_report: combinedErrorReport
         });
       } catch (logError) {
         // Don't fail the check if logging fails
@@ -415,11 +477,25 @@ Deno.serve(async (req) => {
     return Response.json(result);
 
   } catch (error) {
+    const combinedErrorReport = buildCombinedErrorReport(
+      [{ name: 'Self-Check Execution', category: 'system', error: error.message, stack: error.stack }],
+      [],
+      []
+    );
+    
     return Response.json({ 
       ok: false,
       error: error.message,
       stack: error.stack,
-      summary: { total: 0, passed: 0, failed: 1 },
+      summary: { total: 1, passed: 0, failed: 1 },
+      combinedErrorReport,
+      errors: [{
+        category: 'system',
+        name: 'Self-Check Execution',
+        ok: false,
+        error: error.message,
+        stack: error.stack
+      }],
       checks: [{
         category: 'system',
         name: 'Self-Check Execution',
@@ -427,7 +503,8 @@ Deno.serve(async (req) => {
         error: error.message,
         stack: error.stack
       }],
-      contamination: { ok: true, results: [] }
+      contamination: [],
+      env: { missing: [], ok: true }
     }, { status: 500 });
   }
 });

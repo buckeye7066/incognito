@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Shield, AlertTriangle, CheckCircle, XCircle, Loader2, 
   Download, ChevronDown, ChevronUp, Database, Code, 
-  Lock, Settings, Zap, FileWarning, RefreshCw
+  Lock, Settings, Zap, FileWarning, RefreshCw, Copy, FileText
 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
@@ -210,6 +210,12 @@ export default function SystemSelfCheck() {
     URL.revokeObjectURL(url);
   };
 
+  const copyErrorReport = () => {
+    if (!results?.combinedErrorReport) return;
+    navigator.clipboard.writeText(results.combinedErrorReport);
+    alert('Error report copied to clipboard');
+  };
+
   const toggleCheck = (idx) => {
     setExpandedChecks(prev => ({ ...prev, [idx]: !prev[idx] }));
   };
@@ -328,17 +334,45 @@ export default function SystemSelfCheck() {
         </Card>
       )}
 
+      {/* Combined Error Report */}
+      {results && !results.ok && results.combinedErrorReport && (
+        <Card className="glass-card border-red-500/30">
+          <CardHeader className="border-b border-red-500/20">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-red-400" />
+                Combined Error Report
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyErrorReport}
+                className="border-red-500/50 text-red-300"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Full Error Report
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4">
+            <pre className="text-sm text-red-300 bg-slate-900 p-4 rounded-lg overflow-x-auto max-h-96 overflow-y-auto font-mono whitespace-pre-wrap">
+              {results.combinedErrorReport}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Contamination Results */}
-      {results?.contamination?.results?.length > 0 && (
+      {results?.contamination?.length > 0 && (
         <Card className="glass-card border-red-500/30">
           <CardHeader className="border-b border-red-500/20">
             <CardTitle className="text-white flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-400" />
-              Cross-Contamination Detected ({results.contamination.results.length})
+              Cross-Contamination Detected ({results.contamination.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
-            {results.contamination.results.map((item, idx) => (
+            {results.contamination.map((item, idx) => (
               <ContaminationRow
                 key={idx}
                 item={item}

@@ -1,5 +1,31 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { getSurfaceMap, dryRunAllSurfaces, getSurfaceStats } from './shared/surfaceMapper.js';
+
+// Known functions in this app (static registry - no runtime invocation needed)
+const KNOWN_FUNCTIONS = [
+  'automateDataDeletion',
+  'automatedPlatformDeletion',
+  'automateGDPRDeletion',
+  'bulkDeleteEmails',
+  'calculateAdvancedRiskScore',
+  'checkBreachAlerts',
+  'checkBreaches',
+  'checkClassActions',
+  'checkHIBP',
+  'checkSocialMediaImpersonation',
+  'correlateProfileData',
+  'detectSearchQueries',
+  'fetchInboxEmails',
+  'findAttorneys',
+  'fixExposure',
+  'generateEmailAlias',
+  'generateEvidencePacket',
+  'generateVirtualCard',
+  'monitorDeletionResponses',
+  'monitorEmails',
+  'monitorSocialMedia',
+  'runIdentityScan',
+  'systemSelfCheck'
+];
 
 /**
  * Builds a consolidated error report from all check results

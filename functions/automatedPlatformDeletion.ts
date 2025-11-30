@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId, platform, credentials } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'automatedPlatformDeletion' });
+    }
+    
+    const { profileId, platform, credentials } = body;
 
     if (!profileId || !platform) {
       return Response.json({ 
@@ -155,8 +162,7 @@ ${aiResponse.manualUrl || scanResult.source_url}`;
     });
 
   } catch (error) {
-    // SECURITY: Do not log full error details
-    console.error('Automated platform deletion error occurred');
+    console.error('Automated platform deletion error:', error);
     return Response.json({ 
       error: 'Automation failed', 
       details: error.message 

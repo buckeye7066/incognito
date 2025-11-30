@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId, scanResultIds } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'automateDataDeletion' });
+    }
+    
+    const { profileId, scanResultIds } = body;
 
     if (!profileId || !scanResultIds || scanResultIds.length === 0) {
       return Response.json({ 

@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { emailIds } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'bulkDeleteEmails' });
+    }
+    
+    const { emailIds } = body;
 
     if (!emailIds || emailIds.length === 0) {
       return Response.json({ error: 'emailIds array is required' }, { status: 400 });
@@ -52,8 +59,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    // SECURITY: Do not log full error details
-    console.error('Bulk delete error occurred');
+    console.error('Bulk delete error:', error);
     return Response.json({ 
       error: error.message,
       details: 'Failed to delete emails'

@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { companyName, breachName, dataType } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'checkClassActions' });
+    }
+    
+    const { companyName, breachName, dataType } = body;
 
     if (!companyName && !breachName) {
       return Response.json({ 

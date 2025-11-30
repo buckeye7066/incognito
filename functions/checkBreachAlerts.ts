@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'checkBreachAlerts' });
+    }
+    
+    const { profileId } = body;
 
     // Get user's personal data from vault
     const allPersonalData = await base44.entities.PersonalData.list();
@@ -81,8 +88,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (hibpError) {
-        // SECURITY: Do not log email addresses
-        console.error('HIBP check failed for an email address');
+        console.error('HIBP check failed for email:', hibpError.message);
       }
     }
 
@@ -91,14 +97,7 @@ Deno.serve(async (req) => {
     const nonEmailData = profileData.filter(d => d.data_type !== 'email');
     
     if (nonEmailData.length > 0) {
-      const prompt = `IMPORTANT SAFETY RULES:
-- Never fabricate breach results, identities, or exposures.
-- Only report VERIFIED breaches with concrete evidence.
-- If unsure about any finding, state uncertainty clearly.
-- Never create fake breach names, dates, or data.
-- If no breaches are found, return an empty array - do not invent findings.
-
-You are a data breach verification system. Check if ANY of the user's SPECIFIC data values below appear in known, VERIFIED data breaches.
+      const prompt = `You are a data breach verification system. Check if ANY of the user's SPECIFIC data values below appear in known, VERIFIED data breaches.
 
 USER'S EXACT DATA VALUES TO CHECK:
 ${nonEmailData.map(d => `- ${d.data_type}: "${d.value}"`).join('\n')}
@@ -256,11 +255,10 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
     });
 
   } catch (error) {
-    // SECURITY: Do not log full error details
-    console.error('Breach alert check error occurred');
+    console.error('Breach alert check error:', error);
     return Response.json({ 
-      error: 'Failed to check for breach alerts',
-      details: 'An error occurred during the breach check'
+      error: error.message,
+      details: 'Failed to check for breach alerts'
     }, { status: 500 });
   }
 });

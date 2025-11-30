@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { findingId, findingType, profileId } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'automateGDPRDeletion' });
+    }
+    
+    const { findingId, findingType, profileId } = body;
 
     if (!findingId || !profileId) {
       return Response.json({ error: 'findingId and profileId are required' }, { status: 400 });

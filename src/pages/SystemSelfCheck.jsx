@@ -257,14 +257,24 @@ export default function SystemSelfCheck() {
         </div>
         <div className="flex gap-3">
           {results && (
-            <Button
-              variant="outline"
-              onClick={downloadReport}
-              className="border-purple-500/50 text-purple-300"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download Report
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setResults(null)}
+                className="border-gray-500/50 text-gray-300"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Clear Results
+              </Button>
+              <Button
+                variant="outline"
+                onClick={downloadReport}
+                className="border-purple-500/50 text-purple-300"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Report
+              </Button>
+            </>
           )}
           <Button
             onClick={runDiagnostic}

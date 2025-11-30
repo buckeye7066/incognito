@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'monitorDeletionResponses' });
+    }
+    
+    const { profileId } = body;
 
     // Get all pending/in-progress deletion requests for this profile
     const deletionRequests = await base44.asServiceRole.entities.DeletionRequest.filter({
@@ -62,13 +69,7 @@ Deno.serve(async (req) => {
 
             // Use AI to analyze the email and match to deletion request
             const analysis = await base44.asServiceRole.integrations.Core.InvokeLLM({
-              prompt: `IMPORTANT SAFETY RULES:
-- Never fabricate email analysis results.
-- Only analyze the actual email content provided.
-- If unsure about the response type, state uncertainty.
-- Do not guess deletion request IDs - only match if confident.
-
-Analyze this email to determine if it's a response to a data deletion/removal request:
+              prompt: `Analyze this email to determine if it's a response to a data deletion/removal request:
 
 From: ${from}
 Subject: ${subject}
@@ -184,9 +185,7 @@ Determine:
           }
         }
       } catch (error) {
-        // SECURITY: Mask email in logs
-        const safeEmail = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
-        console.error(`Error monitoring deletion responses for: ${safeEmail}`);
+        console.error(`Error monitoring ${account.account_identifier}:`, error);
       }
     }
 

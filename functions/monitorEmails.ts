@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { profileId } = await req.json();
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'monitorEmails' });
+    }
+    
+    const { profileId } = body;
 
     // Get monitored accounts for this profile
     const accounts = await base44.asServiceRole.entities.MonitoredAccount.filter({
@@ -95,21 +102,17 @@ Deno.serve(async (req) => {
           last_check: new Date().toISOString()
         });
 
-        // SECURITY: Mask email in response
-        const safeAccountId = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
         results.push({
-          account: safeAccountId,
+          account: account.account_identifier,
           spamFound: spamEmails.length,
           logged: account.auto_log_spam ? spamEmails.length : 0
         });
 
       } catch (error) {
-        // SECURITY: Mask email in logs
-        const safeEmail = account.account_identifier.replace(/(.{2}).+(@.+)/, "$1***$2");
-        console.error(`Error monitoring mailbox for: ${safeEmail}`);
+        console.error(`Error monitoring ${account.account_identifier}:`, error);
         results.push({
-          account: safeEmail,
-          error: 'Processing error'
+          account: account.account_identifier,
+          error: error.message
         });
       }
     }

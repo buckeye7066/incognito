@@ -71,6 +71,11 @@ export default function Layout({ children, currentPageName }) {
     queryFn: () => base44.entities.Profile.list()
   });
 
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => base44.auth.me()
+  });
+
   // Set active profile to default or first profile
   useEffect(() => {
     if (profiles.length > 0 && !activeProfile) {
@@ -157,8 +162,8 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
 
-          <nav className="flex-1 p-4 space-y-1">
-            {navigation.map((item) => {
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            {navigation.filter(item => !item.adminOnly || currentUser?.role === 'admin').map((item) => {
               const Icon = item.icon;
               const isActive = currentPageName === item.path;
               return (

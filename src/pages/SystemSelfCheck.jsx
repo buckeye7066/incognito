@@ -153,6 +153,14 @@ function CheckRow({ check, expanded, onToggle }) {
               </div>
             </div>
           )}
+          {check.codeSnippet && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Code Snippet:</p>
+              <pre className="text-xs text-cyan-300 bg-slate-900 p-3 rounded overflow-x-auto max-h-64 overflow-y-auto font-mono">
+                {check.codeSnippet}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -287,8 +295,8 @@ export default function SystemSelfCheck() {
     const other = results.otherChecks || [];
     const funcs = (results.functionChecks || []).map(f => ({
       ...f,
-      category: 'function',
-      name: `${f.functionName} (${f.filePath})`
+      category: f.category || 'function',
+      name: f.name || f.functionName
     }));
     return [...other, ...funcs];
   };

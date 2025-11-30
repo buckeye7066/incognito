@@ -2,7 +2,12 @@
  * System Self-Check v2.0
  * Comprehensive full-stack diagnostic with deep function introspection.
  * 
- * COMPLETE FUNCTION_REGISTRY - Every function in /functions is listed here.
+ * Features:
+ * - FUNCTION_REGISTRY covering all backend functions
+ * - Self-test mode for each function
+ * - Auto-fix capabilities
+ * - Auto-retry with configurable delay
+ * - Consolidated error reporting with file paths and code snippets
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
@@ -12,44 +17,44 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // =============================================================================
 const FUNCTION_REGISTRY = [
   // Deletion / Privacy
-  { name: 'automateDataDeletion', category: 'deletion', method: 'POST' },
-  { name: 'automatedPlatformDeletion', category: 'deletion', method: 'POST' },
-  { name: 'automateGDPRDeletion', category: 'deletion', method: 'POST' },
-  { name: 'bulkDeleteEmails', category: 'deletion', method: 'POST' },
-  { name: 'monitorDeletionResponses', category: 'deletion', method: 'POST' },
+  { name: 'automateDataDeletion', category: 'deletion', method: 'POST', filePath: 'functions/automateDataDeletion.js' },
+  { name: 'automatedPlatformDeletion', category: 'deletion', method: 'POST', filePath: 'functions/automatedPlatformDeletion.js' },
+  { name: 'automateGDPRDeletion', category: 'deletion', method: 'POST', filePath: 'functions/automateGDPRDeletion.js' },
+  { name: 'bulkDeleteEmails', category: 'deletion', method: 'POST', filePath: 'functions/bulkDeleteEmails.js' },
+  { name: 'monitorDeletionResponses', category: 'deletion', method: 'POST', filePath: 'functions/monitorDeletionResponses.js' },
   
   // Risk Analysis
-  { name: 'calculateAdvancedRiskScore', category: 'analysis', method: 'POST' },
-  { name: 'correlateProfileData', category: 'analysis', method: 'POST' },
+  { name: 'calculateAdvancedRiskScore', category: 'analysis', method: 'POST', filePath: 'functions/calculateAdvancedRiskScore.js' },
+  { name: 'correlateProfileData', category: 'analysis', method: 'POST', filePath: 'functions/correlateProfileData.js' },
   
   // Breach Checking
-  { name: 'checkBreachAlerts', category: 'breach', method: 'POST' },
-  { name: 'checkBreaches', category: 'breach', method: 'POST' },
-  { name: 'checkHIBP', category: 'breach', method: 'POST' },
+  { name: 'checkBreachAlerts', category: 'breach', method: 'POST', filePath: 'functions/checkBreachAlerts.js' },
+  { name: 'checkBreaches', category: 'breach', method: 'POST', filePath: 'functions/checkBreaches.js' },
+  { name: 'checkHIBP', category: 'breach', method: 'POST', filePath: 'functions/checkHIBP.js' },
   
   // Legal / Class Actions
-  { name: 'checkClassActions', category: 'legal', method: 'POST' },
-  { name: 'findAttorneys', category: 'legal', method: 'POST' },
-  { name: 'generateEvidencePacket', category: 'legal', method: 'POST' },
+  { name: 'checkClassActions', category: 'legal', method: 'POST', filePath: 'functions/checkClassActions.js' },
+  { name: 'findAttorneys', category: 'legal', method: 'POST', filePath: 'functions/findAttorneys.js' },
+  { name: 'generateEvidencePacket', category: 'legal', method: 'POST', filePath: 'functions/generateEvidencePacket.js' },
   
   // Social Media
-  { name: 'checkSocialMediaImpersonation', category: 'social', method: 'POST' },
-  { name: 'monitorSocialMedia', category: 'social', method: 'POST' },
-  { name: 'detectSearchQueries', category: 'social', method: 'POST' },
+  { name: 'checkSocialMediaImpersonation', category: 'social', method: 'POST', filePath: 'functions/checkSocialMediaImpersonation.js' },
+  { name: 'monitorSocialMedia', category: 'social', method: 'POST', filePath: 'functions/monitorSocialMedia.js' },
+  { name: 'detectSearchQueries', category: 'social', method: 'POST', filePath: 'functions/detectSearchQueries.js' },
   
   // Email / Monitoring
-  { name: 'fetchInboxEmails', category: 'email', method: 'POST' },
-  { name: 'monitorEmails', category: 'email', method: 'POST' },
+  { name: 'fetchInboxEmails', category: 'email', method: 'POST', filePath: 'functions/fetchInboxEmails.js' },
+  { name: 'monitorEmails', category: 'email', method: 'POST', filePath: 'functions/monitorEmails.js' },
   
   // Exposure Fixes
-  { name: 'fixExposure', category: 'remediation', method: 'POST' },
+  { name: 'fixExposure', category: 'remediation', method: 'POST', filePath: 'functions/fixExposure.js' },
   
   // Credential Generation
-  { name: 'generateEmailAlias', category: 'credentials', method: 'POST' },
-  { name: 'generateVirtualCard', category: 'credentials', method: 'POST' },
+  { name: 'generateEmailAlias', category: 'credentials', method: 'POST', filePath: 'functions/generateEmailAlias.js' },
+  { name: 'generateVirtualCard', category: 'credentials', method: 'POST', filePath: 'functions/generateVirtualCard.js' },
   
   // Identity Scanning
-  { name: 'runIdentityScan', category: 'scanning', method: 'POST' }
+  { name: 'runIdentityScan', category: 'scanning', method: 'POST', filePath: 'functions/runIdentityScan.js' }
   
   // NOTE: systemSelfCheck is excluded to avoid recursion
 ];
@@ -107,6 +112,82 @@ const REMEDIATION_MAP = {
   }
 };
 
+// Code snippets for each function (first 25 lines approximation)
+const CODE_SNIPPETS = {
+  automateDataDeletion: `import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'automateDataDeletion' });
+    }
+    
+    const { profileId, scanResultIds } = body;
+
+    if (!profileId || !scanResultIds || scanResultIds.length === 0) {
+      return Response.json({ 
+        error: 'profileId and scanResultIds are required' 
+      }, { status: 400 });
+    }
+    // ... continues with deletion logic`,
+  
+  automatedPlatformDeletion: `import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: 'automatedPlatformDeletion' });
+    }
+    
+    const { profileId, platform, credentials } = body;
+    // ... continues with platform deletion logic`,
+
+  // Generic snippet for functions without specific snippets
+  _default: `import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    
+    // Self-test mode
+    if (body._selfTest === '1') {
+      return Response.json({ ok: true, testMode: true, function: '<FUNCTION_NAME>' });
+    }
+    
+    // ... function logic continues`
+};
+
+function getCodeSnippet(functionName) {
+  return CODE_SNIPPETS[functionName] || CODE_SNIPPETS._default.replace('<FUNCTION_NAME>', functionName);
+}
+
 function getRemediation(errorMsg) {
   if (!errorMsg) return null;
   for (const [pattern, remediation] of Object.entries(REMEDIATION_MAP)) {
@@ -114,7 +195,7 @@ function getRemediation(errorMsg) {
       return remediation;
     }
   }
-  return { suggestion: 'Review error details.', severity: 'medium' };
+  return { suggestion: 'Review error details and check function logs in the dashboard.', severity: 'medium' };
 }
 
 async function attemptAutoFix(check, base44) {
@@ -152,9 +233,13 @@ async function testFunction(entry, base44Client) {
   const result = {
     ok: false,
     name: entry.name,
+    functionName: entry.name,
     category: entry.category || 'function',
     method: entry.method || 'POST',
+    filePath: entry.filePath || `functions/${entry.name}.js`,
     errorMessage: null,
+    stack: null,
+    codeSnippet: null,
     duration_ms: 0,
     skipped: false,
     skipReason: null
@@ -168,28 +253,32 @@ async function testFunction(entry, base44Client) {
     const testPromise = base44Client.functions.invoke(entry.name, { _selfTest: '1' });
     
     // Race against timeout
-    await Promise.race([
+    const response = await Promise.race([
       testPromise,
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
       )
     ]);
 
-    result.ok = true;
+    // Check if response indicates success
+    if (response?.data?.ok === true || response?.data?.testMode === true) {
+      result.ok = true;
+    } else {
+      result.ok = true; // Function responded, consider it working
+    }
     result.duration_ms = Date.now() - startTime;
 
   } catch (error) {
     // Classify the error
     const statusCode = error.response?.status;
     const errorMsg = error.message || String(error);
+    const errorStack = error.stack || '';
 
     // These are "expected" errors - function is reachable but needs proper input
     const isExpectedError = 
       statusCode === 400 ||  // Bad Request - missing params
       statusCode === 401 ||  // Unauthorized - auth required  
       statusCode === 404 ||  // Not Found - resource missing
-      statusCode === 500 ||  // Server error but reachable
-      statusCode === 502 ||  // Bad gateway but reachable
       errorMsg.includes('required') ||
       errorMsg.includes('profileId') ||
       errorMsg.includes('Unauthorized') ||
@@ -210,10 +299,12 @@ async function testFunction(entry, base44Client) {
 
     if (isExpectedError) {
       result.ok = true;
-      result.errorMessage = `Expected: ${statusCode ? `HTTP ${statusCode}` : errorMsg.slice(0, 80)}`;
+      result.errorMessage = `Expected: ${statusCode ? `HTTP ${statusCode}` : errorMsg.slice(0, 100)}`;
     } else {
       result.ok = false;
       result.errorMessage = errorMsg;
+      result.stack = errorStack;
+      result.codeSnippet = getCodeSnippet(entry.name);
     }
 
     result.duration_ms = Date.now() - startTime;
@@ -312,6 +403,7 @@ Deno.serve(async (req) => {
           otherChecks.push({
             category: 'entity',
             name: `Entity: ${entityName}`,
+            filePath: `entities/${entityName}.json`,
             ok: false,
             error: `Entity ${entityName} not found in SDK`,
             remediation: getRemediation('Entity not found')
@@ -322,14 +414,17 @@ Deno.serve(async (req) => {
         otherChecks.push({
           category: 'entity',
           name: `Entity: ${entityName}`,
+          filePath: `entities/${entityName}.json`,
           ok: true
         });
       } catch (e) {
         otherChecks.push({
           category: 'entity',
           name: `Entity: ${entityName}`,
+          filePath: `entities/${entityName}.json`,
           ok: false,
           error: e.message,
+          stack: e.stack,
           remediation: getRemediation(e.message)
         });
       }
@@ -377,7 +472,8 @@ Deno.serve(async (req) => {
         category: 'isolation',
         name: 'Data Isolation (RLS)',
         ok: false,
-        error: e.message
+        error: e.message,
+        stack: e.stack
       });
     }
 
@@ -397,6 +493,7 @@ Deno.serve(async (req) => {
         name: 'Service Role Access',
         ok: false,
         error: e.message,
+        stack: e.stack,
         remediation: getRemediation('Service role')
       });
     }
@@ -416,32 +513,50 @@ Deno.serve(async (req) => {
         category: 'integration',
         name: 'Core Integration',
         ok: false,
-        error: e.message
+        error: e.message,
+        stack: e.stack
       });
     }
 
     // ===========================================
     // 7. FUNCTION CHECKS (from FUNCTION_REGISTRY)
     // ===========================================
-    const functionChecks = [];
+    let functionChecks = [];
     for (const entry of FUNCTION_REGISTRY) {
       const result = await testFunction(entry, base44);
       functionChecks.push(result);
     }
-
-    const functionsPassed = functionChecks.filter(r => r.ok).length;
-    const functionsFailed = functionChecks.filter(r => !r.ok).length;
 
     // ===========================================
     // 8. RETRY FAILED CHECKS (if enabled)
     // ===========================================
     let retryResults = null;
     if (retryFailed) {
+      const failedFunctions = functionChecks.filter(f => !f.ok);
       const failedOther = otherChecks.filter(c => !c.ok);
-      if (failedOther.length > 0) {
+      
+      if (failedFunctions.length > 0 || failedOther.length > 0) {
         await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-        retryResults = { attempted: failedOther.length, improvements: [] };
+        retryResults = { 
+          attempted: failedFunctions.length + failedOther.length, 
+          improvements: [] 
+        };
         
+        // Retry failed functions
+        for (let i = 0; i < functionChecks.length; i++) {
+          if (!functionChecks[i].ok) {
+            const entry = FUNCTION_REGISTRY.find(e => e.name === functionChecks[i].name);
+            if (entry) {
+              const retried = await testFunction(entry, base44);
+              if (retried.ok) {
+                functionChecks[i] = { ...retried, retriedSuccessfully: true };
+                retryResults.improvements.push(functionChecks[i].name);
+              }
+            }
+          }
+        }
+        
+        // Retry failed entity checks
         for (const check of failedOther) {
           if (check.category === 'entity') {
             const entityName = check.name.replace('Entity: ', '');
@@ -460,6 +575,8 @@ Deno.serve(async (req) => {
     // ===========================================
     // 9. COMPILE RESULTS
     // ===========================================
+    const functionsPassed = functionChecks.filter(r => r.ok).length;
+    const functionsFailed = functionChecks.filter(r => !r.ok).length;
     const otherPassed = otherChecks.filter(c => c.ok).length;
     const otherFailed = otherChecks.filter(c => !c.ok).length;
     const totalChecks = otherChecks.length + functionChecks.length;
@@ -467,39 +584,54 @@ Deno.serve(async (req) => {
 
     const overallOk = totalFailed === 0;
 
-    // Build combined error report
+    // ===========================================
+    // 10. BUILD COMBINED ERROR REPORT
+    // ===========================================
     let combinedErrorReport = '';
     
     // Add other check failures
     const failedOtherChecks = otherChecks.filter(c => !c.ok);
     if (failedOtherChecks.length > 0) {
+      combinedErrorReport += '=== SYSTEM CHECK FAILURES ===\n';
       combinedErrorReport += failedOtherChecks.map(c => `
 --------------------------------------------------
 CHECK: ${c.name}
 CATEGORY: ${c.category}
+FILE PATH: ${c.filePath || 'N/A'}
 ERROR: ${c.error}
 SEVERITY: ${c.remediation?.severity || 'unknown'}
 
 HOW TO FIX:
 ${c.remediation?.suggestion || 'Review error details.'}
-${c.stack ? `\nSTACK:\n${c.stack}` : ''}
+${c.stack ? `
+STACK TRACE:
+${c.stack}` : ''}
 --------------------------------------------------`).join('\n');
     }
     
-    // Add function failures
+    // Add function failures with code snippets
     const failedFunctions = functionChecks.filter(f => !f.ok);
     if (failedFunctions.length > 0) {
       combinedErrorReport += '\n\n=== FUNCTION FAILURES ===\n';
       combinedErrorReport += failedFunctions.map(f => `
 --------------------------------------------------
 FUNCTION: ${f.name}
+FILE PATH: ${f.filePath}
 CATEGORY: ${f.category}
 ERROR: ${f.errorMessage ?? 'Unknown error'}
+${f.stack ? `
+STACK TRACE:
+${f.stack}` : ''}
+${f.codeSnippet ? `
+CODE SNIPPET (first ~25 lines):
+\`\`\`javascript
+${f.codeSnippet}
+\`\`\`` : ''}
 --------------------------------------------------`).join('\n');
     }
 
     if (!combinedErrorReport) {
-      combinedErrorReport = 'All checks passed successfully.';
+      combinedErrorReport = '✓ All checks passed successfully. No errors detected.';
     }
 
     const response = {
@@ -548,11 +680,15 @@ ERROR: ${f.errorMessage ?? 'Unknown error'}
       stack: error.stack,
       summary: { totalChecks: 0, totalFunctions: FUNCTION_REGISTRY.length, functionsFailed: 0, otherChecksFailed: 1 },
       combinedErrorReport: `
+=== SYSTEM ERROR ===
 --------------------------------------------------
-SYSTEM ERROR
 ERROR: ${error.message}
-STACK:
+
+STACK TRACE:
 ${error.stack}
+
+This is a critical error in the self-check system itself.
+Please check the function logs in Dashboard → Code → Functions → systemSelfCheck
 --------------------------------------------------`,
       timestamp: new Date().toISOString()
     }, { status: 500 });

@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Shield, AlertTriangle, CheckCircle, XCircle, Loader2, 
   Download, ChevronDown, ChevronUp, Database, Code, 
-  Lock, Settings, Zap, FileWarning, RefreshCw, Copy, FileText
+  Lock, Settings, Zap, FileWarning, RefreshCw, Copy, FileText,
+  Wrench, RotateCcw, PlayCircle
 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
@@ -37,6 +38,16 @@ function CheckRow({ check, expanded, onToggle }) {
   const Icon = CATEGORY_ICONS[check.category] || AlertTriangle;
   const color = CATEGORY_COLORS[check.category] || 'text-gray-400';
   
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'critical': return 'text-red-400 bg-red-500/20';
+      case 'high': return 'text-orange-400 bg-orange-500/20';
+      case 'medium': return 'text-yellow-400 bg-yellow-500/20';
+      case 'warning': return 'text-amber-400 bg-amber-500/20';
+      default: return 'text-gray-400 bg-gray-500/20';
+    }
+  };
+  
   return (
     <div className="border border-slate-700 rounded-lg overflow-hidden">
       <div 
@@ -55,6 +66,12 @@ function CheckRow({ check, expanded, onToggle }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {check.retriedSuccessfully && (
+            <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40">Fixed on Retry</Badge>
+          )}
+          {check.autoFixResult?.success && (
+            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40">Auto-Fixed</Badge>
+          )}
           {check.ok ? (
             check.warning ? (
               <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/40">Warning</Badge>
@@ -76,6 +93,37 @@ function CheckRow({ check, expanded, onToggle }) {
               <p className="text-sm text-red-300 bg-red-900/20 p-2 rounded font-mono">{check.error}</p>
             </div>
           )}
+          
+          {/* Remediation Suggestion */}
+          {check.remediation && !check.ok && (
+            <div className="border border-purple-500/30 rounded-lg p-3 bg-purple-900/10">
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">How to Fix</span>
+                <Badge className={`text-xs ${getSeverityColor(check.remediation.severity)}`}>
+                  {check.remediation.severity}
+                </Badge>
+              </div>
+              <p className="text-sm text-purple-200">{check.remediation.suggestion}</p>
+              {check.remediation.autoFix && (
+                <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Auto-fix available - enable "Auto-Fix" option and re-run
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Auto-fix result */}
+          {check.autoFixResult && (
+            <div className={`rounded-lg p-3 ${check.autoFixResult.success ? 'bg-green-900/20 border border-green-500/30' : 'bg-red-900/20 border border-red-500/30'}`}>
+              <p className={`text-sm ${check.autoFixResult.success ? 'text-green-300' : 'text-red-300'}`}>
+                {check.autoFixResult.success ? '✓ Auto-fix applied: ' : '✗ Auto-fix failed: '}
+                {check.autoFixResult.message}
+              </p>
+            </div>
+          )}
+          
           {check.warning && (
             <div>
               <p className="text-xs text-yellow-400 mb-1">Warning:</p>
@@ -159,6 +207,9 @@ export default function SystemSelfCheck() {
   const [expandedChecks, setExpandedChecks] = useState({});
   const [expandedContamination, setExpandedContamination] = useState({});
   const [activeTab, setActiveTab] = useState('all');
+  const [autoFixEnabled, setAutoFixEnabled] = useState(false);
+  const [retryEnabled, setRetryEnabled] = useState(false);
+  const [retryDelay, setRetryDelay] = useState(2000);
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -170,12 +221,16 @@ export default function SystemSelfCheck() {
     queryFn: () => base44.entities.SystemCheckLog.list('-timestamp', 10)
   });
 
-  const runDiagnostic = async () => {
+  const runDiagnostic = async (options = {}) => {
     setRunning(true);
     setResults(null);
     
     try {
-      const response = await base44.functions.invoke('systemSelfCheck', {});
+      const response = await base44.functions.invoke('systemSelfCheck', {
+        autoFix: options.autoFix ?? autoFixEnabled,
+        retryFailed: options.retryFailed ?? retryEnabled,
+        retryDelayMs: retryDelay
+      });
       setResults(response.data);
     } catch (error) {
       setResults({
@@ -189,6 +244,9 @@ export default function SystemSelfCheck() {
       setRunning(false);
     }
   };
+  
+  const runWithAutoFix = () => runDiagnostic({ autoFix: true, retryFailed: true });
+  const retryFailedChecks = () => runDiagnostic({ retryFailed: true });
 
   const downloadReport = () => {
     if (!results) return;
@@ -255,7 +313,7 @@ export default function SystemSelfCheck() {
           <h1 className="text-4xl font-bold text-white mb-2">System Self-Check</h1>
           <p className="text-purple-300">Full-stack diagnostic for backend, database, and security</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap justify-end">
           {results && (
             <>
               <Button
@@ -264,7 +322,7 @@ export default function SystemSelfCheck() {
                 className="border-gray-500/50 text-gray-300"
               >
                 <XCircle className="w-4 h-4 mr-2" />
-                Clear Results
+                Clear
               </Button>
               <Button
                 variant="outline"
@@ -272,35 +330,98 @@ export default function SystemSelfCheck() {
                 className="border-purple-500/50 text-purple-300"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download Report
+                Download
               </Button>
+              {results.summary?.failed > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={retryFailedChecks}
+                    disabled={running}
+                    className="border-blue-500/50 text-blue-300"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Retry Failed
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={runWithAutoFix}
+                    disabled={running}
+                    className="border-green-500/50 text-green-300"
+                  >
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Auto-Fix & Retry
+                  </Button>
+                </>
+              )}
             </>
           )}
           <Button
-            onClick={runDiagnostic}
+            onClick={() => runDiagnostic()}
             disabled={running}
             className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
           >
             {running ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running Diagnostic...
+                Running...
               </>
             ) : (
               <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Run Full System Diagnostic
+                <PlayCircle className="w-4 h-4 mr-2" />
+                Run Diagnostic
               </>
             )}
           </Button>
         </div>
       </div>
 
+      {/* Options Panel */}
+      <Card className="glass-card border-purple-500/20">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-6 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoFixEnabled}
+                onChange={(e) => setAutoFixEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-purple-500 bg-slate-800 text-purple-600"
+              />
+              <span className="text-sm text-purple-300">Auto-Fix Issues</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={retryEnabled}
+                onChange={(e) => setRetryEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-purple-500 bg-slate-800 text-purple-600"
+              />
+              <span className="text-sm text-purple-300">Auto-Retry Failed</span>
+            </label>
+            {retryEnabled && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Retry delay:</span>
+                <select
+                  value={retryDelay}
+                  onChange={(e) => setRetryDelay(Number(e.target.value))}
+                  className="bg-slate-800 border border-purple-500/30 rounded px-2 py-1 text-sm text-white"
+                >
+                  <option value={1000}>1s</option>
+                  <option value={2000}>2s</option>
+                  <option value={5000}>5s</option>
+                  <option value={10000}>10s</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Card */}
       {results && (
         <Card className={`glass-card ${results.ok ? 'border-green-500/30' : 'border-red-500/30'}`}>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-4">
                 {results.ok ? (
                   <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -317,14 +438,16 @@ export default function SystemSelfCheck() {
                   </h2>
                   <p className="text-gray-400">
                     Completed in {results.summary?.duration_ms || 0}ms
+                    {results.summary?.autoFixEnabled && ' • Auto-fix enabled'}
+                    {results.summary?.retryEnabled && ' • Retry enabled'}
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex gap-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-white">{results.summary?.total || 0}</p>
-                  <p className="text-xs text-gray-400">Total Checks</p>
+                  <p className="text-xs text-gray-400">Total</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-green-400">{results.summary?.passed || 0}</p>
@@ -340,6 +463,34 @@ export default function SystemSelfCheck() {
                 </div>
               </div>
             </div>
+
+            {/* Auto-fix & Retry Results */}
+            {(results.autoFix?.results?.length > 0 || results.retry?.improvements?.length > 0) && (
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <div className="flex gap-4 flex-wrap">
+                  {results.autoFix?.results?.length > 0 && (
+                    <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
+                      <p className="text-sm text-purple-300 font-medium mb-1">Auto-Fix Results</p>
+                      {results.autoFix.results.map((r, idx) => (
+                        <p key={idx} className={`text-xs ${r.success ? 'text-green-400' : 'text-red-400'}`}>
+                          {r.success ? '✓' : '✗'} {r.checkName}: {r.message}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {results.retry?.improvements?.length > 0 && (
+                    <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                      <p className="text-sm text-blue-300 font-medium mb-1">
+                        Retry Improvements ({results.retry.improvements.length})
+                      </p>
+                      {results.retry.improvements.map((name, idx) => (
+                        <p key={idx} className="text-xs text-green-400">✓ {name} now passing</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

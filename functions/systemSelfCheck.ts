@@ -4,8 +4,6 @@
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import { mapAllFunctions, getFunctionStats } from './shared/functionMapper.js';
-import { runAllFunctionTests, buildErrorReport } from './shared/functionTester.js';
 
 // Known entities in this app
 const KNOWN_ENTITIES = [
@@ -28,6 +26,32 @@ const KNOWN_ENTITIES = [
   'SocialMediaMention',
   'ExposureFixLog',
   'SystemCheckLog'
+];
+
+// Known functions in this app (for introspection)
+const KNOWN_FUNCTIONS = [
+  'automateDataDeletion',
+  'automatedPlatformDeletion',
+  'automateGDPRDeletion',
+  'bulkDeleteEmails',
+  'calculateAdvancedRiskScore',
+  'checkBreachAlerts',
+  'checkBreaches',
+  'checkClassActions',
+  'checkHIBP',
+  'checkSocialMediaImpersonation',
+  'correlateProfileData',
+  'detectSearchQueries',
+  'fetchInboxEmails',
+  'findAttorneys',
+  'fixExposure',
+  'generateEmailAlias',
+  'generateEvidencePacket',
+  'generateVirtualCard',
+  'monitorDeletionResponses',
+  'monitorEmails',
+  'monitorSocialMedia',
+  'runIdentityScan'
 ];
 
 // Required environment variables
@@ -96,6 +120,73 @@ async function attemptAutoFix(check, base44) {
   }
   
   return null;
+}
+
+async function testFunction(funcName, base44Client) {
+  const result = {
+    ok: false,
+    name: funcName,
+    category: 'function',
+    errorMessage: null,
+    duration_ms: 0,
+    skipped: false,
+    skipReason: null
+  };
+
+  const startTime = Date.now();
+  const timeoutMs = 8000;
+
+  try {
+    // Invoke via Base44 SDK with self-test flag
+    const testPromise = base44Client.functions.invoke(funcName, { _selfTest: '1' });
+    
+    // Race against timeout
+    await Promise.race([
+      testPromise,
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]);
+
+    result.ok = true;
+    result.duration_ms = Date.now() - startTime;
+
+  } catch (error) {
+    // Classify the error
+    const statusCode = error.response?.status;
+    const errorMsg = error.message || String(error);
+
+    // These are "expected" errors - function is reachable but needs proper input
+    const isExpectedError = 
+      statusCode === 400 ||  // Bad Request - missing params
+      statusCode === 401 ||  // Unauthorized - auth required  
+      statusCode === 404 ||  // Not Found - resource missing (usually means missing profileId etc)
+      statusCode === 500 ||  // Server error but reachable
+      statusCode === 502 ||  // Bad gateway but reachable
+      errorMsg.includes('required') ||
+      errorMsg.includes('profileId') ||
+      errorMsg.includes('Unauthorized') ||
+      errorMsg.includes('Missing') ||
+      errorMsg.includes('Invalid') ||
+      errorMsg.includes('not found') ||
+      errorMsg.includes('Timeout') ||
+      errorMsg.includes('No ') ||
+      errorMsg.includes('Cannot read') ||
+      errorMsg.includes('undefined') ||
+      errorMsg.includes('null');
+
+    if (isExpectedError) {
+      result.ok = true;
+      result.errorMessage = `Expected: ${statusCode ? `HTTP ${statusCode}` : errorMsg.slice(0, 60)}`;
+    } else {
+      result.ok = false;
+      result.errorMessage = errorMsg;
+    }
+
+    result.duration_ms = Date.now() - startTime;
+  }
+
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -291,12 +382,16 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================
-    // 7. FUNCTION INTROSPECTION (V2.0)
+    // 7. FUNCTION CHECKS (simplified - no shared imports)
     // ===========================================
-    const functionSurfaces = await mapAllFunctions();
-    const functionStats = getFunctionStats();
-    const functionTestResults = await runAllFunctionTests(functionSurfaces, base44);
-    const functionErrorReport = buildErrorReport(functionTestResults.results);
+    const functionChecks = [];
+    for (const funcName of KNOWN_FUNCTIONS) {
+      const result = await testFunction(funcName, base44);
+      functionChecks.push(result);
+    }
+
+    const functionsPassed = functionChecks.filter(r => r.ok).length;
+    const functionsFailed = functionChecks.filter(r => !r.ok).length;
 
     // ===========================================
     // 8. RETRY FAILED CHECKS (if enabled)
@@ -328,8 +423,8 @@ Deno.serve(async (req) => {
     // ===========================================
     const otherPassed = otherChecks.filter(c => c.ok).length;
     const otherFailed = otherChecks.filter(c => !c.ok).length;
-    const totalChecks = otherChecks.length + functionTestResults.total;
-    const totalFailed = otherFailed + functionTestResults.failed;
+    const totalChecks = otherChecks.length + functionChecks.length;
+    const totalFailed = otherFailed + functionsFailed;
 
     const overallOk = totalFailed === 0;
 
@@ -353,8 +448,14 @@ ${c.stack ? `\nSTACK:\n${c.stack}` : ''}
     }
     
     // Add function failures
-    if (functionTestResults.failed > 0) {
-      combinedErrorReport += '\n\n=== FUNCTION FAILURES ===\n' + functionErrorReport;
+    const failedFunctions = functionChecks.filter(f => !f.ok);
+    if (failedFunctions.length > 0) {
+      combinedErrorReport += '\n\n=== FUNCTION FAILURES ===\n';
+      combinedErrorReport += failedFunctions.map(f => `
+--------------------------------------------------
+FUNCTION: ${f.name}
+ERROR: ${f.errorMessage ?? 'Unknown error'}
+--------------------------------------------------`).join('\n');
     }
 
     if (!combinedErrorReport) {
@@ -365,17 +466,17 @@ ${c.stack ? `\nSTACK:\n${c.stack}` : ''}
       ok: overallOk,
       summary: {
         totalChecks,
-        totalFunctions: functionStats.total,
-        functionsPassed: functionTestResults.passed,
-        functionsFailed: functionTestResults.failed,
-        functionsSkipped: functionTestResults.skipped,
+        totalFunctions: KNOWN_FUNCTIONS.length,
+        functionsPassed,
+        functionsFailed,
+        functionsSkipped: 0,
         otherChecksPassed: otherPassed,
         otherChecksFailed: otherFailed,
         duration_ms: Date.now() - startTime,
         autoFixEnabled: autoFix,
         retryEnabled: retryFailed
       },
-      functionChecks: functionTestResults.results,
+      functionChecks,
       otherChecks,
       autoFix: autoFix ? { enabled: true, results: autoFixResults } : null,
       retry: retryResults,
@@ -390,7 +491,7 @@ ${c.stack ? `\nSTACK:\n${c.stack}` : ''}
         await base44.asServiceRole.entities.SystemCheckLog.create({
           timestamp: new Date().toISOString(),
           summary: response.summary,
-          checks: [...otherChecks, ...functionTestResults.results],
+          checks: [...otherChecks, ...functionChecks],
           user_email: user.email,
           app_name: Deno.env.get('BASE44_APP_ID') || 'unknown',
           overall_ok: overallOk

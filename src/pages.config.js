@@ -14,6 +14,7 @@ import ThreatIntelligence from './pages/ThreatIntelligence';
 import IdentityScan from './pages/IdentityScan';
 import FixExposure from './pages/FixExposure';
 import LegalSupport from './pages/LegalSupport';
+import AdminFunctionTester from './pages/AdminFunctionTester';
 import __Layout from './Layout.jsx';
 
 
@@ -34,6 +35,7 @@ export const PAGES = {
     "IdentityScan": IdentityScan,
     "FixExposure": FixExposure,
     "LegalSupport": LegalSupport,
+    "AdminFunctionTester": AdminFunctionTester,
 }
 
 export const pagesConfig = {

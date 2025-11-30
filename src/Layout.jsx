@@ -63,7 +63,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
     { name: 'Profiles', path: 'Profiles', icon: Users },
     { name: 'Settings', path: 'Settings', icon: Settings },
-    { name: 'System Check', path: 'SystemSelfCheck', icon: Activity, adminOnly: true }
+    { name: 'Function Tester', path: 'AdminFunctionTester', icon: Activity, adminOnly: true }
   ];
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({

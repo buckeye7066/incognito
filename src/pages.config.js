@@ -15,6 +15,7 @@ import IdentityScan from './pages/IdentityScan';
 import FixExposure from './pages/FixExposure';
 import LegalSupport from './pages/LegalSupport';
 import AdminFunctionTester from './pages/AdminFunctionTester';
+import FunctionReviewer from './pages/FunctionReviewer';
 import __Layout from './Layout.jsx';
 
 
@@ -36,6 +37,7 @@ export const PAGES = {
     "FixExposure": FixExposure,
     "LegalSupport": LegalSupport,
     "AdminFunctionTester": AdminFunctionTester,
+    "FunctionReviewer": FunctionReviewer,
 }
 
 export const pagesConfig = {

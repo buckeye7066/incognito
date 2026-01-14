@@ -11,6 +11,7 @@ import { Plus, Trash2, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import BreachCheckButton from '../components/vault/BreachCheckButton';
+import { PersonalDataInputSchema } from '@/lib/schemas';
 
 const DATA_TYPES = [
   { value: 'full_name', label: 'Full Name', icon: '👤' },
@@ -92,7 +93,13 @@ export default function Vault() {
       alert('Please select or create a profile first');
       return;
     }
-    createMutation.mutate({ ...formData, profile_id: activeProfileId });
+    const payload = { ...formData, profile_id: activeProfileId };
+    const parsed = PersonalDataInputSchema.safeParse(payload);
+    if (!parsed.success) {
+      alert('Invalid vault entry. Please check required fields.');
+      return;
+    }
+    createMutation.mutate(parsed.data);
   };
 
   const groupedData = DATA_TYPES.reduce((acc, type) => {

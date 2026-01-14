@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { buildEvidenceItem } from './shared/evidence.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -412,6 +413,35 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
       }
     };
 
+    // Evidence integrity: hashed evidence items
+    const evidence_items = [];
+    if (finding.suspicious_profile_url && String(finding.suspicious_profile_url).startsWith('http')) {
+      evidence_items.push(
+        await buildEvidenceItem({
+          source_url: finding.suspicious_profile_url,
+          captured_at: finding.detected_date ? `${finding.detected_date}T00:00:00.000Z` : now,
+          retrieved_at: now,
+          method: 'base44.entity.SocialMediaFinding',
+          entity: 'SocialMediaFinding',
+          entity_id: finding.id,
+          content_verbatim: finding.evidence || undefined
+        })
+      );
+    }
+    for (const u of (finding.matching_photos || []).slice(0, 25)) {
+      if (!u || !String(u).startsWith('http')) continue;
+      evidence_items.push(
+        await buildEvidenceItem({
+          source_url: String(u),
+          captured_at: now,
+          retrieved_at: now,
+          method: 'photo_url',
+          entity: 'SocialMediaFinding',
+          entity_id: finding.id
+        })
+      );
+    }
+
     // Timeline
     const timeline = [
       { event: 'Exposure detected', date: finding.detected_date || finding.created_date },
@@ -451,6 +481,7 @@ All verbatim content extracted for evidentiary use. Supplement with official rec
       structured: {
         incident_summary: incidentSummary,
         exposure_details: exposureDetails,
+        evidence_items,
         victim: {
           legal_name: redactName(myName),
           emails: myEmails.map(redactEmail),

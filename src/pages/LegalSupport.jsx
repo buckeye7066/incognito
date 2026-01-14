@@ -17,6 +17,7 @@ export default function LegalSupport() {
   const [classActions, setClassActions] = useState([]);
   const [attorneys, setAttorneys] = useState([]);
   const [generatingPacket, setGeneratingPacket] = useState(null);
+  const [generatingIntake, setGeneratingIntake] = useState(false);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -122,6 +123,43 @@ export default function LegalSupport() {
     }
   };
 
+  const generateLegalIntakePacket = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+    setGeneratingIntake(true);
+    try {
+      const result = await base44.functions.invoke('generateLegalIntakePacket', {
+        profileId: activeProfileId
+      });
+
+      const packet = result.data?.packet?.text;
+      if (packet) {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+          <html>
+          <head>
+            <title>Legal Intake Packet</title>
+            <style>
+              body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; padding: 20px; }
+              pre { white-space: pre-wrap; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <pre>${packet}</pre>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    } catch (error) {
+      alert('Failed to generate intake packet: ' + error.message);
+    } finally {
+      setGeneratingIntake(false);
+    }
+  };
+
   const victimRights = [
     { title: 'Right to Data Deletion (GDPR Art. 17, CCPA 1798.105)', description: 'Request removal of your personal data from any company.' },
     { title: 'Right to Know (CCPA 1798.100)', description: 'Know what personal data companies have collected about you.' },
@@ -185,6 +223,7 @@ export default function LegalSupport() {
           <TabsTrigger value="class_actions">Class Actions</TabsTrigger>
           <TabsTrigger value="attorneys">Find Attorneys</TabsTrigger>
           <TabsTrigger value="evidence">Evidence Packets</TabsTrigger>
+          <TabsTrigger value="intake">Legal Intake Packet</TabsTrigger>
           <TabsTrigger value="rights">Victim Rights</TabsTrigger>
           <TabsTrigger value="next_steps">Legal Next Steps</TabsTrigger>
         </TabsList>
@@ -420,6 +459,48 @@ export default function LegalSupport() {
                     ))}
                   </>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Intake Packet Tab */}
+        <TabsContent value="intake">
+          <Card className="glass-card border-purple-500/30">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-400" />
+                Legal Intake Packet (Export)
+              </CardTitle>
+              <Button
+                onClick={generateLegalIntakePacket}
+                disabled={generatingIntake || !activeProfileId}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {generatingIntake ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="w-4 h-4 mr-2" />
+                    Generate Packet
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 rounded-lg bg-slate-800/50 border border-purple-500/20 space-y-2">
+                <p className="text-sm text-white font-medium">What’s included</p>
+                <ul className="text-sm text-purple-300 list-disc list-inside space-y-1">
+                  <li>High-level timeline (scans, impersonations, deletion requests, remediation actions)</li>
+                  <li>Evidence items with required integrity fields (source_url, captured_at, sha256, retrieval metadata)</li>
+                  <li>Counts and summaries for attorney review</li>
+                </ul>
+                <p className="text-xs text-purple-400">
+                  Note: This export intentionally avoids echoing raw vault values by default.
+                </p>
               </div>
             </CardContent>
           </Card>

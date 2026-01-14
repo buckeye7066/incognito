@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { redactForLog } from './shared/redact.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -30,14 +31,6 @@ Deno.serve(async (req) => {
         alertsCreated: 0 
       });
     }
-
-    // Build user's actual data for verification
-    const dataValues = profileData.map(d => ({
-      type: d.data_type,
-      value: d.value,
-      id: d.id,
-      profile_id: d.profile_id
-    }));
 
     // Get emails specifically for HIBP check
     const emails = profileData.filter(d => d.data_type === 'email').map(d => d.value);
@@ -78,6 +71,7 @@ Deno.serve(async (req) => {
             breachesFound.push({
               breach_name: breach.Name,
               breach_date: breach.BreachDate,
+              source_url: breach.Domain ? `https://${breach.Domain}` : `https://haveibeenpwned.com`,
               domain: breach.Domain,
               data_types_exposed: breach.DataClasses || [],
               description: breach.Description?.replace(/<[^>]*>/g, '') || 'Data breach detected',
@@ -88,7 +82,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (hibpError) {
-        console.error('HIBP check failed for email:', hibpError.message);
+        console.error(`HIBP check failed for email=${redactForLog(email)}`);
       }
     }
 
@@ -116,7 +110,12 @@ SEARCH:
 - Search for any public exposure of these exact values
 
 If you find a VERIFIED match where the user's specific data appears in a breach, return it.
-If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empty array.`;
+If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empty array.
+
+Grounding requirements (non-negotiable):
+- Each result MUST include a source_url to a real source page and a short verbatim quote (or exact excerpt) from that source.
+- Include a retrieved_at timestamp in ISO-8601 UTC.
+- Do NOT guess, do NOT invent.`;
 
       const llmResult = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -132,6 +131,7 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
                   breach_name: { type: "string" },
                   breach_date: { type: "string" },
                   source_url: { type: "string" },
+                  retrieved_at: { type: "string" },
                   matched_data_type: { type: "string" },
                   matched_value: { type: "string" },
                   evidence: { type: "string" },
@@ -154,43 +154,23 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
             breach.matched_value?.includes(d.value)
           );
           
-          if (matchedData && breach.evidence && !breach.evidence.toLowerCase().includes('not found')) {
+          if (!matchedData) continue;
+          if (!breach.source_url || !breach.source_url.startsWith('http')) continue;
+          if (!breach.retrieved_at) continue;
+          if (!breach.evidence || breach.evidence.toLowerCase().includes('not found')) continue;
+
+          // Only accept if the evidence mentions the matched value (best-effort anti-fabrication check).
+          if (!String(breach.evidence).toLowerCase().includes(String(matchedData.value).toLowerCase())) continue;
+
             breachesFound.push({
               ...breach,
               email_found: null,
               data_found: matchedData.value,
               data_type: matchedData.data_type
             });
-          }
         }
       }
     }
-
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      add_context_from_internet: true,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          breaches: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                breach_name: { type: "string" },
-                breach_date: { type: "string" },
-                source_url: { type: "string" },
-                records_affected: { type: "string" },
-                data_types_exposed: { type: "array", items: { type: "string" } },
-                severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
-                description: { type: "string" },
-                recommended_actions: { type: "array", items: { type: "string" } }
-              }
-            }
-          }
-        }
-      }
-    });
 
     // Create alerts only for verified breaches
     if (breachesFound.length > 0) {
@@ -224,7 +204,7 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
           message: `Your ${yourData} was found in the ${breach.breach_name} data breach (${breach.breach_date}).\n\nData exposed in this breach: ${exposedDataTypes}\n\nRecords affected: ${breach.records_affected || 'Unknown'}\n\n${breach.description || ''}`,
           severity: breach.is_verified === false ? 'medium' : 'high',
           is_read: false,
-          action_url: breach.source_url || breach.domain ? `https://${breach.domain}` : null,
+          action_url: breach.source_url || (breach.domain ? `https://${breach.domain}` : null),
           related_data_ids: [matchedData.id],
           threat_indicators: [
             'Change passwords for this account immediately',
@@ -255,10 +235,7 @@ If you cannot confirm the user's SPECIFIC VALUES are in a breach, return an empt
     });
 
   } catch (error) {
-    console.error('Breach alert check error:', error);
-    return Response.json({ 
-      error: error.message,
-      details: 'Failed to check for breach alerts'
-    }, { status: 500 });
+    console.error('Breach alert check error occurred');
+    return Response.json({ error: 'Failed to check for breach alerts' }, { status: 500 });
   }
 });

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { redactForLog } from './shared/redact.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -185,7 +186,7 @@ Determine:
           }
         }
       } catch (error) {
-        console.error(`Error monitoring ${account.account_identifier}:`, error);
+        console.error(`Error monitoring deletion responses for account=${redactForLog(account.account_identifier)}`);
       }
     }
 
@@ -209,6 +210,7 @@ View details: ${req.headers.get('origin') || 'https://app.base44.com'}/DeletionC
     });
 
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('monitorDeletionResponses error occurred');
+    return Response.json({ error: 'Failed to monitor deletion responses' }, { status: 500 });
   }
 });

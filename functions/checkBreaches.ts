@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { redactForLog } from './shared/redact.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         } catch (error) {
-          console.error(`Error checking ${value}:`, error);
+          console.error(`Error checking HIBP for identifier=${redactForLog(value)}`);
         }
 
         // Rate limiting - HIBP allows 1 request per 1.5 seconds for paid plans
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Breach check error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('Breach check error occurred');
+    return Response.json({ error: 'Failed to check breaches' }, { status: 500 });
   }
 });

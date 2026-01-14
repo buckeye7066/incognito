@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { redactForLog } from './shared/redact.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -109,10 +110,10 @@ Deno.serve(async (req) => {
         });
 
       } catch (error) {
-        console.error(`Error monitoring ${account.account_identifier}:`, error);
+        console.error(`Error monitoring account=${redactForLog(account.account_identifier)}`);
         results.push({
           account: account.account_identifier,
-          error: error.message
+          error: 'Monitoring failed for this account'
         });
       }
     }
@@ -124,7 +125,8 @@ Deno.serve(async (req) => {
       results
     });
 
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  } catch {
+    console.error('monitorEmails error occurred');
+    return Response.json({ error: 'Failed to monitor emails' }, { status: 500 });
   }
 });

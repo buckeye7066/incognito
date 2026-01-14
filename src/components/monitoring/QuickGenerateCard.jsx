@@ -139,20 +139,13 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between p-2 rounded bg-slate-900/50">
-                  <span className="text-xs text-purple-300">Card Number:</span>
+                  <span className="text-xs text-purple-300">Card (masked):</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white font-mono">{generatedCard.pan}</span>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copyToClipboard(generatedCard.pan, 'pan')}>
+                    <span className="text-sm text-white font-mono">
+                      {generatedCard.masked_pan || `**** **** **** ${generatedCard.last_four || '????'}`}
+                    </span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copyToClipboard(generatedCard.masked_pan || `**** **** **** ${generatedCard.last_four || '????'}`, 'pan')}>
                       {copied === 'pan' ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-slate-900/50">
-                  <span className="text-xs text-purple-300">CVV:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white font-mono">{generatedCard.cvv}</span>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copyToClipboard(generatedCard.cvv, 'cvv')}>
-                      {copied === 'cvv' ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
                     </Button>
                   </div>
                 </div>
@@ -160,6 +153,9 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
                   <span className="text-xs text-purple-300">Expiry:</span>
                   <span className="text-sm text-white">{generatedCard.exp_month}/{generatedCard.exp_year}</span>
                 </div>
+                <p className="text-xs text-purple-400 mt-2">
+                  For security, Incognito never displays or returns full card numbers or CVV.
+                </p>
               </div>
               <Button
                 variant="outline"

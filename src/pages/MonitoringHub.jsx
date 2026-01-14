@@ -106,62 +106,9 @@ export default function MonitoringHub() {
 
     setMonitoring(true);
     try {
-      // Get personal data for this profile
-      const allData = await base44.entities.PersonalData.list();
-      const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
-
-      if (profileData.length === 0) {
-        alert('No personal data to monitor. Please add data to your profile first.');
-        setMonitoring(false);
-        return;
-      }
-
-      // Monitor emails for spam using profile data
-      let totalSpam = 0;
-      for (const data of profileData) {
-        if (data.data_type === 'email') {
-          const prompt = `Search for spam emails or suspicious activity related to this email: ${data.value}. 
-          Check spam folders, phishing attempts, and suspicious senders.
-          Return findings as JSON array.`;
-
-          const result = await base44.integrations.Core.InvokeLLM({
-            prompt,
-            add_context_from_internet: true,
-            response_json_schema: {
-              type: "object",
-              properties: {
-                spam_found: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      source: { type: "string" },
-                      category: { type: "string" },
-                      description: { type: "string" }
-                    }
-                  }
-                }
-              }
-            }
-          });
-
-          if (result.spam_found && result.spam_found.length > 0) {
-            for (const spam of result.spam_found) {
-              await base44.entities.SpamIncident.create({
-                profile_id: activeProfileId,
-                incident_type: 'email',
-                source_identifier: spam.source,
-                category: spam.category || 'other',
-                date_received: new Date().toISOString().split('T')[0],
-                content_summary: spam.description
-              });
-              totalSpam++;
-            }
-          }
-        }
-      }
-
-      alert(`Monitoring complete! Found ${totalSpam} spam incident(s) related to your profile data.`);
+      // Server-side monitoring only (prevents client-side PII leakage to LLMs)
+      const response = await base44.functions.invoke('monitorEmails', { profileId: activeProfileId });
+      alert(`Monitoring complete! Logged ${response.data?.totalSpamFound || 0} spam incident(s).`);
       queryClient.invalidateQueries(['spamIncidents']);
     } catch (error) {
       alert('Monitoring failed: ' + error.message);
@@ -178,67 +125,11 @@ export default function MonitoringHub() {
 
     setDarkWebScanning(true);
     try {
-      const allData = await base44.entities.PersonalData.list();
-      const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
-
-      if (profileData.length === 0) {
-        alert('No personal data to monitor. Please add data to your profile first.');
-        setDarkWebScanning(false);
-        return;
-      }
-
-      let findingsCount = 0;
-      for (const data of profileData) {
-        const prompt = `Search dark web breach databases and monitoring sources for this identifier: ${data.data_type} = ${data.value}.
-        Check: breach databases (HIBP, DeHashed), credential dumps, paste sites, dark web marketplaces.
-        For each finding, provide: source_name, risk_score, data_exposed, details.
-        Return JSON array of findings.`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              findings: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    source_name: { type: "string" },
-                    risk_score: { type: "number" },
-                    data_exposed: { type: "array", items: { type: "string" } },
-                    details: { type: "string" }
-                  }
-                }
-              }
-            }
-          }
-        });
-
-        if (result.findings && result.findings.length > 0) {
-          for (const finding of result.findings) {
-            await base44.entities.ScanResult.create({
-              profile_id: activeProfileId,
-              personal_data_id: data.id,
-              source_name: finding.source_name,
-              source_type: 'breach_database',
-              risk_score: finding.risk_score,
-              data_exposed: finding.data_exposed,
-              status: 'new',
-              scan_date: new Date().toISOString().split('T')[0],
-              metadata: {
-                scan_type: 'dark_web',
-                details: finding.details
-              }
-            });
-            findingsCount++;
-          }
-        }
-      }
-
-      alert(`Dark web scan complete! Found ${findingsCount} exposure(s) of your profile data.`);
+      // Server-side breach monitoring only (avoids client-side PII→LLM)
+      const result = await base44.functions.invoke('checkBreachAlerts', { profileId: activeProfileId });
+      alert(result.data?.message || 'Dark web scan complete.');
       queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries(['notifications']);
     } catch (error) {
       alert('Dark web scan failed: ' + error.message);
     } finally {
@@ -297,7 +188,6 @@ export default function MonitoringHub() {
         </div>
         <Button
           onClick={() => {
-            console.log('Add Account clicked, current showAddForm:', showAddForm);
             setShowAddForm(!showAddForm);
           }}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"

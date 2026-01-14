@@ -481,6 +481,8 @@ export default function MonitoringHub() {
         <DisposableCredentialCard
           credentials={credentials}
           onCreate={handleCreateCredential}
+          profileId={activeProfileId}
+          onRevoked={() => queryClient.invalidateQueries(['disposableCredentials'])}
         />
         <AIActivityAnalyzer profileId={activeProfileId} />
       </div>

@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, Plus, ExternalLink, Shield, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function DisposableCredentialCard({ credentials, onCreate }) {
+export default function DisposableCredentialCard({ credentials, onCreate, profileId, onRevoked }) {
   const [showForm, setShowForm] = useState(false);
+  const [revokingId, setRevokingId] = useState(null);
   const [formData, setFormData] = useState({
     credential_type: 'email',
     service_provider: 'Guerrilla Mail',
@@ -40,6 +41,24 @@ export default function DisposableCredentialCard({ credentials, onCreate }) {
       purpose: '',
       created_for_website: ''
     });
+  };
+
+  const revokeAlias = async (cred) => {
+    if (!profileId) {
+      alert('Please select a profile first');
+      return;
+    }
+    setRevokingId(cred.id);
+    try {
+      const { base44 } = await import('@/api/base44Client');
+      // Soft-revoke for auditability (server sets revoked flags, keeps record)
+      await base44.functions.invoke('deleteEmailAlias', { aliasId: cred.id, profileId });
+      if (onRevoked) onRevoked();
+    } catch (error) {
+      alert('Failed to revoke alias: ' + error.message);
+    } finally {
+      setRevokingId(null);
+    }
   };
 
   return (
@@ -191,12 +210,30 @@ export default function DisposableCredentialCard({ credentials, onCreate }) {
                       <p className="text-xs text-purple-500 mt-1">via {cred.service_provider}</p>
                     </div>
                   </div>
-                  {cred.spam_received > 0 && (
-                    <Badge className="bg-red-500/20 text-red-300 border-red-500/40 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      {cred.spam_received} spam
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {cred.credential_type === 'email' && cred.is_active !== false && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={revokingId === cred.id}
+                        onClick={() => revokeAlias(cred)}
+                        className="border-red-500/50 text-red-300 hover:text-red-200"
+                      >
+                        {revokingId === cred.id ? 'Revoking…' : 'Revoke'}
+                      </Button>
+                    )}
+                    {cred.is_active === false && (
+                      <Badge className="bg-gray-500/20 text-gray-300 border-gray-500/40">
+                        Revoked
+                      </Badge>
+                    )}
+                    {cred.spam_received > 0 && (
+                      <Badge className="bg-red-500/20 text-red-300 border-red-500/40 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {cred.spam_received} spam
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

@@ -31,6 +31,9 @@ const KNOWN_FUNCTIONS = [
   { functionId: 'checkClassActions', filePath: 'functions/checkClassActions.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Check for class action lawsuits' },
   { functionId: 'findAttorneys', filePath: 'functions/findAttorneys.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Find attorneys by specialty and location' },
   { functionId: 'generateEvidencePacket', filePath: 'functions/generateEvidencePacket.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Generate forensic evidence packet' },
+  { functionId: 'generateLegalIntakePacket', filePath: 'functions/generateLegalIntakePacket.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Export hashed legal intake packet (timeline + evidence integrity)' },
+  { functionId: 'legalDiscoverCases', filePath: 'functions/legalDiscoverCases.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Discover case candidates from user-provided source URLs only (no invention)' },
+  { functionId: 'legalGenerateFilingGuidance', filePath: 'functions/legalGenerateFilingGuidance.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Generate filing guidance options with citations and attorney-review disclaimers' },
   { functionId: 'fixExposure', filePath: 'functions/fixExposure.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'legal', description: 'Initiate remediation for exposures' },
   { functionId: 'generateVirtualCard', filePath: 'functions/generateVirtualCard.js', exportType: 'default', namedExports: [], dependencyPaths: [], category: 'credentials', description: 'Generate virtual credit card via Privacy.com' }
 ];

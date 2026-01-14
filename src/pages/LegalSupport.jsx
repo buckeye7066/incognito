@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Scale, Gavel, FileText, Shield, AlertTriangle, ExternalLink, 
@@ -18,6 +20,14 @@ export default function LegalSupport() {
   const [attorneys, setAttorneys] = useState([]);
   const [generatingPacket, setGeneratingPacket] = useState(null);
   const [generatingIntake, setGeneratingIntake] = useState(false);
+  const [discoveringCases, setDiscoveringCases] = useState(false);
+  const [sourceUrlsText, setSourceUrlsText] = useState('');
+  const [caseCandidates, setCaseCandidates] = useState([]);
+  const [caseDiscoveryErrors, setCaseDiscoveryErrors] = useState([]);
+  const [generatingGuidance, setGeneratingGuidance] = useState(false);
+  const [filingGuidance, setFilingGuidance] = useState(null);
+  const [incidentSummary, setIncidentSummary] = useState('');
+  const [jurisdictionHint, setJurisdictionHint] = useState('');
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -160,6 +170,52 @@ export default function LegalSupport() {
     }
   };
 
+  const discoverCasesFromSources = async () => {
+    const urls = sourceUrlsText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    if (urls.length === 0) {
+      alert('Paste one or more source URLs (one per line).');
+      return;
+    }
+
+    setDiscoveringCases(true);
+    setCaseCandidates([]);
+    setCaseDiscoveryErrors([]);
+    try {
+      const result = await base44.functions.invoke('legalDiscoverCases', { sourceUrls: urls });
+      setCaseCandidates(result.data?.candidates || []);
+      setCaseDiscoveryErrors(result.data?.errors || []);
+    } catch (error) {
+      alert('Case discovery failed: ' + error.message);
+    } finally {
+      setDiscoveringCases(false);
+    }
+  };
+
+  const generateFilingGuidance = async () => {
+    if (!activeProfileId) {
+      alert('Please select a profile first');
+      return;
+    }
+    setGeneratingGuidance(true);
+    setFilingGuidance(null);
+    try {
+      const result = await base44.functions.invoke('legalGenerateFilingGuidance', {
+        profileId: activeProfileId,
+        incidentSummary: incidentSummary || undefined,
+        jurisdictionHint: jurisdictionHint || undefined
+      });
+      setFilingGuidance(result.data?.guidance || null);
+    } catch (error) {
+      alert('Failed to generate guidance: ' + error.message);
+    } finally {
+      setGeneratingGuidance(false);
+    }
+  };
+
   const victimRights = [
     { title: 'Right to Data Deletion (GDPR Art. 17, CCPA 1798.105)', description: 'Request removal of your personal data from any company.' },
     { title: 'Right to Know (CCPA 1798.100)', description: 'Know what personal data companies have collected about you.' },
@@ -223,6 +279,7 @@ export default function LegalSupport() {
           <TabsTrigger value="class_actions">Class Actions</TabsTrigger>
           <TabsTrigger value="attorneys">Find Attorneys</TabsTrigger>
           <TabsTrigger value="evidence">Evidence Packets</TabsTrigger>
+          <TabsTrigger value="legal_branch">Legal (Discovery + Filing)</TabsTrigger>
           <TabsTrigger value="intake">Legal Intake Packet</TabsTrigger>
           <TabsTrigger value="rights">Victim Rights</TabsTrigger>
           <TabsTrigger value="next_steps">Legal Next Steps</TabsTrigger>
@@ -462,6 +519,182 @@ export default function LegalSupport() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Legal Branch Tab */}
+        <TabsContent value="legal_branch">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-card border-purple-500/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Gavel className="w-5 h-5 text-purple-400" />
+                  Case Discovery (source URLs only)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-purple-300">
+                  Paste **real docket/case source URLs** (one per line). Incognito will only return cases when it can
+                  extract required fields from those sources — it will not invent cases.
+                </p>
+                <Textarea
+                  value={sourceUrlsText}
+                  onChange={(e) => setSourceUrlsText(e.target.value)}
+                  placeholder="https://example.com/docket/...\nhttps://example.com/case/..."
+                  className="bg-slate-900/50 border-purple-500/30 text-white min-h-[140px]"
+                />
+                <Button
+                  onClick={discoverCasesFromSources}
+                  disabled={discoveringCases}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {discoveringCases ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Discovering...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="w-4 h-4 mr-2" />
+                      Discover Cases
+                    </>
+                  )}
+                </Button>
+
+                {caseCandidates.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-white font-semibold">Discovered Cases</p>
+                    {caseCandidates.map((c, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-slate-800/50 border border-purple-500/20">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-white font-medium">{c.case_name}</p>
+                            <p className="text-xs text-gray-400">
+                              {c.court} • {c.case_number} • filed {c.filing_date} • status: {c.status}
+                            </p>
+                            <p className="text-xs text-purple-300 mt-1">Defendant: {c.defendant}</p>
+                          </div>
+                          <a
+                            href={c.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            <ExternalLink className="w-5 h-5" />
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {caseDiscoveryErrors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-white font-semibold">Not added (missing required fields)</p>
+                    {caseDiscoveryErrors.slice(0, 10).map((e, idx) => (
+                      <div key={idx} className="text-xs text-purple-300 break-all">
+                        - {e.source_url}: {e.reason}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card border-purple-500/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-purple-400" />
+                  Filing Guidance (options + citations)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-purple-300">
+                  Generates **options** and reasoning with clear attorney-review disclaimers. It won’t claim venue or
+                  filing certainty.
+                </p>
+                <Input
+                  value={jurisdictionHint}
+                  onChange={(e) => setJurisdictionHint(e.target.value)}
+                  placeholder="Jurisdiction hint (optional) — e.g., Ohio / Federal"
+                  className="bg-slate-900/50 border-purple-500/30 text-white"
+                />
+                <Textarea
+                  value={incidentSummary}
+                  onChange={(e) => setIncidentSummary(e.target.value)}
+                  placeholder="Optional incident summary (no sensitive data required)"
+                  className="bg-slate-900/50 border-purple-500/30 text-white min-h-[110px]"
+                />
+                <Button
+                  onClick={generateFilingGuidance}
+                  disabled={generatingGuidance || !activeProfileId}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {generatingGuidance ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Gavel className="w-4 h-4 mr-2" />
+                      Generate Guidance
+                    </>
+                  )}
+                </Button>
+
+                {filingGuidance && (
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <p className="text-sm text-amber-200 font-semibold">Needs attorney review</p>
+                      <ul className="text-xs text-amber-200 list-disc list-inside mt-1 space-y-1">
+                        {filingGuidance.disclaimers?.map((d, idx) => (
+                          <li key={idx}>{d}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(filingGuidance.options || []).map((o, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-slate-800/50 border border-purple-500/20">
+                          <p className="text-white font-medium">{o.option}</p>
+                          {o.why?.length > 0 && (
+                            <ul className="text-xs text-purple-300 list-disc list-inside mt-1 space-y-1">
+                              {o.why.map((w, i) => <li key={i}>{w}</li>)}
+                            </ul>
+                          )}
+                          {o.steps?.length > 0 && (
+                            <ol className="text-xs text-gray-300 list-decimal list-inside mt-2 space-y-1">
+                              {o.steps.map((s, i) => <li key={i}>{s}</li>)}
+                            </ol>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {filingGuidance.citations?.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-sm text-white font-semibold">Citations</p>
+                        <div className="space-y-1">
+                          {filingGuidance.citations.map((c, idx) => (
+                            <a
+                              key={idx}
+                              href={c.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-2"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {c.title}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Intake Packet Tab */}

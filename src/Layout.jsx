@@ -61,6 +61,8 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
     { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
+    { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
+    { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
     { name: 'Profiles', path: 'Profiles', icon: Users },
     { name: 'Settings', path: 'Settings', icon: Settings },
     { name: 'Function Tester', path: 'AdminFunctionTester', icon: Activity, adminOnly: true },

@@ -68,6 +68,8 @@ import ThreatIntelligence from './pages/ThreatIntelligence';
 import Vault from './pages/Vault';
 import PasswordChecker from './pages/PasswordChecker';
 import DataBrokerDirectory from './pages/DataBrokerDirectory';
+import FinancialMonitor from './pages/FinancialMonitor';
+import IdentityRecovery from './pages/IdentityRecovery';
 import __Layout from './Layout.jsx';
 
 
@@ -93,6 +95,8 @@ export const PAGES = {
     "Vault": Vault,
     "PasswordChecker": PasswordChecker,
     "DataBrokerDirectory": DataBrokerDirectory,
+    "FinancialMonitor": FinancialMonitor,
+    "IdentityRecovery": IdentityRecovery,
 }
 
 export const pagesConfig = {

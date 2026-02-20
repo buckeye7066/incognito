@@ -79,24 +79,14 @@ export default function Layout({ children, currentPageName }) {
     queryFn: () => base44.auth.me()
   });
 
-  // Set active profile to default or first profile
+  // Load active profile: prefer saved, fall back to default/first
   useEffect(() => {
-    if (profiles.length > 0 && !activeProfile) {
-      const defaultProfile = profiles.find(p => p.is_default) || profiles[0];
-      setActiveProfile(defaultProfile);
-      localStorage.setItem('activeProfileId', defaultProfile.id);
-    }
-  }, [profiles, activeProfile]);
-
-  // Load active profile from localStorage
-  useEffect(() => {
+    if (profiles.length === 0) return;
     const savedProfileId = localStorage.getItem('activeProfileId');
-    if (savedProfileId && profiles.length > 0) {
-      const savedProfile = profiles.find(p => p.id === savedProfileId);
-      if (savedProfile) {
-        setActiveProfile(savedProfile);
-      }
-    }
+    const saved = savedProfileId ? profiles.find(p => p.id === savedProfileId) : null;
+    const resolved = saved || profiles.find(p => p.is_default) || profiles[0];
+    setActiveProfile(resolved);
+    localStorage.setItem('activeProfileId', resolved.id);
   }, [profiles]);
 
   const handleProfileChange = (profile) => {

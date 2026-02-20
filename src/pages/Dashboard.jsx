@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText } from 'lucide-react';
 import CreditFreezeCard from '../components/dashboard/CreditFreezeCard';
+import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,11 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Profile.list()
   });
 
+  const { data: allAccounts = [] } = useQuery({
+    queryKey: ['financialAccounts'],
+    queryFn: () => base44.entities.FinancialAccount.list()
+  });
+
   const activeProfile = allProfiles.find(p => p.id === activeProfileId);
 
   // Filter by active profile
@@ -50,6 +56,7 @@ export default function Dashboard() {
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
   const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const accounts = allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId);
 
   // Calculate stats like Cloaked
   const totalExposures = scanResults.length + searchQueries.length;
@@ -400,8 +407,16 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Credit Freeze & Quick Actions */}
-      <CreditFreezeCard />
+      {/* Privacy Health Score + Credit Freeze */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <PrivacyHealthScore
+          personalData={personalData}
+          scanResults={scanResults}
+          deletionRequests={deletionRequests}
+          accounts={accounts}
+        />
+        <CreditFreezeCard />
+      </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

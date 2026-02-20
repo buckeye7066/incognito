@@ -100,9 +100,8 @@ export default function Layout({ children, currentPageName }) {
   }, [profiles]);
 
   const handleProfileChange = (profile) => {
-    setActiveProfile(profile);
     localStorage.setItem('activeProfileId', profile.id);
-    // Force refresh of all queries to load new profile data
+    setActiveProfile(profile);
     window.location.reload();
   };
 

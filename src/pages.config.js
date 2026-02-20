@@ -50,15 +50,19 @@
 import AIInsights from './pages/AIInsights';
 import AdminFunctionTester from './pages/AdminFunctionTester';
 import Dashboard from './pages/Dashboard';
+import DataBrokerDirectory from './pages/DataBrokerDirectory';
 import DeletionCenter from './pages/DeletionCenter';
+import FinancialMonitor from './pages/FinancialMonitor';
 import Findings from './pages/Findings';
 import FixExposure from './pages/FixExposure';
 import FunctionReviewer from './pages/FunctionReviewer';
 import Home from './pages/Home';
+import IdentityRecovery from './pages/IdentityRecovery';
 import IdentityScan from './pages/IdentityScan';
 import LegalSupport from './pages/LegalSupport';
 import MonitoringHub from './pages/MonitoringHub';
 import Notifications from './pages/Notifications';
+import PasswordChecker from './pages/PasswordChecker';
 import Profiles from './pages/Profiles';
 import Scans from './pages/Scans';
 import Settings from './pages/Settings';
@@ -66,10 +70,6 @@ import SocialMediaHub from './pages/SocialMediaHub';
 import SpamTracker from './pages/SpamTracker';
 import ThreatIntelligence from './pages/ThreatIntelligence';
 import Vault from './pages/Vault';
-import PasswordChecker from './pages/PasswordChecker';
-import DataBrokerDirectory from './pages/DataBrokerDirectory';
-import FinancialMonitor from './pages/FinancialMonitor';
-import IdentityRecovery from './pages/IdentityRecovery';
 import __Layout from './Layout.jsx';
 
 
@@ -77,15 +77,19 @@ export const PAGES = {
     "AIInsights": AIInsights,
     "AdminFunctionTester": AdminFunctionTester,
     "Dashboard": Dashboard,
+    "DataBrokerDirectory": DataBrokerDirectory,
     "DeletionCenter": DeletionCenter,
+    "FinancialMonitor": FinancialMonitor,
     "Findings": Findings,
     "FixExposure": FixExposure,
     "FunctionReviewer": FunctionReviewer,
     "Home": Home,
+    "IdentityRecovery": IdentityRecovery,
     "IdentityScan": IdentityScan,
     "LegalSupport": LegalSupport,
     "MonitoringHub": MonitoringHub,
     "Notifications": Notifications,
+    "PasswordChecker": PasswordChecker,
     "Profiles": Profiles,
     "Scans": Scans,
     "Settings": Settings,
@@ -93,10 +97,6 @@ export const PAGES = {
     "SpamTracker": SpamTracker,
     "ThreatIntelligence": ThreatIntelligence,
     "Vault": Vault,
-    "PasswordChecker": PasswordChecker,
-    "DataBrokerDirectory": DataBrokerDirectory,
-    "FinancialMonitor": FinancialMonitor,
-    "IdentityRecovery": IdentityRecovery,
 }
 
 export const pagesConfig = {

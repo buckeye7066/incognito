@@ -478,14 +478,16 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-white mb-1">Delete All Data</p>
-              <p className="text-sm text-purple-300">Permanently erase everything (30 sec retention)</p>
+              <p className="text-sm text-purple-300">Permanently erase vault, scan results, alerts and all records</p>
             </div>
             <Button
               variant="outline"
               size="sm"
+              onClick={wipeAllData}
+              disabled={wiping}
               className="border-red-500/50 text-red-300 hover:bg-red-500/10"
             >
-              Wipe All
+              {wiping ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Wiping...</> : 'Wipe All'}
             </Button>
           </div>
         </CardContent>

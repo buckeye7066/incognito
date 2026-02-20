@@ -30,9 +30,18 @@ export default function ProfileSelector({ activeProfile, onProfileChange, onCrea
   };
 
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       {/* Active profile button */}
       <button
         onClick={() => setOpen(o => !o)}

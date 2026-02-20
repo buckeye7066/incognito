@@ -399,6 +399,9 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {/* Credit Freeze & Quick Actions */}
+      <CreditFreezeCard />
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link to={createPageUrl('Vault')} className="block">

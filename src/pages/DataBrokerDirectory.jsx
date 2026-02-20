@@ -149,6 +149,16 @@ export default function DataBrokerDirectory() {
         ))}
       </div>
 
+      {/* Bulk Actions */}
+      <div className="flex gap-3">
+        <Button size="sm" onClick={markAll} className="bg-green-600 hover:bg-green-700 text-white">
+          <CheckCircle className="w-4 h-4 mr-1" /> Mark Visible as Opted Out
+        </Button>
+        <Button size="sm" variant="outline" onClick={clearAll} className="border-red-500/40 text-red-300 hover:bg-red-500/10">
+          Clear All
+        </Button>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">

@@ -40,7 +40,11 @@ export default function PasswordChecker() {
       const match = entries.find(e => e.suffix === suffix);
       const count = match ? match.count : 0;
 
+      const entry = { password: password.slice(0, 3) + '***', count, safe: count === 0, date: new Date().toISOString() };
       setResult({ count, hash, prefix, safe: count === 0 });
+      const updated = [entry, ...history].slice(0, 10);
+      setHistory(updated);
+      localStorage.setItem('pw_check_history', JSON.stringify(updated));
     } catch (e) {
       setResult({ error: e.message });
     }

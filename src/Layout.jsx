@@ -61,8 +61,6 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
     { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
-    { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
-    { name: 'Identity Recovery', path: 'IdentityRecovery', icon: ShieldCheck },
     { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
     { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
     { name: 'Profiles', path: 'Profiles', icon: Users },

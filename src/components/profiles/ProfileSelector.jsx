@@ -1,16 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import { ChevronDown, Plus, User } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const colorClasses = {
   purple: 'from-purple-600 to-indigo-600',

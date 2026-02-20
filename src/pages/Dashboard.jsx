@@ -408,7 +408,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Privacy Health Score + Credit Freeze */}
+      {/* Privacy Health Score + Credit Freeze + Activity */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PrivacyHealthScore
           personalData={personalData}
@@ -418,6 +418,7 @@ export default function Dashboard() {
         />
         <CreditFreezeCard />
       </div>
+      <RecentActivityFeed activeProfileId={activeProfileId} />
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

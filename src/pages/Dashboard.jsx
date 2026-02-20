@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText } from 'lucide-react';
 import CreditFreezeCard from '../components/dashboard/CreditFreezeCard';
 import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
+import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

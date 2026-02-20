@@ -187,6 +187,29 @@ export default function PasswordChecker() {
         )}
       </AnimatePresence>
 
+      {/* History */}
+      {history.length > 0 && (
+        <Card className="glass-card border-purple-500/20">
+          <CardHeader className="pb-3 border-b border-purple-500/10">
+            <CardTitle className="text-white text-sm flex items-center justify-between">
+              <span>Recent Checks</span>
+              <button onClick={() => { setHistory([]); localStorage.removeItem('pw_check_history'); }} className="text-xs text-gray-500 hover:text-red-400">Clear</button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-2">
+            {history.map((h, i) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <code className="text-gray-400 font-mono">{h.password}</code>
+                <span className={h.safe ? 'text-green-400' : 'text-red-400'}>
+                  {h.safe ? '✓ Safe' : `✗ ${h.count.toLocaleString()} breaches`}
+                </span>
+                <span className="text-gray-600 text-xs">{new Date(h.date).toLocaleDateString()}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[

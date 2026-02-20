@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2 } from 'lucide-react';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
 

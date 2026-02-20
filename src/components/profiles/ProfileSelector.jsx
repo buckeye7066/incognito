@@ -38,60 +38,66 @@ export default function ProfileSelector({ activeProfile, onProfileChange, onCrea
       .slice(0, 2);
   };
 
+  const [open, setOpen] = useState(false);
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 px-4 py-6 hover:bg-purple-500/10"
-        >
-          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorClasses[activeProfile?.avatar_color || 'purple']} flex items-center justify-center text-white font-bold shadow-lg`}>
-            {activeProfile ? getInitials(activeProfile.name) : <User className="w-5 h-5" />}
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-sm font-medium text-white truncate">
-              {activeProfile?.name || 'Select Profile'}
-            </p>
-            <p className="text-xs text-purple-300 truncate">
-              {activeProfile?.description || 'No profile selected'}
-            </p>
-          </div>
-          <ChevronDown className="w-4 h-4 text-purple-400 flex-shrink-0" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64 bg-slate-900 border-purple-500/30">
-        {profiles.map((profile) => (
-          <DropdownMenuItem
-            key={profile.id}
-            onClick={() => onProfileChange(profile)}
-            className={`cursor-pointer p-3 ${
-              activeProfile?.id === profile.id
-                ? 'bg-purple-500/20 text-white'
-                : 'text-purple-200 hover:bg-purple-500/10'
-            }`}
-          >
-            <div className="flex items-center gap-3 w-full">
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${colorClasses[profile.avatar_color]} flex items-center justify-center text-white font-bold text-sm`}>
+    <div className="relative">
+      {/* Active profile button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+      >
+        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorClasses[activeProfile?.avatar_color || 'purple']} flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0`}>
+          {activeProfile ? getInitials(activeProfile.name) : <User className="w-5 h-5" />}
+        </div>
+        <div className="flex-1 text-left min-w-0">
+          <p className="text-sm font-medium text-white truncate">
+            {activeProfile?.name || 'Select Profile'}
+          </p>
+          <p className="text-xs text-gray-400 truncate">
+            {activeProfile?.description || 'Click to switch profile'}
+          </p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-900 border border-red-600/30 rounded-xl shadow-2xl overflow-hidden z-50">
+          {profiles.map((profile) => (
+            <button
+              key={profile.id}
+              onClick={() => { setOpen(false); onProfileChange(profile); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer ${
+                activeProfile?.id === profile.id
+                  ? 'bg-red-600/20 text-white'
+                  : 'text-gray-200 hover:bg-white/5'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${colorClasses[profile.avatar_color || 'purple']} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                 {getInitials(profile.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{profile.name}</p>
+                <p className="font-medium truncate text-sm">{profile.name}</p>
                 {profile.description && (
-                  <p className="text-xs text-purple-400 truncate">{profile.description}</p>
+                  <p className="text-xs text-gray-400 truncate">{profile.description}</p>
                 )}
               </div>
-            </div>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator className="bg-purple-500/30" />
-        <DropdownMenuItem
-          onClick={onCreateNew}
-          className="cursor-pointer p-3 text-purple-300 hover:bg-purple-500/10"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create New Profile
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+              {activeProfile?.id === profile.id && (
+                <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+              )}
+            </button>
+          ))}
+          <div className="border-t border-red-600/20" />
+          <button
+            onClick={() => { setOpen(false); onCreateNew(); }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm">Create New Profile</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

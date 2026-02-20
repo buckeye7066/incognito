@@ -54,7 +54,6 @@ export default function Layout({ children, currentPageName }) {
     { name: 'AI Insights', path: 'AIInsights', icon: Brain },
     { name: 'Vault', path: 'Vault', icon: Database },
     { name: 'Scans', path: 'Scans', icon: Scan },
-    { name: 'Identity Scan', path: 'IdentityScan', icon: Shield },
     { name: 'Findings', path: 'Findings', icon: Eye },
     { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
     { name: 'Social Media', path: 'SocialMediaHub', icon: Users },

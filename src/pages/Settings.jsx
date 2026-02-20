@@ -49,6 +49,37 @@ export default function Settings() {
     }
   });
 
+  const [wiping, setWiping] = useState(false);
+  const wipeAllData = async () => {
+    if (!window.confirm('This will permanently delete ALL your data including vault, scan results, deletion requests, and alerts. This cannot be undone. Continue?')) return;
+    setWiping(true);
+    try {
+      const [personalData, deletionRequests, alerts, searchQueries, spamIncidents, financialAccounts, suspiciousActivities] = await Promise.all([
+        base44.entities.PersonalData.list(),
+        base44.entities.DeletionRequest.list(),
+        base44.entities.NotificationAlert.list(),
+        base44.entities.SearchQueryFinding.list(),
+        base44.entities.SpamIncident.list(),
+        base44.entities.FinancialAccount.list(),
+        base44.entities.SuspiciousActivity.list(),
+      ]);
+      await Promise.all([
+        ...scanResults.map(r => base44.entities.ScanResult.delete(r.id)),
+        ...personalData.map(r => base44.entities.PersonalData.delete(r.id)),
+        ...deletionRequests.map(r => base44.entities.DeletionRequest.delete(r.id)),
+        ...alerts.map(r => base44.entities.NotificationAlert.delete(r.id)),
+        ...searchQueries.map(r => base44.entities.SearchQueryFinding.delete(r.id)),
+        ...spamIncidents.map(r => base44.entities.SpamIncident.delete(r.id)),
+        ...financialAccounts.map(r => base44.entities.FinancialAccount.delete(r.id)),
+        ...suspiciousActivities.map(r => base44.entities.SuspiciousActivity.delete(r.id)),
+      ]);
+      queryClient.invalidateQueries();
+      alert('All data has been wiped successfully.');
+    } finally {
+      setWiping(false);
+    }
+  };
+
   const handleToggle = (field, value) => {
     updatePreferencesMutation.mutate({ [field]: value });
   };

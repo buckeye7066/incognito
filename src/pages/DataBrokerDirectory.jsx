@@ -103,6 +103,19 @@ export default function DataBrokerDirectory() {
     });
   }, [search, typeFilter, difficultyFilter]);
 
+  const markAll = () => {
+    const updated = {};
+    filtered.forEach(b => { updated[b.name] = true; });
+    const merged = { ...removed, ...updated };
+    setRemoved(merged);
+    localStorage.setItem('broker_removed', JSON.stringify(merged));
+  };
+
+  const clearAll = () => {
+    setRemoved({});
+    localStorage.removeItem('broker_removed');
+  };
+
   const removedCount = Object.values(removed).filter(Boolean).length;
   const stats = {
     total: DATA_BROKERS.length,

@@ -22,6 +22,9 @@ export default function PasswordChecker() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('pw_check_history') || '[]'); } catch { return []; }
+  });
 
   const checkPassword = async () => {
     if (!password) return;

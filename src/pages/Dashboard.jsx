@@ -5,6 +5,7 @@ import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, X
 import CreditFreezeCard from '../components/dashboard/CreditFreezeCard';
 import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
 import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
+import PrivacyAssistant from '../components/dashboard/PrivacyAssistant';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

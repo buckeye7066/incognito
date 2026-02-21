@@ -97,45 +97,24 @@ Return JSON.`;
         next_action: aiResult.next_steps
       });
 
-      // Send deletion request email
-      try {
-        await base44.integrations.Core.SendEmail({
-          from_name: 'Privacy Rights Request',
-          to: aiResult.contact_email,
-          subject: aiResult.subject,
-          body: aiResult.body
-        });
+      // Store the generated email template so user can send manually
+      await base44.asServiceRole.entities.DeletionRequest.update(deletionRequest.id, {
+        status: 'requires_action',
+        response_received: `Ready to send. Use the template below to email: ${aiResult.contact_email}\n\nSUBJECT: ${aiResult.subject}\n\n${aiResult.body}`,
+        next_action: `Send the email to ${aiResult.contact_email} with subject: "${aiResult.subject}". ${aiResult.next_steps}`
+      });
 
-        emailsSent.push({
-          broker: scanResult.source_name,
-          email: aiResult.contact_email,
-          status: 'sent'
-        });
+      // Update scan result status
+      await base44.asServiceRole.entities.ScanResult.update(scanResult.id, {
+        status: 'removal_requested'
+      });
 
-        // Update deletion request status
-        await base44.asServiceRole.entities.DeletionRequest.update(deletionRequest.id, {
-          status: 'pending',
-          response_received: 'Email sent successfully. Awaiting response.'
-        });
-
-        // Update scan result status
-        await base44.asServiceRole.entities.ScanResult.update(scanResult.id, {
-          status: 'removal_requested'
-        });
-
-      } catch (emailError) {
-        emailsSent.push({
-          broker: scanResult.source_name,
-          email: aiResult.contact_email,
-          status: 'failed',
-          error: emailError.message
-        });
-
-        await base44.asServiceRole.entities.DeletionRequest.update(deletionRequest.id, {
-          status: 'failed',
-          response_received: `Failed to send email: ${emailError.message}`
-        });
-      }
+      emailsSent.push({
+        broker: scanResult.source_name,
+        email: aiResult.contact_email,
+        status: 'ready',
+        subject: aiResult.subject
+      });
 
       deletionRequests.push(deletionRequest);
     }

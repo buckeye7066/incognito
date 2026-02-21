@@ -174,10 +174,8 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
             </div>
             <div className="space-y-1 text-xs text-green-200">
               <p>✓ {results.requestsCreated} requests created</p>
-              <p>✓ {results.emailsSent} emails sent successfully</p>
-              {results.emailsFailed > 0 && (
-                <p className="text-amber-300">⚠ {results.emailsFailed} emails failed</p>
-              )}
+              <p>✓ {results.emailsSent} deletion templates generated</p>
+              <p className="text-blue-300">ℹ Open each request in "Active Requests" to copy the email template and send manually</p>
               {results.skippedPlatforms > 0 && (
                 <p className="text-blue-300">ℹ {results.skippedPlatforms} platform(s) require manual deletion (see guide below)</p>
               )}

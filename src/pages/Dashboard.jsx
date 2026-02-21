@@ -429,6 +429,14 @@ export default function Dashboard() {
       </div>
       <RecentActivityFeed activeProfileId={activeProfileId} />
 
+      {/* AI Assistant */}
+      <PrivacyAssistant
+        scanResults={scanResults}
+        personalData={personalData}
+        deletionRequests={deletionRequests}
+        riskScore={riskScore}
+      />
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link to={createPageUrl('Vault')} className="block">

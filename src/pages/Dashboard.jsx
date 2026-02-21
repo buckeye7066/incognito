@@ -190,26 +190,34 @@ export default function Dashboard() {
 
             {/* Exposure Summary */}
             <div className="flex-1 grid grid-cols-2 gap-6">
-              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-red-500/20">
-                <Database className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-white">{dataBrokerExposures}</p>
-                <p className="text-sm text-gray-400">Data Broker Sites</p>
-              </div>
-              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-orange-500/20">
-                <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-white">{breachExposures}</p>
-                <p className="text-sm text-gray-400">Breach Exposures</p>
-              </div>
-              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-yellow-500/20">
-                <Loader2 className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-white">{removalsInProgress}</p>
-                <p className="text-sm text-gray-400">Removals In Progress</p>
-              </div>
-              <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-green-500/20">
-                <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <p className="text-3xl font-bold text-white">{removalsCompleted}</p>
-                <p className="text-sm text-gray-400">Successfully Removed</p>
-              </div>
+              <Link to={createPageUrl('Findings')} className="block">
+                <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-red-500/20 hover:bg-slate-700/60 hover:border-red-500/50 transition-all cursor-pointer">
+                  <Database className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-white">{dataBrokerExposures}</p>
+                  <p className="text-sm text-gray-400">Data Broker Sites</p>
+                </div>
+              </Link>
+              <Link to={createPageUrl('Findings')} className="block">
+                <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-orange-500/20 hover:bg-slate-700/60 hover:border-orange-500/50 transition-all cursor-pointer">
+                  <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-white">{breachExposures}</p>
+                  <p className="text-sm text-gray-400">Breach Exposures</p>
+                </div>
+              </Link>
+              <Link to={createPageUrl('DeletionCenter')} className="block">
+                <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-yellow-500/20 hover:bg-slate-700/60 hover:border-yellow-500/50 transition-all cursor-pointer">
+                  <Loader2 className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-white">{removalsInProgress}</p>
+                  <p className="text-sm text-gray-400">Removals In Progress</p>
+                </div>
+              </Link>
+              <Link to={createPageUrl('DeletionCenter')} className="block">
+                <div className="text-center p-4 rounded-2xl bg-slate-800/50 border border-green-500/20 hover:bg-slate-700/60 hover:border-green-500/50 transition-all cursor-pointer">
+                  <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-white">{removalsCompleted}</p>
+                  <p className="text-sm text-gray-400">Successfully Removed</p>
+                </div>
+              </Link>
             </div>
           </div>
 

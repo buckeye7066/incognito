@@ -132,8 +132,8 @@ Return JSON.`;
     return Response.json({
       success: true,
       requestsCreated: deletionRequests.length,
-      emailsSent: emailsSent.filter(e => e.status === 'sent').length,
-      emailsFailed: emailsSent.filter(e => e.status === 'failed').length,
+      emailsSent: emailsSent.filter(e => e.status === 'ready').length,
+      emailsFailed: 0,
       skippedPlatforms: skippedPlatforms.length,
       details: emailsSent,
       skipped: skippedPlatforms

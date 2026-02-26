@@ -1,9 +1,6 @@
-import { base44 } from './base44Client';
-
-
-export const Query = base44.entities.Query;
-
-
-
-// auth sdk:
-export const User = base44.auth;
+/*
+  Stubbed Query and User exports to replace Base44 dependencies.
+*/
+export const Query = {};
+export const User = {};
+export default { Query, User };

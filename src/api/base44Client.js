@@ -1,13 +1,15 @@
-import { createClient } from '@base44/sdk';
-import { appParams } from '@/lib/app-params';
+/*
+  Stubbed data client to replace Base44. This provides minimal auth and entities objects.
+  You can implement your own data storage or API calls here.
+*/
 
-const { appId, serverUrl, token, functionsVersion } = appParams;
+export const base44 = {
+  auth: {
+    me: async () => null,
+    requireUser: () => null,
+    signOut: async () => {},
+  },
+  entities: {},
+};
 
-//Create a client with authentication required
-export const base44 = createClient({
-  appId,
-  serverUrl,
-  token,
-  functionsVersion,
-  requiresAuth: false
-});
+export default base44;

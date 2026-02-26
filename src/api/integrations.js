@@ -1,24 +1,20 @@
-import { base44 } from './base44Client';
+/*
+  Stubbed integrations to replace Base44 dependencies. These functions are not implemented.
+*/
+export const Core = {};
+export const InvokeLLM = async () => { throw new Error('InvokeLLM stubbed'); };
+export const SendEmail = async () => { throw new Error('SendEmail stubbed'); };
+export const SendSMS = async () => { throw new Error('SendSMS stubbed'); };
+export const UploadFile = async () => { throw new Error('UploadFile stubbed'); };
+export const GenerateImage = async () => { throw new Error('GenerateImage stubbed'); };
+export const ExtractDataFromUploadedFile = async () => { throw new Error('ExtractDataFromUploadedFile stubbed'); };
 
-
-
-
-export const Core = base44.integrations.Core;
-
-export const InvokeLLM = base44.integrations.Core.InvokeLLM;
-
-export const SendEmail = base44.integrations.Core.SendEmail;
-
-export const SendSMS = base44.integrations.Core.SendSMS;
-
-export const UploadFile = base44.integrations.Core.UploadFile;
-
-export const GenerateImage = base44.integrations.Core.GenerateImage;
-
-export const ExtractDataFromUploadedFile = base44.integrations.Core.ExtractDataFromUploadedFile;
-
-
-
-
-
-
+export default {
+  Core,
+  InvokeLLM,
+  SendEmail,
+  SendSMS,
+  UploadFile,
+  GenerateImage,
+  ExtractDataFromUploadedFile,
+};

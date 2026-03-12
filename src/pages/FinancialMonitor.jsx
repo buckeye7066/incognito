@@ -6,11 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CreditCard, Plus, AlertTriangle, CheckCircle, Landmark, TrendingUp, DollarSign, Bell, Trash2, ShieldAlert } from 'lucide-react';
+import {
+  CreditCard, Plus, AlertTriangle, CheckCircle, Landmark, DollarSign,
+  Bell, Trash2, ShieldAlert, ArrowRightLeft, Store
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+import SubscriptionManager from '@/components/financial/SubscriptionManager';
+import CardSwapModal from '@/components/financial/CardSwapModal';
 
 const ACCOUNT_ICONS = {
   checking: '🏦', savings: '💰', credit_card: '💳', investment: '📈',
@@ -39,8 +46,15 @@ export default function FinancialMonitor() {
 
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showLogActivity, setShowLogActivity] = useState(false);
-  const [accountForm, setAccountForm] = useState({ account_type: 'checking', institution_name: '', last_four: '', nickname: '', alert_threshold: 500, monitoring_enabled: true });
-  const [activityForm, setActivityForm] = useState({ activity_type: 'unauthorized_charge', description: '', amount: '', detected_date: new Date().toISOString().split('T')[0], institution: '', status: 'new' });
+  const [swapTarget, setSwapTarget] = useState(null);
+  const [accountForm, setAccountForm] = useState({
+    account_type: 'checking', institution_name: '', last_four: '',
+    nickname: '', alert_threshold: 500, monitoring_enabled: true
+  });
+  const [activityForm, setActivityForm] = useState({
+    activity_type: 'unauthorized_charge', description: '', amount: '',
+    detected_date: new Date().toISOString().split('T')[0], institution: '', status: 'new'
+  });
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['financialAccounts'],
@@ -83,7 +97,7 @@ export default function FinancialMonitor() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-white mb-2">Financial Monitor</h1>
-          <p className="text-gray-400">Track accounts and flag suspicious activity — like Aura's fraud detection</p>
+          <p className="text-gray-400">Track cards, detect subscriptions, and control who has your payment info</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={() => setShowLogActivity(true)} variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/10">
@@ -115,129 +129,160 @@ export default function FinancialMonitor() {
         ))}
       </div>
 
-      {/* Open Incidents Alert */}
-      <AnimatePresence>
-        {openActivities.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="glass-card border-red-500/40 bg-red-500/5">
-              <CardContent className="p-4 flex items-center gap-3">
-                <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
-                <div>
-                  <p className="text-red-300 font-semibold">{openActivities.length} open incident{openActivities.length > 1 ? 's' : ''} require attention</p>
-                  <p className="text-gray-400 text-sm">Review suspicious activity below and report to relevant institutions.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Main Tabs: Subscriptions vs Accounts & Activity */}
+      <Tabs defaultValue="subscriptions" className="w-full">
+        <TabsList className="bg-slate-800/60 border border-slate-700">
+          <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 px-6">
+            <Store className="w-4 h-4 mr-2" />
+            Card Subscriptions
+          </TabsTrigger>
+          <TabsTrigger value="accounts" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 px-6">
+            <Landmark className="w-4 h-4 mr-2" />
+            Accounts & Incidents
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Accounts */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-blue-400" /> Monitored Accounts ({accounts.length})
-          </h2>
+        {/* Tab: Subscription Manager */}
+        <TabsContent value="subscriptions" className="pt-4">
+          <SubscriptionManager
+            profileId={activeProfileId}
+            onSwapCard={(sub) => setSwapTarget(sub)}
+          />
+        </TabsContent>
 
-          {accounts.length === 0 ? (
-            <Card className="glass-card border-slate-700">
-              <CardContent className="p-8 text-center">
-                <Landmark className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400">No accounts added yet</p>
-                <Button onClick={() => setShowAddAccount(true)} className="mt-3 bg-gradient-to-r from-red-600 to-purple-600" size="sm">
-                  <Plus className="w-4 h-4 mr-1" /> Add First Account
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            accounts.map(account => {
-              const compromised = activities.some(a => a.account_id === account.id && (a.status === 'new' || a.status === 'investigating'));
-              return (
-                <Card key={account.id} className={`glass-card ${compromised ? 'border-red-500/40' : 'border-slate-700'}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{ACCOUNT_ICONS[account.account_type]}</span>
-                        <div>
-                          <p className="text-white font-medium">{account.nickname || account.institution_name}</p>
-                          <p className="text-gray-400 text-xs">
-                            {account.institution_name}{account.last_four ? ` ••••${account.last_four}` : ''} · {account.account_type.replace(/_/g, ' ')}
-                          </p>
+        {/* Tab: Accounts + Suspicious Activity */}
+        <TabsContent value="accounts" className="pt-4">
+          {/* Open Incidents Alert */}
+          <AnimatePresence>
+            {openActivities.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+                <Card className="glass-card border-red-500/40 bg-red-500/5">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
+                    <div>
+                      <p className="text-red-300 font-semibold">{openActivities.length} open incident{openActivities.length > 1 ? 's' : ''} require attention</p>
+                      <p className="text-gray-400 text-sm">Review suspicious activity below and report to relevant institutions.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Accounts */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-blue-400" /> Monitored Accounts ({accounts.length})
+              </h2>
+              {accounts.length === 0 ? (
+                <Card className="glass-card border-slate-700">
+                  <CardContent className="p-8 text-center">
+                    <Landmark className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">No accounts added yet</p>
+                    <Button onClick={() => setShowAddAccount(true)} className="mt-3 bg-gradient-to-r from-red-600 to-purple-600" size="sm">
+                      <Plus className="w-4 h-4 mr-1" /> Add First Account
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                accounts.map(account => {
+                  const compromised = activities.some(a => a.account_id === account.id && (a.status === 'new' || a.status === 'investigating'));
+                  return (
+                    <Card key={account.id} className={`glass-card ${compromised ? 'border-red-500/40' : 'border-slate-700'}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{ACCOUNT_ICONS[account.account_type]}</span>
+                            <div>
+                              <p className="text-white font-medium">{account.nickname || account.institution_name}</p>
+                              <p className="text-gray-400 text-xs">
+                                {account.institution_name}{account.last_four ? ` ••••${account.last_four}` : ''} · {account.account_type.replace(/_/g, ' ')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {compromised && <Badge className="bg-red-500/20 text-red-300 border-0 text-xs">⚠ Alert</Badge>}
+                            {account.monitoring_enabled
+                              ? <Badge className="bg-green-500/10 text-green-400 border-0 text-xs">Monitoring</Badge>
+                              : <Badge className="bg-gray-500/10 text-gray-400 border-0 text-xs">Paused</Badge>}
+                            <Button variant="ghost" size="icon" onClick={() => deleteAccount.mutate(account.id)} className="h-7 w-7 text-red-400 hover:bg-red-500/10">
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {compromised && <Badge className="bg-red-500/20 text-red-300 border-0 text-xs">⚠ Alert</Badge>}
-                        {account.monitoring_enabled
-                          ? <Badge className="bg-green-500/10 text-green-400 border-0 text-xs">Monitoring</Badge>
-                          : <Badge className="bg-gray-500/10 text-gray-400 border-0 text-xs">Paused</Badge>}
-                        <Button variant="ghost" size="icon" onClick={() => deleteAccount.mutate(account.id)} className="h-7 w-7 text-red-400 hover:bg-red-500/10">
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    {account.alert_threshold && (
-                      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                        <Bell className="w-3 h-3" /> Alert threshold: ${account.alert_threshold.toLocaleString()}
-                      </p>
-                    )}
+                        {account.alert_threshold && (
+                          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                            <Bell className="w-3 h-3" /> Alert threshold: ${account.alert_threshold.toLocaleString()}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Suspicious Activity Log */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-400" /> Incident Log ({activities.length})
+              </h2>
+              {activities.length === 0 ? (
+                <Card className="glass-card border-slate-700">
+                  <CardContent className="p-8 text-center">
+                    <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" />
+                    <p className="text-green-300 font-medium">No suspicious activity logged</p>
+                    <p className="text-gray-400 text-sm mt-1">Stay vigilant and log anything unusual immediately</p>
                   </CardContent>
                 </Card>
-              );
-            })
-          )}
-        </div>
+              ) : (
+                activities.sort((a, b) => new Date(b.detected_date) - new Date(a.detected_date)).map(activity => {
+                  const statusColors = { new: 'text-red-400 bg-red-500/10', investigating: 'text-yellow-400 bg-yellow-500/10', reported: 'text-blue-400 bg-blue-500/10', resolved: 'text-green-400 bg-green-500/10', false_positive: 'text-gray-400 bg-gray-500/10' };
+                  return (
+                    <Card key={activity.id} className={`glass-card ${activity.status === 'new' ? 'border-red-500/40' : 'border-slate-700'}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="text-white font-medium text-sm">{ACTIVITY_LABELS[activity.activity_type]}</p>
+                            <p className="text-gray-400 text-xs">{activity.institution} · {activity.detected_date}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {activity.amount && <span className="text-red-300 text-sm font-mono">${activity.amount.toLocaleString()}</span>}
+                            <Badge className={`text-xs border-0 ${statusColors[activity.status]}`}>{activity.status}</Badge>
+                          </div>
+                        </div>
+                        {activity.description && <p className="text-gray-300 text-xs mb-3">{activity.description}</p>}
+                        {activity.status === 'new' && (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'investigating' } })} className="text-xs border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10 h-7">
+                              Investigate
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'resolved' } })} className="text-xs border-green-500/30 text-green-300 hover:bg-green-500/10 h-7">
+                              Resolve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'false_positive' } })} className="text-xs border-gray-500/30 text-gray-400 hover:bg-gray-500/10 h-7">
+                              False Positive
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
-        {/* Suspicious Activity Log */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-red-400" /> Incident Log ({activities.length})
-          </h2>
-
-          {activities.length === 0 ? (
-            <Card className="glass-card border-slate-700">
-              <CardContent className="p-8 text-center">
-                <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" />
-                <p className="text-green-300 font-medium">No suspicious activity logged</p>
-                <p className="text-gray-400 text-sm mt-1">Stay vigilant and log anything unusual immediately</p>
-              </CardContent>
-            </Card>
-          ) : (
-            activities.sort((a, b) => new Date(b.detected_date) - new Date(a.detected_date)).map(activity => {
-              const statusColors = { new: 'text-red-400 bg-red-500/10', investigating: 'text-yellow-400 bg-yellow-500/10', reported: 'text-blue-400 bg-blue-500/10', resolved: 'text-green-400 bg-green-500/10', false_positive: 'text-gray-400 bg-gray-500/10' };
-              return (
-                <Card key={activity.id} className={`glass-card ${activity.status === 'new' ? 'border-red-500/40' : 'border-slate-700'}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="text-white font-medium text-sm">{ACTIVITY_LABELS[activity.activity_type]}</p>
-                        <p className="text-gray-400 text-xs">{activity.institution} · {activity.detected_date}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {activity.amount && <span className="text-red-300 text-sm font-mono">${activity.amount.toLocaleString()}</span>}
-                        <Badge className={`text-xs border-0 ${statusColors[activity.status]}`}>{activity.status}</Badge>
-                      </div>
-                    </div>
-                    {activity.description && <p className="text-gray-300 text-xs mb-3">{activity.description}</p>}
-                    {activity.status === 'new' && (
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'investigating' } })} className="text-xs border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10 h-7">
-                          Investigate
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'resolved' } })} className="text-xs border-green-500/30 text-green-300 hover:bg-green-500/10 h-7">
-                          Resolve
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => updateActivity.mutate({ id: activity.id, data: { status: 'false_positive' } })} className="text-xs border-gray-500/30 text-gray-400 hover:bg-gray-500/10 h-7">
-                          False Positive
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      </div>
+      {/* Card Swap Modal */}
+      <CardSwapModal
+        open={!!swapTarget}
+        onClose={() => setSwapTarget(null)}
+        subscription={swapTarget}
+        profileId={activeProfileId}
+      />
 
       {/* Add Account Dialog */}
       <Dialog open={showAddAccount} onOpenChange={setShowAddAccount}>

@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Scale, Gavel, FileText, Shield, AlertTriangle, ExternalLink, 
-  Loader2, User, Phone, Mail, Globe, CheckCircle, Clock, Printer
+import {
+  Scale, Gavel, FileText, Shield, AlertTriangle, ExternalLink,
+  Loader2, User, Phone, Mail, Globe, CheckCircle, Clock, Upload, Sparkles
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+import BreachNoticeUploader from '@/components/legal/BreachNoticeUploader';
+import NoProofSettlementScanner from '@/components/legal/NoProofSettlementScanner';
 
 export default function LegalSupport() {
   const [searchingClassActions, setSearchingClassActions] = useState(false);
@@ -39,7 +42,6 @@ export default function LegalSupport() {
   const profileSocialFindings = socialFindings.filter(f => !activeProfileId || f.profile_id === activeProfileId);
   const profileFixLogs = fixLogs.filter(l => !activeProfileId || l.profile_id === activeProfileId);
 
-  // Get unique companies from findings
   const companies = [...new Set([
     ...profileScanResults.map(r => r.source_name),
     ...profileSocialFindings.map(f => f.platform)
@@ -48,19 +50,16 @@ export default function LegalSupport() {
   const searchAllClassActions = async () => {
     setSearchingClassActions(true);
     setClassActions([]);
-    
     try {
       const allResults = [];
-      for (const company of companies.slice(0, 5)) { // Limit to 5 to avoid rate limits
+      for (const company of companies.slice(0, 5)) {
         try {
-          const result = await base44.functions.invoke('checkClassActions', {
-            companyName: company
-          });
+          const result = await base44.functions.invoke('checkClassActions', { companyName: company });
           if (result.data?.litigation?.length > 0) {
             allResults.push(...result.data.litigation);
           }
-        } catch (e) {
-          // Continue with next company
+        } catch {
+          // Continue
         }
       }
       setClassActions(allResults);
@@ -74,9 +73,7 @@ export default function LegalSupport() {
   const searchAttorneys = async () => {
     setSearchingAttorneys(true);
     try {
-      const result = await base44.functions.invoke('findAttorneys', {
-        exposureType: 'identity_theft'
-      });
+      const result = await base44.functions.invoke('findAttorneys', { exposureType: 'identity_theft' });
       setAttorneys(result.data?.attorneys || []);
     } catch (error) {
       alert('Search failed: ' + error.message);
@@ -92,26 +89,15 @@ export default function LegalSupport() {
         findingId: finding.id,
         profileId: activeProfileId
       });
-      
-      const packet = type === 'law_enforcement' 
-        ? result.data?.lawEnforcementPacket 
+      const packet = type === 'law_enforcement'
+        ? result.data?.lawEnforcementPacket
         : result.data?.attorneyPacket;
-      
       if (packet) {
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
-          <html>
-          <head>
-            <title>Evidence Packet - ${type === 'law_enforcement' ? 'Law Enforcement' : 'Attorney'}</title>
-            <style>
-              body { font-family: 'Courier New', monospace; padding: 20px; }
-              pre { white-space: pre-wrap; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <pre>${packet}</pre>
-          </body>
-          </html>
+          <html><head><title>Evidence Packet - ${type === 'law_enforcement' ? 'Law Enforcement' : 'Attorney'}</title>
+          <style>body { font-family: 'Courier New', monospace; padding: 20px; } pre { white-space: pre-wrap; font-size: 12px; }</style>
+          </head><body><pre>${packet}</pre></body></html>
         `);
         printWindow.document.close();
       }
@@ -142,13 +128,12 @@ export default function LegalSupport() {
 
   return (
     <div className="space-y-8 max-w-6xl">
-      {/* Header */}
       <div>
         <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
           <Scale className="w-10 h-10 text-purple-400" />
           Legal Support Center
         </h1>
-        <p className="text-purple-300">Class actions, attorneys, evidence packets, and victim rights</p>
+        <p className="text-purple-300">Breach analysis, class actions, no-proof settlements, attorneys, and victim rights</p>
       </div>
 
       {/* Quick Stats */}
@@ -180,14 +165,40 @@ export default function LegalSupport() {
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="class_actions" className="space-y-6">
-        <TabsList className="bg-slate-900/50 border border-purple-500/20">
-          <TabsTrigger value="class_actions">Class Actions</TabsTrigger>
-          <TabsTrigger value="attorneys">Find Attorneys</TabsTrigger>
-          <TabsTrigger value="evidence">Evidence Packets</TabsTrigger>
-          <TabsTrigger value="rights">Victim Rights</TabsTrigger>
-          <TabsTrigger value="next_steps">Legal Next Steps</TabsTrigger>
+      <Tabs defaultValue="breach_notices" className="space-y-6">
+        <TabsList className="bg-slate-900/50 border border-purple-500/20 flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="breach_notices" className="data-[state=active]:bg-purple-600 gap-1.5">
+            <Upload className="w-3.5 h-3.5" /> Breach Notices
+          </TabsTrigger>
+          <TabsTrigger value="no_proof" className="data-[state=active]:bg-green-600 gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" /> No-Proof Settlements
+          </TabsTrigger>
+          <TabsTrigger value="class_actions" className="gap-1.5">
+            <Gavel className="w-3.5 h-3.5" /> Class Actions
+          </TabsTrigger>
+          <TabsTrigger value="attorneys" className="gap-1.5">
+            <User className="w-3.5 h-3.5" /> Attorneys
+          </TabsTrigger>
+          <TabsTrigger value="evidence" className="gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Evidence
+          </TabsTrigger>
+          <TabsTrigger value="rights" className="gap-1.5">
+            <Shield className="w-3.5 h-3.5" /> Rights
+          </TabsTrigger>
+          <TabsTrigger value="next_steps" className="gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> Next Steps
+          </TabsTrigger>
         </TabsList>
+
+        {/* Breach Notice Upload Tab */}
+        <TabsContent value="breach_notices">
+          <BreachNoticeUploader profileId={activeProfileId} />
+        </TabsContent>
+
+        {/* No-Proof Settlement Scanner Tab */}
+        <TabsContent value="no_proof">
+          <NoProofSettlementScanner profileId={activeProfileId} />
+        </TabsContent>
 
         {/* Class Actions Tab */}
         <TabsContent value="class_actions">
@@ -203,23 +214,15 @@ export default function LegalSupport() {
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {searchingClassActions ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Searching...
-                  </>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Searching...</>
                 ) : (
-                  <>
-                    <Scale className="w-4 h-4 mr-2" />
-                    Search All Companies
-                  </>
+                  <><Scale className="w-4 h-4 mr-2" /> Search All Companies</>
                 )}
               </Button>
             </CardHeader>
             <CardContent>
               {companies.length === 0 ? (
-                <p className="text-center text-purple-300 py-8">
-                  No exposures found. Run an Identity Scan first.
-                </p>
+                <p className="text-center text-purple-300 py-8">No exposures found. Run an Identity Scan first.</p>
               ) : classActions.length === 0 ? (
                 <div className="text-center py-8">
                   <Scale className="w-12 h-12 text-purple-500 mx-auto mb-4" />
@@ -249,31 +252,21 @@ export default function LegalSupport() {
                             }>
                               {action.status}
                             </Badge>
-                            <Badge className="bg-purple-500/20 text-purple-300">
-                              {action.matched_company}
-                            </Badge>
+                            <Badge className="bg-purple-500/20 text-purple-300">{action.matched_company}</Badge>
                           </div>
                         </div>
                         {action.url && (
-                          <a
-                            href={action.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300"
-                          >
+                          <a href={action.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
                             <ExternalLink className="w-5 h-5" />
                           </a>
                         )}
                       </div>
                       {action.deadline && (
                         <p className="text-xs text-amber-400 mt-2">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          Deadline: {action.deadline}
+                          <Clock className="w-3 h-3 inline mr-1" /> Deadline: {action.deadline}
                         </p>
                       )}
-                      {action.how_to_join && (
-                        <p className="text-sm text-gray-300 mt-2">{action.how_to_join}</p>
-                      )}
+                      {action.how_to_join && <p className="text-sm text-gray-300 mt-2">{action.how_to_join}</p>}
                     </motion.div>
                   ))}
                 </div>
@@ -296,15 +289,9 @@ export default function LegalSupport() {
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {searchingAttorneys ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Searching...
-                  </>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Searching...</>
                 ) : (
-                  <>
-                    <Gavel className="w-4 h-4 mr-2" />
-                    Find Attorneys
-                  </>
+                  <><Gavel className="w-4 h-4 mr-2" /> Find Attorneys</>
                 )}
               </Button>
             </CardHeader>
@@ -313,9 +300,7 @@ export default function LegalSupport() {
                 <div className="text-center py-8">
                   <Gavel className="w-12 h-12 text-purple-500 mx-auto mb-4" />
                   <p className="text-white font-semibold mb-2">Find Legal Help</p>
-                  <p className="text-purple-300 text-sm">
-                    Search for attorneys specializing in identity theft and data privacy.
-                  </p>
+                  <p className="text-purple-300 text-sm">Search for attorneys specializing in identity theft and data privacy.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -329,30 +314,23 @@ export default function LegalSupport() {
                       <h3 className="text-white font-semibold">{attorney.name}</h3>
                       <p className="text-sm text-purple-300">{attorney.firm}</p>
                       <p className="text-xs text-gray-400 mb-2">{attorney.location}</p>
-                      
                       {attorney.free_consultation && (
-                        <Badge className="bg-green-500/20 text-green-300 mb-2">
-                          Free Consultation
-                        </Badge>
+                        <Badge className="bg-green-500/20 text-green-300 mb-2">Free Consultation</Badge>
                       )}
-                      
                       <div className="space-y-1 mt-2">
                         {attorney.phone && (
                           <a href={`tel:${attorney.phone}`} className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300">
-                            <Phone className="w-3 h-3" />
-                            {attorney.phone}
+                            <Phone className="w-3 h-3" /> {attorney.phone}
                           </a>
                         )}
                         {attorney.email && (
                           <a href={`mailto:${attorney.email}`} className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300">
-                            <Mail className="w-3 h-3" />
-                            {attorney.email}
+                            <Mail className="w-3 h-3" /> {attorney.email}
                           </a>
                         )}
                         {attorney.website && (
                           <a href={attorney.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300">
-                            <Globe className="w-3 h-3" />
-                            Website
+                            <Globe className="w-3 h-3" /> Website
                           </a>
                         )}
                       </div>
@@ -364,7 +342,7 @@ export default function LegalSupport() {
           </Card>
         </TabsContent>
 
-        {/* Evidence Packets Tab */}
+        {/* Evidence Tab */}
         <TabsContent value="evidence">
           <Card className="glass-card border-purple-500/30">
             <CardHeader>
@@ -376,56 +354,48 @@ export default function LegalSupport() {
             <CardContent>
               <div className="space-y-4">
                 {profileSocialFindings.length === 0 && profileScanResults.length === 0 ? (
-                  <p className="text-center text-purple-300 py-8">
-                    No findings to generate evidence packets for.
-                  </p>
+                  <p className="text-center text-purple-300 py-8">No findings to generate evidence packets for.</p>
                 ) : (
-                  <>
-                    {profileSocialFindings.map((finding, idx) => (
-                      <div key={`social-${idx}`} className="flex items-center justify-between p-4 rounded-lg bg-slate-800/50">
-                        <div>
-                          <Badge className="bg-red-500/20 text-red-300 mb-1">Impersonation</Badge>
-                          <p className="text-white font-medium">@{finding.suspicious_username} on {finding.platform}</p>
-                          <p className="text-xs text-gray-400">Detected: {new Date(finding.detected_date || finding.created_date).toLocaleDateString()}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => generateEvidencePacket(finding, 'law_enforcement')}
-                            disabled={generatingPacket === finding.id}
-                            className="border-blue-500/50 text-blue-300"
-                          >
-                            {generatingPacket === finding.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Shield className="w-4 h-4 mr-1" />
-                                Law Enforcement
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => generateEvidencePacket(finding, 'attorney')}
-                            disabled={generatingPacket === finding.id}
-                            className="border-purple-500/50 text-purple-300"
-                          >
-                            <Gavel className="w-4 h-4 mr-1" />
-                            Attorney
-                          </Button>
-                        </div>
+                  profileSocialFindings.map((finding, idx) => (
+                    <div key={`social-${idx}`} className="flex items-center justify-between p-4 rounded-lg bg-slate-800/50">
+                      <div>
+                        <Badge className="bg-red-500/20 text-red-300 mb-1">Impersonation</Badge>
+                        <p className="text-white font-medium">@{finding.suspicious_username} on {finding.platform}</p>
+                        <p className="text-xs text-gray-400">Detected: {new Date(finding.detected_date || finding.created_date).toLocaleDateString()}</p>
                       </div>
-                    ))}
-                  </>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generateEvidencePacket(finding, 'law_enforcement')}
+                          disabled={generatingPacket === finding.id}
+                          className="border-blue-500/50 text-blue-300"
+                        >
+                          {generatingPacket === finding.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <><Shield className="w-4 h-4 mr-1" /> Law Enforcement</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => generateEvidencePacket(finding, 'attorney')}
+                          disabled={generatingPacket === finding.id}
+                          className="border-purple-500/50 text-purple-300"
+                        >
+                          <Gavel className="w-4 h-4 mr-1" /> Attorney
+                        </Button>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Victim Rights Tab */}
+        {/* Rights Tab */}
         <TabsContent value="rights">
           <Card className="glass-card border-purple-500/30">
             <CardHeader>
@@ -452,7 +422,7 @@ export default function LegalSupport() {
           </Card>
         </TabsContent>
 
-        {/* Legal Next Steps Tab */}
+        {/* Next Steps Tab */}
         <TabsContent value="next_steps">
           <Card className="glass-card border-purple-500/30">
             <CardHeader>

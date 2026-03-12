@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from 'react';
+import { base44, migrateFromBase44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Shield, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Shield, Eye, Download, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfileModal from '../components/profiles/ProfileModal';
 import ProfileDetailModal from '../components/profiles/ProfileDetailModal';
@@ -24,6 +24,60 @@ export default function Profiles() {
   const [showModal, setShowModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [recoveryStatus, setRecoveryStatus] = useState(null);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [storageDump, setStorageDump] = useState(null);
+
+  useEffect(() => {
+    const appId = localStorage.getItem('base44_app_id');
+    const token = localStorage.getItem('base44_access_token');
+    const serverUrl = localStorage.getItem('base44_server_url') || 'https://base44.app';
+    const migrationDone = localStorage.getItem('incognito_base44_migration_done');
+    const localProfiles = localStorage.getItem('incognito_entity_Profile');
+    const hasLocalProfiles = localProfiles && JSON.parse(localProfiles).length > 0;
+
+    const dump = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      const val = localStorage.getItem(key);
+      dump[key] = val.length > 200 ? val.substring(0, 200) + '...' : val;
+    }
+    setStorageDump(dump);
+    console.log('[Profiles] localStorage keys:', Object.keys(dump));
+    console.log('[Profiles] Full dump:', dump);
+
+    if (hasLocalProfiles) {
+      setRecoveryStatus(null);
+    } else if (migrationDone && !hasLocalProfiles) {
+      setRecoveryStatus({ type: 'failed', appId, token: !!token, serverUrl });
+    } else if (appId && token) {
+      setRecoveryStatus({ type: 'ready', appId, serverUrl });
+    } else {
+      setRecoveryStatus({ type: 'no_creds', appId, token: !!token });
+    }
+  }, []);
+
+  const handleRecoverData = async () => {
+    setIsRecovering(true);
+    localStorage.removeItem('incognito_base44_migration_done');
+    try {
+      await migrateFromBase44();
+      queryClient.invalidateQueries(['profiles']);
+      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries(['scanResults']);
+      const localProfiles = localStorage.getItem('incognito_entity_Profile');
+      const count = localProfiles ? JSON.parse(localProfiles).length : 0;
+      if (count > 0) {
+        setRecoveryStatus({ type: 'success', count });
+        window.location.reload();
+      } else {
+        setRecoveryStatus({ type: 'empty' });
+      }
+    } catch (err) {
+      setRecoveryStatus({ type: 'error', message: err.message });
+    }
+    setIsRecovering(false);
+  };
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['profiles'],
@@ -130,6 +184,139 @@ export default function Profiles() {
           Create Profile
         </Button>
       </div>
+
+      {/* Recovery Banner */}
+      {recoveryStatus && profiles.length === 0 && (
+        <Card className="border-amber-500/50 bg-amber-950/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-200 mb-1">Data Recovery</h3>
+                {recoveryStatus.type === 'ready' && (
+                  <>
+                    <p className="text-sm text-amber-300/80 mb-3">
+                      Found Base44 credentials in your browser. Your profiles may still be on the server 
+                      at <code className="text-amber-200">{recoveryStatus.serverUrl}</code> (App: {recoveryStatus.appId}).
+                    </p>
+                    <Button 
+                      onClick={handleRecoverData} 
+                      disabled={isRecovering}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {isRecovering ? 'Recovering...' : 'Recover Data from Base44'}
+                    </Button>
+                  </>
+                )}
+                {(recoveryStatus.type === 'no_creds' || recoveryStatus.type === 'failed') && !recoveryStatus.manualToken && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-amber-300/80">
+                      Your 5 profiles are on the Base44 server (app ID: <code className="text-amber-200">6923711b7fa7ebe3276ec093</code>). 
+                      To recover them, open your Base44 dashboard, click on the Incognito app, 
+                      and copy the <code className="text-amber-200">access_token</code> from the URL bar. Paste it below.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Paste your Base44 access_token here (starts with eyJ...)"
+                        className="flex-1 px-3 py-2 bg-slate-900/80 border border-amber-500/30 rounded text-white text-sm placeholder-amber-400/40"
+                        id="recovery-token-input"
+                      />
+                      <Button
+                        onClick={async () => {
+                          const token = document.getElementById('recovery-token-input').value.trim();
+                          if (!token) return;
+                          setIsRecovering(true);
+                          setRecoveryStatus(prev => ({ ...prev, manualToken: true }));
+                          const appId = '6923711b7fa7ebe3276ec093';
+                          const serverUrl = 'https://app.base44.com';
+                          const entityNames = ['Profile','PersonalData','ScanResult','SocialMediaFinding','SocialMediaProfile','SocialMediaMention','ExposureFixLog','FinancialAccount','SuspiciousActivity','UserPreferences','SpamIncident','NotificationAlert','MonitoredAccount','DisposableCredential','DeletionRequest','DeletionEmailResponse','AIInsight','DigitalFootprintReport','SearchQueryFinding'];
+                          let total = 0;
+                          const log = [];
+                          for (const name of entityNames) {
+                            try {
+                              const resp = await fetch(`${serverUrl}/api/apps/${appId}/entities/${name}`, {
+                                headers: { 'Authorization': `Bearer ${token}`, 'X-App-Id': appId }
+                              });
+                              if (!resp.ok) { log.push(`${name}: HTTP ${resp.status}`); continue; }
+                              const data = await resp.json();
+                              const items = Array.isArray(data) ? data : (data?.results || data?.items || []);
+                              if (items.length > 0) {
+                                localStorage.setItem(`incognito_entity_${name}`, JSON.stringify(items));
+                                total += items.length;
+                                log.push(`${name}: ${items.length} recovered`);
+                              }
+                            } catch (err) { log.push(`${name}: ${err.message}`); }
+                          }
+                          console.log('[Recovery]', log.join(' | '));
+                          if (total > 0) {
+                            setRecoveryStatus({ type: 'success', count: total, log });
+                            setTimeout(() => window.location.reload(), 1500);
+                          } else {
+                            setRecoveryStatus({ type: 'manual_failed', log });
+                          }
+                          setIsRecovering(false);
+                        }}
+                        disabled={isRecovering}
+                        className="bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        {isRecovering ? 'Recovering...' : 'Recover'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {recoveryStatus.type === 'manual_failed' && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-300">Recovery returned 0 items. The token may be expired or for a different app.</p>
+                    <details className="text-xs text-amber-400/60">
+                      <summary>Details</summary>
+                      <pre className="mt-1 whitespace-pre-wrap">{recoveryStatus.log?.join('\n')}</pre>
+                    </details>
+                  </div>
+                )}
+                {recoveryStatus.type === 'empty' && (
+                  <p className="text-sm text-amber-300/80">
+                    Connected to Base44 but the server returned 0 profiles. The data may have been deleted from the server, 
+                    or the token may have expired.
+                  </p>
+                )}
+                {recoveryStatus.type === 'error' && (
+                  <p className="text-sm text-red-300">
+                    Recovery error: {recoveryStatus.message}
+                  </p>
+                )}
+                {recoveryStatus.type === 'success' && (
+                  <p className="text-sm text-green-300">
+                    Recovered {recoveryStatus.count} profiles! Reloading...
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* localStorage Diagnostic */}
+      {storageDump && profiles.length === 0 && (
+        <Card className="border-cyan-500/30 bg-cyan-950/20">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-cyan-200 mb-2 text-sm">localStorage Diagnostic ({Object.keys(storageDump).length} keys)</h3>
+            <div className="max-h-48 overflow-y-auto text-xs font-mono">
+              {Object.entries(storageDump).map(([key, val]) => (
+                <div key={key} className="flex gap-2 py-0.5 border-b border-cyan-900/30">
+                  <span className="text-cyan-400 min-w-[200px] shrink-0">{key}</span>
+                  <span className="text-cyan-200/60 truncate">{val}</span>
+                </div>
+              ))}
+              {Object.keys(storageDump).length === 0 && (
+                <p className="text-cyan-300/50">localStorage is completely empty for this origin.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Info Card */}
       <Card className="glass-card border-purple-500/30">

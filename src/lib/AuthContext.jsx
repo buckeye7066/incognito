@@ -7,9 +7,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
-  const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState({});
 
   useEffect(() => {
     initLocalAuth();
@@ -32,18 +29,12 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  const navigateToLogin = () => {};
-
   return (
     <AuthContext.Provider value={{ 
       user, 
       isAuthenticated, 
       isLoadingAuth,
-      isLoadingPublicSettings,
-      authError,
-      appPublicSettings,
       logout,
-      navigateToLogin,
       checkAppState: initLocalAuth
     }}>
       {children}

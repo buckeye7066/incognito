@@ -134,18 +134,17 @@ export default function FunctionReviewer() {
     setSelectedFunctionId(functionId);
 
     try {
-      const response = await incognito.functions.invoke('getFunctionDetails', { functionId });
+      const response = await incognito.functions.invoke('getFunctionDetails', { functionName: functionId });
       setFunctionDetails(response.data);
     } catch (err) {
       setError(err.message);
-      // Use local data as fallback
       const localFunc = KNOWN_FUNCTIONS.find(f => f.functionId === functionId);
       if (localFunc) {
         setFunctionDetails({
           ok: true,
           data: {
             ...localFunc,
-            sourceCode: `// Source code for ${localFunc.filePath}\n// View in Base44 dashboard: Code > Functions > ${localFunc.functionId}`,
+            sourceCode: `// Function: ${localFunc.functionId}\n// All functions run locally via src/api/client.js`,
             dependencies: localFunc.dependencyPaths.map(dep => ({ filePath: dep, code: `// Dependency: ${dep}` })),
             sourceAvailable: false
           }
@@ -369,9 +368,8 @@ export default function FunctionReviewer() {
                 />
                 <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
                   <p className="text-sm text-gray-400">
-                    <strong>Note:</strong> Base44 does not provide runtime file reading APIs.
-                    To view the full source code, navigate to your Base44 dashboard:
-                    <span className="text-cyan-400 font-mono"> Code → Functions → {selectedFunc?.functionId}</span>
+                    <strong>Note:</strong> All functions run locally in <span className="text-cyan-400 font-mono">src/api/client.js</span>.
+                    Open the file to view or edit: <span className="text-cyan-400 font-mono">{selectedFunc?.functionId}</span>
                   </p>
                 </div>
               </TabsContent>

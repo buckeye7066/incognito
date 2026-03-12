@@ -255,7 +255,7 @@ Return JSON array of findings.`;
       queryClient.invalidateQueries(['socialMediaFindings']);
       queryClient.invalidateQueries(['notificationAlerts']);
       
-      alert(response.data.message);
+      alert(`Scan complete: ${response.data?.total || 0} findings detected.`);
     } catch (error) {
       alert('Impersonation check failed: ' + error.message);
     } finally {

@@ -42,7 +42,7 @@ export default function SocialMediaMonitor({ profileId }) {
       queryClient.invalidateQueries(['socialMediaFindings']);
       queryClient.invalidateQueries(['notificationAlerts']);
       queryClient.invalidateQueries(['aiInsights']);
-      alert(response.data.message);
+      alert(`Scan complete: ${response.data?.total || 0} findings detected.`);
     } catch (error) {
       alert('Monitoring failed: ' + error.message);
     } finally {

@@ -31,14 +31,25 @@ export default function AutomatedDeletionModal({
   const handleGenerateRequest = async () => {
     setLoading(true);
     try {
+      const targetSite = finding?.source_name || finding?.platform || finding?.site_name || 'Unknown';
       const response = await incognito.functions.invoke('automateGDPRDeletion', {
-        findingId: finding.id,
-        findingType,
-        profileId
+        targetSite,
+        personalData: { source: targetSite, data_exposed: finding?.data_exposed || [] }
       });
-      setDeletionData(response.data);
-      if (response.data.pre_filled_email) {
-        setEditedEmail(response.data.pre_filled_email);
+      const d = response.data || {};
+      setDeletionData({
+        site_name: targetSite,
+        legal_basis: d.legal_basis || 'CCPA/GDPR',
+        expected_response_days: d.expected_response_time || '30',
+        deletion_methods: d.deletion_url ? [{ method: 'web_form', contact: d.deletion_url, url: d.deletion_url }] : [],
+        success_likelihood: 'medium',
+      });
+      if (d.email_body) {
+        setEditedEmail({
+          to: d.deletion_url || `privacy@${targetSite.toLowerCase().replace(/\s+/g, '')}.com`,
+          subject: d.subject_line || `Data Deletion Request - ${targetSite}`,
+          body: d.email_body,
+        });
       }
     } catch (error) {
       alert('Failed to generate deletion request: ' + error.message);

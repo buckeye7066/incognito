@@ -215,24 +215,8 @@ URL to start from: ${guide.deletionUrl}`,
   };
 
   const handleSaveCredentials = async (guide) => {
-    const platformKey = guide.name.toLowerCase().replace(/\s+/g, '').replace('(formerlytwitter)', '').replace('x', 'twitter');
-    
-    const updatedCreds = {
-      ...(user?.platform_credentials || {}),
-      [platformKey]: credentials
-    };
-
-    await incognito.auth.updateMe({
-      platform_credentials: updatedCreds
-    });
-
-    // Reload user
-    const updatedUser = await incognito.auth.me();
-    setUser(updatedUser);
     setShowCredentials(null);
     setCredentials({ username: '', password: '' });
-
-    // Start automation
     handleAIAutomation(guide);
   };
 

@@ -28,9 +28,10 @@ export default function BreachCheckButton({ personalData, profileId }) {
         return;
       }
 
+      const emails = checkableData.map(d => d.value).filter(Boolean);
       const response = await incognito.functions.invoke('checkBreaches', {
         profileId,
-        identifiers: checkableData
+        emails
       });
 
       setResults(response.data);
@@ -42,8 +43,8 @@ export default function BreachCheckButton({ personalData, profileId }) {
     }
   };
 
-  const breachesFound = results?.results?.filter(r => r.breach_name) || [];
-  const cleanIdentifiers = results?.results?.filter(r => r.status === 'clean') || [];
+  const breachesFound = results?.breaches || [];
+  const totalBreaches = results?.total || 0;
 
   return (
     <>
@@ -71,31 +72,23 @@ export default function BreachCheckButton({ personalData, profileId }) {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Breach Check Results</DialogTitle>
             <DialogDescription className="text-purple-300">
-              {results?.breaches_found > 0 
-                ? `Found ${results.breaches_found} breach${results.breaches_found > 1 ? 'es' : ''} affecting your identifiers`
+              {totalBreaches > 0 
+                ? `Found ${totalBreaches} breach${totalBreaches > 1 ? 'es' : ''} affecting your identifiers`
                 : 'No breaches found - your identifiers are safe!'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Clean Results */}
-            {cleanIdentifiers.length > 0 && (
+            {totalBreaches === 0 && (
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-green-400" />
-                  <h3 className="font-semibold text-green-300">Clean ({cleanIdentifiers.length})</h3>
+                  <h3 className="font-semibold text-green-300">All Clear</h3>
                 </div>
-                <div className="space-y-1">
-                  {cleanIdentifiers.map((item, idx) => (
-                    <p key={idx} className="text-sm text-green-200">
-                      {item.identifier_value} - No breaches found
-                    </p>
-                  ))}
-                </div>
+                <p className="text-sm text-green-200 mt-1">No breaches found for your monitored identifiers.</p>
               </div>
             )}
 
-            {/* Breach Results */}
             {breachesFound.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -106,29 +99,29 @@ export default function BreachCheckButton({ personalData, profileId }) {
                   <div 
                     key={idx} 
                     className={`p-4 rounded-lg border ${
-                      breach.is_sensitive 
+                      breach.risk_score >= 80 
                         ? 'bg-red-500/10 border-red-500/30' 
                         : 'bg-amber-500/10 border-amber-500/30'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-semibold text-white">{breach.breach_name}</h4>
-                        <p className="text-sm text-purple-300">{breach.identifier_value}</p>
+                        <h4 className="font-semibold text-white">{breach.source_name}</h4>
+                        <p className="text-sm text-purple-300">{breach.email}</p>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded ${
-                        breach.is_sensitive ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'
+                        breach.risk_score >= 80 ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'
                       }`}>
-                        {breach.is_sensitive ? 'Sensitive' : 'Verified'}
+                        Risk: {breach.risk_score}
                       </span>
                     </div>
                     <p className="text-sm text-purple-200 mb-2">
-                      Breach Date: {new Date(breach.breach_date).toLocaleDateString()}
+                      Breach Date: {breach.breach_date}
                     </p>
                     <div className="mb-3">
                       <p className="text-xs text-purple-400 mb-1">Data Exposed:</p>
                       <div className="flex flex-wrap gap-1">
-                        {breach.data_classes.map((dc, i) => (
+                        {(breach.data_exposed || []).map((dc, i) => (
                           <span key={i} className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-200">
                             {dc}
                           </span>
@@ -138,18 +131,16 @@ export default function BreachCheckButton({ personalData, profileId }) {
                     <div className="p-3 rounded bg-slate-900/50 border border-purple-500/20">
                       <p className="text-xs font-semibold text-purple-300 mb-2">Recommended Actions:</p>
                       <ul className="text-xs text-purple-200 space-y-1 list-disc list-inside">
-                        {breach.data_classes.includes('Passwords') && (
-                          <li>Change your password immediately for this service and any others using the same password</li>
+                        {(breach.data_exposed || []).some(d => /password/i.test(d)) && (
+                          <li>Change your password immediately for this service</li>
                         )}
-                        {breach.data_classes.includes('Email addresses') && (
-                          <li>Monitor this email for phishing attempts and suspicious activity</li>
+                        {(breach.data_exposed || []).some(d => /email/i.test(d)) && (
+                          <li>Monitor this email for phishing attempts</li>
                         )}
-                        {breach.data_classes.includes('Credit cards') && (
+                        {(breach.data_exposed || []).some(d => /credit|card/i.test(d)) && (
                           <li>Contact your bank and consider freezing your credit</li>
                         )}
-                        <li>Enable two-factor authentication (2FA) on all accounts using this identifier</li>
-                        <li>Consider using a password manager with unique passwords for each service</li>
-                        <li>Keep monitoring enabled in your vault for this identifier</li>
+                        <li>Enable two-factor authentication (2FA) on all affected accounts</li>
                       </ul>
                     </div>
                   </div>

@@ -55,7 +55,7 @@ export default function SearchQueryFindings({ profileId }) {
       const response = await incognito.functions.invoke('detectSearchQueries', { profileId });
       queryClient.invalidateQueries(['searchQueryFindings']);
       queryClient.invalidateQueries(['notificationAlerts']);
-      alert(response.data.message);
+      alert(`Scan complete: ${response.data?.total || 0} exposures detected.`);
     } catch (error) {
       alert('Search detection failed: ' + error.message);
     } finally {
@@ -127,14 +127,16 @@ export default function SearchQueryFindings({ profileId }) {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{SOURCE_ICONS[finding.search_platform?.toLowerCase()] || '🌐'}</span>
+                    <span className="text-2xl">{SOURCE_ICONS[finding.site_name?.toLowerCase()] || '🌐'}</span>
                     <div>
-                      <p className="text-sm font-semibold text-white capitalize">
-                        {finding.search_platform}
+                      <p className="text-sm font-semibold text-white">
+                        {finding.site_name}
                       </p>
-                      <p className="text-xs text-purple-400">
-                        Found {new Date(finding.detected_date).toLocaleDateString()}
-                      </p>
+                      {finding.site_url && (
+                        <a href={finding.site_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                          {finding.site_url}
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -153,34 +155,26 @@ export default function SearchQueryFindings({ profileId }) {
                 </div>
 
                 <div className="space-y-2">
-                  <div>
-                    <p className="text-xs text-purple-400 mb-1">Data Found On This Site:</p>
-                    <p className="text-sm text-white font-mono bg-slate-900/50 px-3 py-2 rounded">
-                      {finding.query_detected}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-purple-400 mb-1">Your Exposed Data:</p>
-                    <div className="space-y-1">
-                      {finding.matched_data_types?.map((type, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded px-3 py-1.5">
-                          <Badge variant="outline" className="text-xs bg-red-500/20 text-red-300 border-red-500/40">
-                            {type.replace(/_/g, ' ')}
+                  {finding.data_found?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-purple-400 mb-1">Exposed Data:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {finding.data_found.map((type, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-300 border-red-500/40">
+                            {type}
                           </Badge>
-                          {finding.matched_values?.[idx] && (
-                            <span className="text-sm text-red-200 font-mono">
-                              {finding.matched_values[idx]}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div>
-                    <p className="text-xs text-purple-400 mb-1">Analysis:</p>
-                    <p className="text-sm text-purple-300">{finding.ai_analysis}</p>
+                  <div className="flex items-center gap-4 text-xs text-purple-400">
+                    <span>Removal: <span className="text-white capitalize">{finding.removal_difficulty || 'unknown'}</span></span>
+                    {finding.removal_url && (
+                      <a href={finding.removal_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                        Removal Link
+                      </a>
+                    )}
                   </div>
 
                   {finding.status === 'new' && (

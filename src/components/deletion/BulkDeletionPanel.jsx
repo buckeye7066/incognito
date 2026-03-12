@@ -47,16 +47,28 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
     setResults(null);
 
     try {
-      const response = await incognito.functions.invoke('automateDataDeletion', {
-        profileId,
-        scanResultIds: selectedResults
-      });
+      const selected = removableCandidates.filter(r => selectedResults.includes(r.id));
+      let requestsCreated = 0;
+      const details = [];
 
-      setResults(response.data);
-      
+      for (const sr of selected) {
+        try {
+          const response = await incognito.functions.invoke('automateDataDeletion', {
+            siteName: sr.source_name,
+            siteUrl: sr.metadata?.site_url || sr.source_name,
+            profileId,
+            personalData: { source: sr.source_name, data_exposed: sr.data_exposed }
+          });
+          requestsCreated++;
+          details.push({ broker: sr.source_name, status: 'sent', email: response.data?.subject_line || '' });
+        } catch (e) {
+          details.push({ broker: sr.source_name, status: 'failed', email: e.message });
+        }
+      }
+
+      setResults({ requestsCreated, emailsSent: requestsCreated, details, skippedPlatforms: 0 });
       queryClient.invalidateQueries(['deletionRequests']);
       queryClient.invalidateQueries(['scanResults']);
-      
       clearSelection();
     } catch (error) {
       alert('Failed to automate deletion requests: ' + error.message);

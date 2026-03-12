@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { incognito } from '@/api/client';
 import { Shield, Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Search, Lock, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,10 +34,10 @@ export default function PasswordChecker() {
       const prefix = hash.slice(0, 5);
       const suffix = hash.slice(5);
 
-      const res = await incognito.functions.invoke('checkPasswordBreach', { prefix });
-      const entries = res.data?.entries || [];
-      const match = entries.find(e => e.suffix === suffix);
-      const count = match ? match.count : 0;
+      const resp = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+      const text = await resp.text();
+      const match = text.split('\n').find(line => line.startsWith(suffix));
+      const count = match ? parseInt(match.split(':')[1]) : 0;
 
       const entry = { password: password.slice(0, 3) + '***', count, safe: count === 0, date: new Date().toISOString() };
       setResult({ count, hash, prefix, safe: count === 0 });

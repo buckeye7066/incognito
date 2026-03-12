@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from 'react';
+import { base44, getApiKeys, setApiKeys } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database } from 'lucide-react';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const [showDarkWebConsent, setShowDarkWebConsent] = useState(false);
+  const [apiKeys, setApiKeysState] = useState(getApiKeys());
+  const [keysSaved, setKeysSaved] = useState(false);
+
+  const handleSaveKeys = (updates) => {
+    const merged = { ...apiKeys, ...updates };
+    setApiKeys(merged);
+    setApiKeysState(merged);
+    setKeysSaved(true);
+    setTimeout(() => setKeysSaved(false), 2000);
+  };
 
   const { data: userPreferences = [], refetch } = useQuery({
     queryKey: ['userPreferences'],
@@ -104,6 +116,146 @@ export default function Settings() {
         <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
         <p className="text-purple-300">Configure your privacy preferences</p>
       </div>
+
+      {/* API Keys */}
+      <Card className="glass-card border-blue-500/30">
+        <CardHeader className="border-b border-blue-500/20">
+          <CardTitle className="text-white flex items-center gap-2">
+            <Key className="w-5 h-5 text-blue-400" />
+            API Keys
+            {keysSaved && (
+              <span className="ml-auto flex items-center gap-1 text-sm text-green-400 font-normal">
+                <CheckCircle className="w-4 h-4" /> Saved
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <p className="text-sm text-gray-400">
+            These keys are stored locally in your browser only. They never leave your machine.
+          </p>
+
+          <div className="space-y-2">
+            <Label className="text-white flex items-center gap-2">
+              <Brain className="w-4 h-4 text-purple-400" /> OpenAI API Key
+            </Label>
+            <p className="text-xs text-gray-500">Powers AI scans, dispute letters, settlement search, and breach analysis</p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKeys.openai_api_key || ''}
+                onChange={(e) => setApiKeysState(prev => ({ ...prev, openai_api_key: e.target.value }))}
+                placeholder="sk-..."
+                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSaveKeys({ openai_api_key: apiKeys.openai_api_key })}
+                className="bg-blue-600 hover:bg-blue-700 shrink-0"
+              >
+                Save
+              </Button>
+            </div>
+            <div className="flex items-center gap-4 pt-1">
+              <Label className="text-xs text-gray-400">Model:</Label>
+              <Select
+                value={apiKeys.openai_model || 'gpt-4o-mini'}
+                onValueChange={(v) => handleSaveKeys({ openai_model: v })}
+              >
+                <SelectTrigger className="w-48 h-8 bg-slate-900/50 border-blue-500/30 text-white text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (fast, cheap)</SelectItem>
+                  <SelectItem value="gpt-4o">GPT-4o (best quality)</SelectItem>
+                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                  <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (cheapest)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-4 border-t border-blue-500/20">
+            <Label className="text-white flex items-center gap-2">
+              <Database className="w-4 h-4 text-red-400" /> HIBP API Key
+            </Label>
+            <p className="text-xs text-gray-500">Have I Been Pwned - checks if your emails appear in data breaches</p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKeys.hibp_api_key || ''}
+                onChange={(e) => setApiKeysState(prev => ({ ...prev, hibp_api_key: e.target.value }))}
+                placeholder="Your HIBP API key"
+                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSaveKeys({ hibp_api_key: apiKeys.hibp_api_key })}
+                className="bg-blue-600 hover:bg-blue-700 shrink-0"
+              >
+                Save
+              </Button>
+            </div>
+            <a href="https://haveibeenpwned.com/API/Key" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
+              Get a key at haveibeenpwned.com/API/Key →
+            </a>
+          </div>
+
+          <div className="space-y-2 pt-4 border-t border-blue-500/20">
+            <Label className="text-white flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-green-400" /> Privacy.com API Key
+            </Label>
+            <p className="text-xs text-gray-500">Virtual cards, subscription detection, card swap</p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKeys.privacy_com_api_key || ''}
+                onChange={(e) => setApiKeysState(prev => ({ ...prev, privacy_com_api_key: e.target.value }))}
+                placeholder="Your Privacy.com API key"
+                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSaveKeys({ privacy_com_api_key: apiKeys.privacy_com_api_key })}
+                className="bg-blue-600 hover:bg-blue-700 shrink-0"
+              >
+                Save
+              </Button>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Label className="text-xs text-gray-400 flex items-center gap-1">
+                <Switch
+                  checked={apiKeys.privacy_com_sandbox || false}
+                  onCheckedChange={(v) => handleSaveKeys({ privacy_com_sandbox: v })}
+                />
+                Sandbox mode
+              </Label>
+              <a href="https://privacy.com/developer" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
+                Get API key →
+              </a>
+            </div>
+          </div>
+
+          {/* Status indicators */}
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-blue-500/20">
+            {[
+              { key: 'openai_api_key', label: 'OpenAI', icon: Brain, color: 'purple' },
+              { key: 'hibp_api_key', label: 'HIBP', icon: Database, color: 'red' },
+              { key: 'privacy_com_api_key', label: 'Privacy.com', icon: CreditCard, color: 'green' },
+            ].map(({ key, label, icon: Icon, color }) => (
+              <div key={key} className={`p-3 rounded-lg border ${apiKeys[key] ? `border-${color}-500/40 bg-${color}-500/10` : 'border-slate-700 bg-slate-800/30'}`}>
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 ${apiKeys[key] ? `text-${color}-400` : 'text-gray-500'}`} />
+                  <span className={`text-xs font-medium ${apiKeys[key] ? 'text-white' : 'text-gray-500'}`}>{label}</span>
+                </div>
+                <p className={`text-[10px] mt-1 ${apiKeys[key] ? `text-${color}-300` : 'text-gray-600'}`}>
+                  {apiKeys[key] ? '✓ Configured' : '✗ Not set'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Scan Settings */}
       <Card className="glass-card border-purple-500/30">

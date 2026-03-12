@@ -50,24 +50,24 @@ export default function Layout({ children, currentPageName }) {
 
   const navigation = [
     { name: 'Dashboard', path: 'Dashboard', icon: Shield },
-    { name: 'Threat Intel', path: 'ThreatIntelligence', icon: Radar },
-    { name: 'AI Insights', path: 'AIInsights', icon: Brain },
-    { name: 'Vault', path: 'Vault', icon: Database },
-    { name: 'Scans', path: 'Scans', icon: Scan },
-    { name: 'Findings', path: 'Findings', icon: Eye },
-    { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
-    { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
-    { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
-    { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
+    { name: 'Identity Scan', path: 'IdentityScan', icon: Scan },
+    { name: 'Scans & Breaches', path: 'Scans', icon: Eye },
+    { name: 'Findings', path: 'Findings', icon: Radar },
     { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
+    { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
+    { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
+    { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
+    { name: 'Vault', path: 'Vault', icon: Database },
+    { name: 'AI Insights', path: 'AIInsights', icon: Brain },
+    { name: 'Threat Intel', path: 'ThreatIntelligence', icon: Radar },
     { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
+    { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
     { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
     { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
+    { name: 'Identity Recovery', path: 'IdentityRecovery', icon: Activity },
     { name: 'Notifications', path: 'Notifications', icon: Bell },
     { name: 'Profiles', path: 'Profiles', icon: Users },
     { name: 'Settings', path: 'Settings', icon: Settings },
-    { name: 'Function Tester', path: 'AdminFunctionTester', icon: Activity, adminOnly: true },
-    { name: 'Function Reviewer', path: 'FunctionReviewer', icon: Code, adminOnly: true }
   ];
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({

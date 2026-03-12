@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,7 +20,7 @@ export default function ThreatIntelligence() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   // Fetch all relevant data for correlation
   const { data: scanResults = [] } = useQuery({

@@ -33,42 +33,45 @@
  * =============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { incognito } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Code, Lock, Bell, CreditCard } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { useActiveProfile } from '@/hooks/useActiveProfile';
+
+const navigation = [
+  { name: 'Dashboard', path: 'Dashboard', icon: Shield },
+  { name: 'Identity Scan', path: 'IdentityScan', icon: Scan },
+  { name: 'Scans & Breaches', path: 'Scans', icon: Eye },
+  { name: 'Findings', path: 'Findings', icon: Radar },
+  { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
+  { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
+  { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
+  { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
+  { name: 'Vault', path: 'Vault', icon: Database },
+  { name: 'AI Insights', path: 'AIInsights', icon: Brain },
+  { name: 'Threat Intel', path: 'ThreatIntelligence', icon: Radar },
+  { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
+  { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
+  { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
+  { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
+  { name: 'Identity Recovery', path: 'IdentityRecovery', icon: Activity },
+  { name: 'Notifications', path: 'Notifications', icon: Bell },
+  { name: 'Profiles', path: 'Profiles', icon: Users },
+  { name: 'Settings', path: 'Settings', icon: Settings },
+];
 
 export default function Layout({ children, currentPageName }) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [activeProfile, setActiveProfile] = useState(null);
-
-  const navigation = [
-    { name: 'Dashboard', path: 'Dashboard', icon: Shield },
-    { name: 'Identity Scan', path: 'IdentityScan', icon: Scan },
-    { name: 'Scans & Breaches', path: 'Scans', icon: Eye },
-    { name: 'Findings', path: 'Findings', icon: Radar },
-    { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
-    { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
-    { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
-    { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
-    { name: 'Vault', path: 'Vault', icon: Database },
-    { name: 'AI Insights', path: 'AIInsights', icon: Brain },
-    { name: 'Threat Intel', path: 'ThreatIntelligence', icon: Radar },
-    { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
-    { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
-    { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
-    { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
-    { name: 'Identity Recovery', path: 'IdentityRecovery', icon: Activity },
-    { name: 'Notifications', path: 'Notifications', icon: Bell },
-    { name: 'Profiles', path: 'Profiles', icon: Users },
-    { name: 'Settings', path: 'Settings', icon: Settings },
-  ];
+  const { setActiveProfileId } = useActiveProfile();
+  const queryClient = useQueryClient();
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ['profiles'],
@@ -87,13 +90,13 @@ export default function Layout({ children, currentPageName }) {
     const saved = savedProfileId ? profiles.find(p => p.id === savedProfileId) : null;
     const resolved = saved || profiles.find(p => p.is_default) || profiles[0];
     setActiveProfile(resolved);
-    localStorage.setItem('activeProfileId', resolved.id);
-  }, [profiles]);
+    setActiveProfileId(resolved.id);
+  }, [profiles, setActiveProfileId]);
 
   const handleProfileChange = (profile) => {
-    localStorage.setItem('activeProfileId', profile.id);
     setActiveProfile(profile);
-    window.location.reload();
+    setActiveProfileId(profile.id);
+    queryClient.invalidateQueries();
   };
 
   const handleCreateProfile = async (formData) => {
@@ -102,41 +105,9 @@ export default function Layout({ children, currentPageName }) {
     setShowProfileModal(false);
   };
 
-  // Store active profile in window for access by other components
-  if (typeof window !== 'undefined') {
-    window.activeProfileId = activeProfile?.id;
-  }
-
   return (
     <ErrorBoundary>
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-950 to-slate-900">
-      <style>{`
-        :root {
-          --primary: 187 0 0;
-          --primary-dark: 139 0 0;
-          --accent: 102 102 102;
-          --danger: 187 0 0;
-          --warning: 251 191 36;
-          --success: 34 197 94;
-          --bg-dark: 15 23 42;
-          --bg-darker: 2 6 23;
-        }
-
-        body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-
-        .glass-card {
-          background: rgba(30, 27, 35, 0.6);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(187, 0, 0, 0.3);
-        }
-
-        .glow-border {
-          box-shadow: 0 0 20px rgba(187, 0, 0, 0.4);
-        }
-      `}</style>
-
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
         <aside className="w-64 glass-card border-r border-red-600/30 flex flex-col">

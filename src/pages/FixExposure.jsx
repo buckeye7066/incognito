@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState, useEffect } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,7 +25,7 @@ export default function FixExposure() {
   const exposureId = urlParams.get('exposure_id');
   const exposureType = urlParams.get('type') || 'unknown';
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   // Fetch exposure data
   const { data: scanResults = [] } = useQuery({

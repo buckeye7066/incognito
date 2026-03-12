@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React from 'react';
 import { Users, Shield, AlertTriangle } from 'lucide-react';
 import SocialMediaMonitor from '../components/social/SocialMediaMonitor';
@@ -6,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { incognito } from '@/api/client';
 
 export default function SocialMediaHub() {
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: allFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],

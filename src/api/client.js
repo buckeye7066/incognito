@@ -18,21 +18,27 @@ export function setApiKeys(keys) {
 
 function createEntityStore(entityName) {
   const storageKey = STORAGE_PREFIX + entityName;
+  let cache = null;
 
   function getAll() {
+    if (cache !== null) return cache;
     try {
       const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+      cache = raw ? JSON.parse(raw) : [];
+      return cache;
+    } catch { cache = []; return cache; }
   }
 
   function saveAll(items) {
+    cache = items;
     localStorage.setItem(storageKey, JSON.stringify(items));
   }
 
   return {
     async list(sortField, limit) {
-      let items = getAll();
+      const all = getAll();
+      const needsCopy = (sortField && typeof sortField === 'string') || (typeof limit === 'number' && limit > 0);
+      let items = needsCopy ? all.slice() : all;
       if (sortField && typeof sortField === 'string') {
         const desc = sortField.startsWith('-');
         const field = desc ? sortField.slice(1) : sortField;
@@ -74,6 +80,10 @@ function createEntityStore(entityName) {
       if (filtered.length === items.length) return false;
       saveAll(filtered);
       return true;
+    },
+
+    async clear() {
+      saveAll([]);
     },
 
     async filter(criteria) {

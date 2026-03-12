@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,7 @@ import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Dashboard() {
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
   const queryClient = useQueryClient();
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);

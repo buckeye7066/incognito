@@ -66,24 +66,15 @@ export default function Settings() {
     if (!window.confirm('This will permanently delete ALL your data including vault, scan results, deletion requests, and alerts. This cannot be undone. Continue?')) return;
     setWiping(true);
     try {
-      const [personalData, deletionRequests, alerts, searchQueries, spamIncidents, financialAccounts, suspiciousActivities] = await Promise.all([
-        incognito.entities.PersonalData.list(),
-        incognito.entities.DeletionRequest.list(),
-        incognito.entities.NotificationAlert.list(),
-        incognito.entities.SearchQueryFinding.list(),
-        incognito.entities.SpamIncident.list(),
-        incognito.entities.FinancialAccount.list(),
-        incognito.entities.SuspiciousActivity.list(),
-      ]);
       await Promise.all([
-        ...scanResults.map(r => incognito.entities.ScanResult.delete(r.id)),
-        ...personalData.map(r => incognito.entities.PersonalData.delete(r.id)),
-        ...deletionRequests.map(r => incognito.entities.DeletionRequest.delete(r.id)),
-        ...alerts.map(r => incognito.entities.NotificationAlert.delete(r.id)),
-        ...searchQueries.map(r => incognito.entities.SearchQueryFinding.delete(r.id)),
-        ...spamIncidents.map(r => incognito.entities.SpamIncident.delete(r.id)),
-        ...financialAccounts.map(r => incognito.entities.FinancialAccount.delete(r.id)),
-        ...suspiciousActivities.map(r => incognito.entities.SuspiciousActivity.delete(r.id)),
+        incognito.entities.ScanResult.clear(),
+        incognito.entities.PersonalData.clear(),
+        incognito.entities.DeletionRequest.clear(),
+        incognito.entities.NotificationAlert.clear(),
+        incognito.entities.SearchQueryFinding.clear(),
+        incognito.entities.SpamIncident.clear(),
+        incognito.entities.FinancialAccount.clear(),
+        incognito.entities.SuspiciousActivity.clear(),
       ]);
       queryClient.invalidateQueries();
       alert('All data has been wiped successfully.');

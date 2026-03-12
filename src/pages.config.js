@@ -47,29 +47,30 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import AIInsights from './pages/AIInsights';
-import AdminFunctionTester from './pages/AdminFunctionTester';
-import Dashboard from './pages/Dashboard';
-import DataBrokerDirectory from './pages/DataBrokerDirectory';
-import DeletionCenter from './pages/DeletionCenter';
-import FinancialMonitor from './pages/FinancialMonitor';
-import Findings from './pages/Findings';
-import FixExposure from './pages/FixExposure';
-import FunctionReviewer from './pages/FunctionReviewer';
-import Home from './pages/Home';
-import IdentityRecovery from './pages/IdentityRecovery';
-import IdentityScan from './pages/IdentityScan';
-import LegalSupport from './pages/LegalSupport';
-import MonitoringHub from './pages/MonitoringHub';
-import Notifications from './pages/Notifications';
-import PasswordChecker from './pages/PasswordChecker';
-import Profiles from './pages/Profiles';
-import Scans from './pages/Scans';
-import Settings from './pages/Settings';
-import SocialMediaHub from './pages/SocialMediaHub';
-import SpamTracker from './pages/SpamTracker';
-import ThreatIntelligence from './pages/ThreatIntelligence';
-import Vault from './pages/Vault';
+import React from 'react';
+const AIInsights = React.lazy(() => import('./pages/AIInsights'));
+const AdminFunctionTester = React.lazy(() => import('./pages/AdminFunctionTester'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const DataBrokerDirectory = React.lazy(() => import('./pages/DataBrokerDirectory'));
+const DeletionCenter = React.lazy(() => import('./pages/DeletionCenter'));
+const FinancialMonitor = React.lazy(() => import('./pages/FinancialMonitor'));
+const Findings = React.lazy(() => import('./pages/Findings'));
+const FixExposure = React.lazy(() => import('./pages/FixExposure'));
+const FunctionReviewer = React.lazy(() => import('./pages/FunctionReviewer'));
+const Home = React.lazy(() => import('./pages/Home'));
+const IdentityRecovery = React.lazy(() => import('./pages/IdentityRecovery'));
+const IdentityScan = React.lazy(() => import('./pages/IdentityScan'));
+const LegalSupport = React.lazy(() => import('./pages/LegalSupport'));
+const MonitoringHub = React.lazy(() => import('./pages/MonitoringHub'));
+const Notifications = React.lazy(() => import('./pages/Notifications'));
+const PasswordChecker = React.lazy(() => import('./pages/PasswordChecker'));
+const Profiles = React.lazy(() => import('./pages/Profiles'));
+const Scans = React.lazy(() => import('./pages/Scans'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const SocialMediaHub = React.lazy(() => import('./pages/SocialMediaHub'));
+const SpamTracker = React.lazy(() => import('./pages/SpamTracker'));
+const ThreatIntelligence = React.lazy(() => import('./pages/ThreatIntelligence'));
+const Vault = React.lazy(() => import('./pages/Vault'));
 import __Layout from './Layout.jsx';
 
 

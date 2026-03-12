@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,7 +43,7 @@ const ACTIVITY_LABELS = {
 
 export default function FinancialMonitor() {
   const queryClient = useQueryClient();
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showLogActivity, setShowLogActivity] = useState(false);

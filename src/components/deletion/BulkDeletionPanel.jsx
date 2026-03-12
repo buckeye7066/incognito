@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Loader2, Zap, CheckCircle, AlertTriangle, Info } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function BulkDeletionPanel({ scanResults, profileId }) {
@@ -47,7 +47,7 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
     setResults(null);
 
     try {
-      const response = await base44.functions.invoke('automateDataDeletion', {
+      const response = await incognito.functions.invoke('automateDataDeletion', {
         profileId,
         scanResultIds: selectedResults
       });

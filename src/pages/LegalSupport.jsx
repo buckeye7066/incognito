@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,17 +25,17 @@ export default function LegalSupport() {
 
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: socialFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],
-    queryFn: () => base44.entities.SocialMediaFinding.list()
+    queryFn: () => incognito.entities.SocialMediaFinding.list()
   });
 
   const { data: fixLogs = [] } = useQuery({
     queryKey: ['exposureFixLogs'],
-    queryFn: () => base44.entities.ExposureFixLog.list()
+    queryFn: () => incognito.entities.ExposureFixLog.list()
   });
 
   const profileScanResults = scanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
@@ -54,7 +54,7 @@ export default function LegalSupport() {
       const allResults = [];
       for (const company of companies.slice(0, 5)) {
         try {
-          const result = await base44.functions.invoke('checkClassActions', { companyName: company });
+          const result = await incognito.functions.invoke('checkClassActions', { companyName: company });
           if (result.data?.litigation?.length > 0) {
             allResults.push(...result.data.litigation);
           }
@@ -73,7 +73,7 @@ export default function LegalSupport() {
   const searchAttorneys = async () => {
     setSearchingAttorneys(true);
     try {
-      const result = await base44.functions.invoke('findAttorneys', { exposureType: 'identity_theft' });
+      const result = await incognito.functions.invoke('findAttorneys', { exposureType: 'identity_theft' });
       setAttorneys(result.data?.attorneys || []);
     } catch (error) {
       alert('Search failed: ' + error.message);
@@ -85,7 +85,7 @@ export default function LegalSupport() {
   const generateEvidencePacket = async (finding, type) => {
     setGeneratingPacket(finding.id);
     try {
-      const result = await base44.functions.invoke('generateEvidencePacket', {
+      const result = await incognito.functions.invoke('generateEvidencePacket', {
         findingId: finding.id,
         profileId: activeProfileId
       });

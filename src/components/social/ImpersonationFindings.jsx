@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag, FileText, Scale, Loader2, Printer, Wand2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AutomatedDeletionModal from '../deletion/AutomatedDeletionModal';
 
@@ -31,7 +31,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
   const generateEvidencePacket = async (finding) => {
     setGeneratingEvidence(finding.id);
     try {
-      const response = await base44.functions.invoke('generateEvidencePacket', {
+      const response = await incognito.functions.invoke('generateEvidencePacket', {
         findingId: finding.id,
         profileId
       });
@@ -71,7 +71,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
   };
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }) => base44.entities.SocialMediaFinding.update(id, { status }),
+    mutationFn: ({ id, status }) => incognito.entities.SocialMediaFinding.update(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries(['socialMediaFindings']);
     }

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle, Brain } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 
 const PLATFORM_GUIDES = {
   'X (formerly Twitter)': {
@@ -90,7 +90,7 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
   // Load user credentials
   React.useEffect(() => {
     const loadUser = async () => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await incognito.auth.me();
       setUser(currentUser);
     };
     loadUser();
@@ -138,7 +138,7 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
     setResults({});
 
     try {
-      const response = await base44.functions.invoke('automatedPlatformDeletion', {
+      const response = await incognito.functions.invoke('automatedPlatformDeletion', {
         profileId,
         platform: guide.name,
         credentials: storedCreds || credentials
@@ -168,7 +168,7 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
   const generateAIGuide = async (guide) => {
     setAutomating(guide.name);
     try {
-      const aiGuide = await base44.integrations.Core.InvokeLLM({
+      const aiGuide = await incognito.integrations.Core.InvokeLLM({
         prompt: `Generate a detailed guide AND automation script for permanently deleting a ${guide.name} account.
 
 Create:
@@ -222,12 +222,12 @@ URL to start from: ${guide.deletionUrl}`,
       [platformKey]: credentials
     };
 
-    await base44.auth.updateMe({
+    await incognito.auth.updateMe({
       platform_credentials: updatedCreds
     });
 
     // Reload user
-    const updatedUser = await base44.auth.me();
+    const updatedUser = await incognito.auth.me();
     setUser(updatedUser);
     setShowCredentials(null);
     setCredentials({ username: '', password: '' });

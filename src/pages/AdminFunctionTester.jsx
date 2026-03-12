@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ export default function AdminFunctionTester() {
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me()
+    queryFn: () => incognito.auth.me()
   });
 
   const runFullTestSuite = async () => {
@@ -20,7 +20,7 @@ export default function AdminFunctionTester() {
     setResults(null);
     
     try {
-      const response = await base44.functions.invoke('testAllFunctions', {});
+      const response = await incognito.functions.invoke('testAllFunctions', {});
       setResults(response.data);
     } catch (error) {
       setResults({

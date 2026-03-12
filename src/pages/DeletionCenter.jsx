@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,12 +25,12 @@ export default function DeletionCenter() {
 
   const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
-    queryFn: () => base44.entities.DeletionRequest.list()
+    queryFn: () => incognito.entities.DeletionRequest.list()
   });
 
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
@@ -38,7 +38,7 @@ export default function DeletionCenter() {
 
   const { data: allResponses = [] } = useQuery({
     queryKey: ['deletionEmailResponses'],
-    queryFn: () => base44.entities.DeletionEmailResponse.list()
+    queryFn: () => incognito.entities.DeletionEmailResponse.list()
   });
 
   const responses = allResponses.filter(r => {
@@ -47,7 +47,7 @@ export default function DeletionCenter() {
   });
 
   const createRequestMutation = useMutation({
-    mutationFn: (data) => base44.entities.DeletionRequest.create(data),
+    mutationFn: (data) => incognito.entities.DeletionRequest.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['deletionRequests']);
       queryClient.invalidateQueries(['scanResults']);
@@ -57,14 +57,14 @@ export default function DeletionCenter() {
   });
 
   const updateRequestMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.DeletionRequest.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.DeletionRequest.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['deletionRequests']);
     }
   });
 
   const deleteRequestMutation = useMutation({
-    mutationFn: (id) => base44.entities.DeletionRequest.delete(id),
+    mutationFn: (id) => incognito.entities.DeletionRequest.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['deletionRequests']);
     }
@@ -84,7 +84,7 @@ export default function DeletionCenter() {
     setDeletingFailed(true);
     try {
       for (const req of failedRequests) {
-        await base44.entities.DeletionRequest.delete(req.id);
+        await incognito.entities.DeletionRequest.delete(req.id);
       }
       queryClient.invalidateQueries(['deletionRequests']);
     } catch (error) {
@@ -116,7 +116,7 @@ export default function DeletionCenter() {
     });
 
     // Update scan result status
-    await base44.entities.ScanResult.update(selectedResult.id, {
+    await incognito.entities.ScanResult.update(selectedResult.id, {
       status: 'removal_requested'
     });
   };
@@ -270,7 +270,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
 
     setCheckingResponses(true);
     try {
-      const response = await base44.functions.invoke('monitorDeletionResponses', { profileId: activeProfileId });
+      const response = await incognito.functions.invoke('monitorDeletionResponses', { profileId: activeProfileId });
       alert(`Found ${response.data.responsesDetected} new responses from data brokers!`);
       queryClient.invalidateQueries(['deletionEmailResponses']);
       queryClient.invalidateQueries(['deletionRequests']);

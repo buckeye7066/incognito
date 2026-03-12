@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 
 const AuthContext = createContext();
 
@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
 
   const initLocalAuth = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await incognito.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
     } catch (error) {

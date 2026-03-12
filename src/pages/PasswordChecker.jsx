@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { Shield, Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Search, Lock, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,7 @@ export default function PasswordChecker() {
       const prefix = hash.slice(0, 5);
       const suffix = hash.slice(5);
 
-      const res = await base44.functions.invoke('checkPasswordBreach', { prefix });
+      const res = await incognito.functions.invoke('checkPasswordBreach', { prefix });
       const entries = res.data?.entries || [];
       const match = entries.find(e => e.suffix === suffix);
       const count = match ? match.count : 0;

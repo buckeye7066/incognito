@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
   const { data: cards = [], isLoading: cardsLoading, refetch: refetchCards } = useQuery({
     queryKey: ['privacyCards'],
     queryFn: async () => {
-      const resp = await base44.functions.invoke('listCards', {});
+      const resp = await incognito.functions.invoke('listCards', {});
       return resp.data || resp || [];
     },
     retry: 1,
@@ -36,7 +36,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
   const { data: subscriptions = [], isLoading: subsLoading, refetch: refetchSubs } = useQuery({
     queryKey: ['cardSubscriptions', selectedCardToken],
     queryFn: async () => {
-      const resp = await base44.functions.invoke('listSubscriptions', {
+      const resp = await incognito.functions.invoke('listSubscriptions', {
         cardToken: selectedCardToken,
       });
       return resp.data || resp || [];
@@ -47,7 +47,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
 
   const closeCardMutation = useMutation({
     mutationFn: async (cardToken) => {
-      return base44.functions.invoke('closeCard', { cardToken });
+      return incognito.functions.invoke('closeCard', { cardToken });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['privacyCards']);
@@ -57,7 +57,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
 
   const pauseCardMutation = useMutation({
     mutationFn: async (cardToken) => {
-      return base44.functions.invoke('pauseCard', { cardToken });
+      return incognito.functions.invoke('pauseCard', { cardToken });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['privacyCards']);
@@ -358,7 +358,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
                                         variant="ghost"
                                         className="text-xs text-yellow-300 hover:bg-yellow-500/10 h-6 ml-auto"
                                         onClick={() => {
-                                          base44.functions.invoke('pauseCard', { cardToken: sub.card_token }).then(() => {
+                                          incognito.functions.invoke('pauseCard', { cardToken: sub.card_token }).then(() => {
                                             queryClient.invalidateQueries(['privacyCards']);
                                           });
                                         }}

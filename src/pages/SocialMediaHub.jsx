@@ -3,14 +3,14 @@ import { Users, Shield, AlertTriangle } from 'lucide-react';
 import SocialMediaMonitor from '../components/social/SocialMediaMonitor';
 import ImpersonationFindings from '../components/social/ImpersonationFindings';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 
 export default function SocialMediaHub() {
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
   const { data: allFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],
-    queryFn: () => base44.entities.SocialMediaFinding.list()
+    queryFn: () => incognito.entities.SocialMediaFinding.list()
   });
 
   const findings = allFindings.filter(f => !activeProfileId || f.profile_id === activeProfileId);

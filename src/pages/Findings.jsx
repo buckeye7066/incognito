@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,12 +39,12 @@ export default function Findings() {
 
   const { data: allScanResults = [], isLoading } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: allSearchQueries = [] } = useQuery({
     queryKey: ['searchQueryFindings'],
-    queryFn: () => base44.entities.SearchQueryFinding.list()
+    queryFn: () => incognito.entities.SearchQueryFinding.list()
   });
 
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
@@ -58,14 +58,14 @@ export default function Findings() {
   );
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ScanResult.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.ScanResult.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['scanResults']);
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ScanResult.delete(id),
+    mutationFn: (id) => incognito.entities.ScanResult.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['scanResults']);
     }
@@ -177,7 +177,7 @@ RESEARCH REQUIREMENTS:
 
 IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current legal directories.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await incognito.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {
@@ -480,7 +480,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
   const analyzeWithAI = async (finding) => {
     setAnalyzingId(finding.id);
     try {
-      const allPersonalData = await base44.entities.PersonalData.list();
+      const allPersonalData = await incognito.entities.PersonalData.list();
       const myData = allPersonalData.filter(d => d.profile_id === activeProfileId);
 
       const prompt = `Analyze this data breach finding and determine if it contains MY personal data.
@@ -514,7 +514,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
   - my_data_found: array of my matched values in format "type: value" (e.g., "email: john@example.com")
   - explanation: explain what evidence shows my data is or isn't in this breach`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await incognito.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -1095,7 +1095,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                           size="sm"
                           onClick={() => {
                             const newStatus = result.status === 'reviewed' ? 'new' : 'reviewed';
-                            base44.entities.SearchQueryFinding.update(result.id, { status: newStatus });
+                            incognito.entities.SearchQueryFinding.update(result.id, { status: newStatus });
                             queryClient.invalidateQueries(['searchQueryFindings']);
                           }}
                           className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
@@ -1106,7 +1106,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            base44.entities.SearchQueryFinding.update(result.id, { status: 'dismissed' });
+                            incognito.entities.SearchQueryFinding.update(result.id, { status: 'dismissed' });
                             queryClient.invalidateQueries(['searchQueryFindings']);
                           }}
                           disabled={result.status === 'dismissed'}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,13 +51,13 @@ export default function Vault() {
 
   const { data: allPersonalData = [], isLoading } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PersonalData.create(data),
+    mutationFn: (data) => incognito.entities.PersonalData.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
       setShowForm(false);
@@ -72,7 +72,7 @@ export default function Vault() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PersonalData.delete(id),
+    mutationFn: (id) => incognito.entities.PersonalData.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
     }
@@ -80,7 +80,7 @@ export default function Vault() {
 
   const toggleMonitoringMutation = useMutation({
     mutationFn: ({ id, monitoring_enabled }) => 
-      base44.entities.PersonalData.update(id, { monitoring_enabled }),
+      incognito.entities.PersonalData.update(id, { monitoring_enabled }),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
     }

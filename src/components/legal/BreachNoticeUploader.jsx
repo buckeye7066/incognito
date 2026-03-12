@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,7 @@ export default function BreachNoticeUploader({ profileId }) {
     setResult(null);
 
     try {
-      const resp = await base44.functions.invoke('analyzeBreachNotice', {
+      const resp = await incognito.functions.invoke('analyzeBreachNotice', {
         noticeText: noticeText.trim(),
         profileId,
       });

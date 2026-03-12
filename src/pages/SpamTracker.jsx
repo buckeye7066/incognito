@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,18 +45,18 @@ export default function SpamTracker() {
 
   const { data: allIncidents = [] } = useQuery({
     queryKey: ['spamIncidents'],
-    queryFn: () => base44.entities.SpamIncident.list()
+    queryFn: () => incognito.entities.SpamIncident.list()
   });
 
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const incidents = allIncidents.filter(i => !activeProfileId || i.profile_id === activeProfileId);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.SpamIncident.create(data),
+    mutationFn: (data) => incognito.entities.SpamIncident.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['spamIncidents']);
       setShowForm(false);
@@ -72,7 +72,7 @@ export default function SpamTracker() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.SpamIncident.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.SpamIncident.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['spamIncidents']);
     }

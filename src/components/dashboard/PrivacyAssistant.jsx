@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Send, Loader2, User, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 
 const SUGGESTED_QUESTIONS = [
   "What are my biggest privacy risks?",
@@ -79,7 +79,7 @@ Answer the user's question based on their actual privacy data above. Be concise,
 
     const history = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
 
-    const response = await base44.integrations.Core.InvokeLLM({
+    const response = await incognito.integrations.Core.InvokeLLM({
       prompt: `${buildContext()}\n\nConversation so far:\n${history}\n\nUser: ${userMsg}\n\nAssistant:`
     });
 

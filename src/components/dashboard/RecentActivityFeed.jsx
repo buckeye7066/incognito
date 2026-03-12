@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Activity, AlertTriangle, CheckCircle, Shield, Trash2, Bell } from 'lucide-react';
@@ -11,17 +11,17 @@ import { formatDistanceToNow } from 'date-fns';
 export default function RecentActivityFeed({ activeProfileId }) {
   const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list('-created_date', 20)
+    queryFn: () => incognito.entities.ScanResult.list('-created_date', 20)
   });
 
   const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
-    queryFn: () => base44.entities.DeletionRequest.list('-created_date', 20)
+    queryFn: () => incognito.entities.DeletionRequest.list('-created_date', 20)
   });
 
   const { data: allAlerts = [] } = useQuery({
     queryKey: ['notificationAlerts'],
-    queryFn: () => base44.entities.NotificationAlert.list('-created_date', 20)
+    queryFn: () => incognito.entities.NotificationAlert.list('-created_date', 20)
   });
 
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);

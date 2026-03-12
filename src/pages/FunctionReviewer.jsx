@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,7 +97,7 @@ export default function FunctionReviewer() {
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me()
+    queryFn: () => incognito.auth.me()
   });
 
   // Filter functions by search
@@ -134,7 +134,7 @@ export default function FunctionReviewer() {
     setSelectedFunctionId(functionId);
 
     try {
-      const response = await base44.functions.invoke('getFunctionDetails', { functionId });
+      const response = await incognito.functions.invoke('getFunctionDetails', { functionId });
       setFunctionDetails(response.data);
     } catch (err) {
       setError(err.message);

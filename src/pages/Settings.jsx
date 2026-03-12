@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44, getApiKeys, setApiKeys } from '@/api/base44Client';
+import { incognito, getApiKeys, setApiKeys } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,12 @@ export default function Settings() {
 
   const { data: userPreferences = [], refetch } = useQuery({
     queryKey: ['userPreferences'],
-    queryFn: () => base44.entities.UserPreferences.list()
+    queryFn: () => incognito.entities.UserPreferences.list()
   });
 
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const preference = userPreferences[0] || {};
@@ -40,9 +40,9 @@ export default function Settings() {
   const updatePreferencesMutation = useMutation({
     mutationFn: (data) => {
       if (preference.id) {
-        return base44.entities.UserPreferences.update(preference.id, data);
+        return incognito.entities.UserPreferences.update(preference.id, data);
       } else {
-        return base44.entities.UserPreferences.create(data);
+        return incognito.entities.UserPreferences.create(data);
       }
     },
     onSuccess: () => {
@@ -53,7 +53,7 @@ export default function Settings() {
   const clearScanResultsMutation = useMutation({
     mutationFn: async () => {
       for (const result of scanResults) {
-        await base44.entities.ScanResult.delete(result.id);
+        await incognito.entities.ScanResult.delete(result.id);
       }
     },
     onSuccess: () => {
@@ -67,23 +67,23 @@ export default function Settings() {
     setWiping(true);
     try {
       const [personalData, deletionRequests, alerts, searchQueries, spamIncidents, financialAccounts, suspiciousActivities] = await Promise.all([
-        base44.entities.PersonalData.list(),
-        base44.entities.DeletionRequest.list(),
-        base44.entities.NotificationAlert.list(),
-        base44.entities.SearchQueryFinding.list(),
-        base44.entities.SpamIncident.list(),
-        base44.entities.FinancialAccount.list(),
-        base44.entities.SuspiciousActivity.list(),
+        incognito.entities.PersonalData.list(),
+        incognito.entities.DeletionRequest.list(),
+        incognito.entities.NotificationAlert.list(),
+        incognito.entities.SearchQueryFinding.list(),
+        incognito.entities.SpamIncident.list(),
+        incognito.entities.FinancialAccount.list(),
+        incognito.entities.SuspiciousActivity.list(),
       ]);
       await Promise.all([
-        ...scanResults.map(r => base44.entities.ScanResult.delete(r.id)),
-        ...personalData.map(r => base44.entities.PersonalData.delete(r.id)),
-        ...deletionRequests.map(r => base44.entities.DeletionRequest.delete(r.id)),
-        ...alerts.map(r => base44.entities.NotificationAlert.delete(r.id)),
-        ...searchQueries.map(r => base44.entities.SearchQueryFinding.delete(r.id)),
-        ...spamIncidents.map(r => base44.entities.SpamIncident.delete(r.id)),
-        ...financialAccounts.map(r => base44.entities.FinancialAccount.delete(r.id)),
-        ...suspiciousActivities.map(r => base44.entities.SuspiciousActivity.delete(r.id)),
+        ...scanResults.map(r => incognito.entities.ScanResult.delete(r.id)),
+        ...personalData.map(r => incognito.entities.PersonalData.delete(r.id)),
+        ...deletionRequests.map(r => incognito.entities.DeletionRequest.delete(r.id)),
+        ...alerts.map(r => incognito.entities.NotificationAlert.delete(r.id)),
+        ...searchQueries.map(r => incognito.entities.SearchQueryFinding.delete(r.id)),
+        ...spamIncidents.map(r => incognito.entities.SpamIncident.delete(r.id)),
+        ...financialAccounts.map(r => incognito.entities.FinancialAccount.delete(r.id)),
+        ...suspiciousActivities.map(r => incognito.entities.SuspiciousActivity.delete(r.id)),
       ]);
       queryClient.invalidateQueries();
       alert('All data has been wiped successfully.');

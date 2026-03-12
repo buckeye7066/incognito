@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,20 +30,20 @@ export default function MonitoringHub() {
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['monitoredAccounts'],
-    queryFn: () => base44.entities.MonitoredAccount.list()
+    queryFn: () => incognito.entities.MonitoredAccount.list()
   });
 
   const accounts = allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId);
 
   const { data: allCredentials = [] } = useQuery({
     queryKey: ['disposableCredentials'],
-    queryFn: () => base44.entities.DisposableCredential.list()
+    queryFn: () => incognito.entities.DisposableCredential.list()
   });
 
   const credentials = allCredentials.filter(c => !activeProfileId || c.profile_id === activeProfileId);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.MonitoredAccount.create(data),
+    mutationFn: (data) => incognito.entities.MonitoredAccount.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['monitoredAccounts']);
       setShowAddForm(false);
@@ -52,14 +52,14 @@ export default function MonitoringHub() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.MonitoredAccount.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.MonitoredAccount.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['monitoredAccounts']);
     }
   });
 
   const createCredentialMutation = useMutation({
-    mutationFn: (data) => base44.entities.DisposableCredential.create(data),
+    mutationFn: (data) => incognito.entities.DisposableCredential.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['disposableCredentials']);
     }
@@ -107,7 +107,7 @@ export default function MonitoringHub() {
     setMonitoring(true);
     try {
       // Get personal data for this profile
-      const allData = await base44.entities.PersonalData.list();
+      const allData = await incognito.entities.PersonalData.list();
       const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
 
       if (profileData.length === 0) {
@@ -124,7 +124,7 @@ export default function MonitoringHub() {
           Check spam folders, phishing attempts, and suspicious senders.
           Return findings as JSON array.`;
 
-          const result = await base44.integrations.Core.InvokeLLM({
+          const result = await incognito.integrations.Core.InvokeLLM({
             prompt,
             add_context_from_internet: true,
             response_json_schema: {
@@ -147,7 +147,7 @@ export default function MonitoringHub() {
 
           if (result.spam_found && result.spam_found.length > 0) {
             for (const spam of result.spam_found) {
-              await base44.entities.SpamIncident.create({
+              await incognito.entities.SpamIncident.create({
                 profile_id: activeProfileId,
                 incident_type: 'email',
                 source_identifier: spam.source,
@@ -178,7 +178,7 @@ export default function MonitoringHub() {
 
     setDarkWebScanning(true);
     try {
-      const allData = await base44.entities.PersonalData.list();
+      const allData = await incognito.entities.PersonalData.list();
       const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
 
       if (profileData.length === 0) {
@@ -194,7 +194,7 @@ export default function MonitoringHub() {
         For each finding, provide: source_name, risk_score, data_exposed, details.
         Return JSON array of findings.`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
+        const result = await incognito.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
           response_json_schema: {
@@ -218,7 +218,7 @@ export default function MonitoringHub() {
 
         if (result.findings && result.findings.length > 0) {
           for (const finding of result.findings) {
-            await base44.entities.ScanResult.create({
+            await incognito.entities.ScanResult.create({
               profile_id: activeProfileId,
               personal_data_id: data.id,
               source_name: finding.source_name,
@@ -254,7 +254,7 @@ export default function MonitoringHub() {
 
     setSocialMediaScanning(true);
     try {
-      const response = await base44.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+      const response = await incognito.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
       alert(response.data.message);
       queryClient.invalidateQueries(['socialMediaMentions']);
       queryClient.invalidateQueries(['socialMediaFindings']);

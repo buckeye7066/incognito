@@ -36,7 +36,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Code, Lock, Bell, CreditCard } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
@@ -72,12 +72,12 @@ export default function Layout({ children, currentPageName }) {
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => base44.entities.Profile.list()
+    queryFn: () => incognito.entities.Profile.list()
   });
 
   const { data: currentUser } = useQuery({
     queryKey: ['currentUser'],
-    queryFn: () => base44.auth.me()
+    queryFn: () => incognito.auth.me()
   });
 
   // Load active profile: prefer saved, fall back to default/first
@@ -97,7 +97,7 @@ export default function Layout({ children, currentPageName }) {
   };
 
   const handleCreateProfile = async (formData) => {
-    await base44.entities.Profile.create(formData);
+    await incognito.entities.Profile.create(formData);
     refetchProfiles();
     setShowProfileModal(false);
   };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,22 +19,22 @@ export default function AIInsights() {
 
   const { data: allInsights = [] } = useQuery({
     queryKey: ['aiInsights'],
-    queryFn: () => base44.entities.AIInsight.list()
+    queryFn: () => incognito.entities.AIInsight.list()
   });
 
   const { data: allReports = [] } = useQuery({
     queryKey: ['digitalFootprintReports'],
-    queryFn: () => base44.entities.DigitalFootprintReport.list()
+    queryFn: () => incognito.entities.DigitalFootprintReport.list()
   });
 
   const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   const insights = allInsights.filter(i => !activeProfileId || i.profile_id === activeProfileId);
@@ -45,21 +45,21 @@ export default function AIInsights() {
   const latestReport = reports.sort((a, b) => new Date(b.report_date) - new Date(a.report_date))[0];
 
   const createInsightMutation = useMutation({
-    mutationFn: (data) => base44.entities.AIInsight.create(data),
+    mutationFn: (data) => incognito.entities.AIInsight.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['aiInsights']);
     }
   });
 
   const createReportMutation = useMutation({
-    mutationFn: (data) => base44.entities.DigitalFootprintReport.create(data),
+    mutationFn: (data) => incognito.entities.DigitalFootprintReport.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['digitalFootprintReports']);
     }
   });
 
   const createNotificationMutation = useMutation({
-    mutationFn: (data) => base44.entities.NotificationAlert.create(data),
+    mutationFn: (data) => incognito.entities.NotificationAlert.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['notificationAlerts']);
     }
@@ -75,7 +75,7 @@ export default function AIInsights() {
 
     try {
       // 0. Exposure Forewarning - Proactive Threat Detection
-      const forewarningAnalysis = await base44.integrations.Core.InvokeLLM({
+      const forewarningAnalysis = await incognito.integrations.Core.InvokeLLM({
         prompt: `IMPORTANT:
 Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided OSINT data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
 
@@ -153,7 +153,7 @@ Include tools, websites, or services needed. Make pathways actionable and clear.
         });
       }
       // 1. Pattern Analysis
-      const patternAnalysis = await base44.integrations.Core.InvokeLLM({
+      const patternAnalysis = await incognito.integrations.Core.InvokeLLM({
         prompt: `IMPORTANT:
 Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
 
@@ -217,7 +217,7 @@ Make recommendations actionable with specific instructions.`,
       }
 
       // 2. Risk Predictions
-      const riskPrediction = await base44.integrations.Core.InvokeLLM({
+      const riskPrediction = await incognito.integrations.Core.InvokeLLM({
         prompt: `IMPORTANT:
 Never fabricate breach data, impersonation findings, personal records, or any PII that was not explicitly found in the provided data. If unsure, state uncertainty clearly. Never guess. Never invent people, platforms, or profiles.
 
@@ -275,7 +275,7 @@ Step 3: [completion criteria]`,
       }
 
       // Check for new breaches in monitored databases
-      const newBreachCheck = await base44.integrations.Core.InvokeLLM({
+      const newBreachCheck = await incognito.integrations.Core.InvokeLLM({
         prompt: `IMPORTANT:
 Never fabricate breach data, impersonation findings, personal records, or any PII. Only report REAL, VERIFIABLE breaches from trusted sources. If unsure, state uncertainty clearly. Never guess. Never invent breaches, platforms, or profiles.
 
@@ -323,13 +323,13 @@ Only report if there are genuinely NEW breaches. Be accurate.`,
       // Spam pattern analysis
       const { data: spamIncidents = [] } = await queryClient.fetchQuery({
         queryKey: ['spamIncidents'],
-        queryFn: () => base44.entities.SpamIncident.list()
+        queryFn: () => incognito.entities.SpamIncident.list()
       });
 
       const profileSpam = spamIncidents.filter(s => s.profile_id === activeProfileId);
 
       if (profileSpam.length > 0) {
-        const spamAnalysis = await base44.integrations.Core.InvokeLLM({
+        const spamAnalysis = await incognito.integrations.Core.InvokeLLM({
           prompt: `IMPORTANT:
 Never fabricate data sources, spam origins, or any findings. Only analyze the actual data provided. If unsure, state uncertainty clearly. Never guess.
 
@@ -385,7 +385,7 @@ IDENTIFY:
       // 3. Mitigation Strategies
       const highRiskResults = scanResults.filter(r => r.risk_score >= 70);
       if (highRiskResults.length > 0) {
-        const mitigationStrategy = await base44.integrations.Core.InvokeLLM({
+        const mitigationStrategy = await incognito.integrations.Core.InvokeLLM({
           prompt: `IMPORTANT:
 Never fabricate recommendations or findings. Only provide strategies based on the actual exposures provided. If unsure, state uncertainty clearly.
 
@@ -463,7 +463,7 @@ Go beyond simple deletion. Include:
                        recentAvg > avgRiskScore + 5 ? 'worsening' : 'stable';
 
       // Generate comprehensive report with AI
-      const reportData = await base44.integrations.Core.InvokeLLM({
+      const reportData = await incognito.integrations.Core.InvokeLLM({
         prompt: `IMPORTANT:
 Never fabricate breach data, impersonation findings, personal records, or any PII. Only report actual findings from the data provided. If unsure, state uncertainty clearly. Never invent people, platforms, or profiles.
 

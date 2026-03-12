@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,32 +24,32 @@ export default function ThreatIntelligence() {
   // Fetch all relevant data for correlation
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: socialFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],
-    queryFn: () => base44.entities.SocialMediaFinding.list()
+    queryFn: () => incognito.entities.SocialMediaFinding.list()
   });
 
   const { data: searchFindings = [] } = useQuery({
     queryKey: ['searchQueryFindings'],
-    queryFn: () => base44.entities.SearchQueryFinding.list()
+    queryFn: () => incognito.entities.SearchQueryFinding.list()
   });
 
   const { data: mentions = [] } = useQuery({
     queryKey: ['socialMediaMentions'],
-    queryFn: () => base44.entities.SocialMediaMention.list()
+    queryFn: () => incognito.entities.SocialMediaMention.list()
   });
 
   const { data: alerts = [] } = useQuery({
     queryKey: ['notificationAlerts'],
-    queryFn: () => base44.entities.NotificationAlert.list()
+    queryFn: () => incognito.entities.NotificationAlert.list()
   });
 
   const { data: personalData = [] } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   // Filter by profile
@@ -158,7 +158,7 @@ Priority-ordered actions:
 
 Return structured JSON with all analysis.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await incognito.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {
@@ -226,7 +226,7 @@ Return structured JSON with all analysis.`;
       setAnalysisResult(result);
 
       // Create AI insight record
-      await base44.entities.AIInsight.create({
+      await incognito.entities.AIInsight.create({
         profile_id: activeProfileId,
         insight_type: 'pattern_analysis',
         title: 'Threat Intelligence Analysis',

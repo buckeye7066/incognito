@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,17 +29,17 @@ export default function FixExposure() {
   // Fetch exposure data
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: socialFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],
-    queryFn: () => base44.entities.SocialMediaFinding.list()
+    queryFn: () => incognito.entities.SocialMediaFinding.list()
   });
 
   const { data: fixLogs = [], refetch: refetchLogs } = useQuery({
     queryKey: ['exposureFixLogs'],
-    queryFn: () => base44.entities.ExposureFixLog.list()
+    queryFn: () => incognito.entities.ExposureFixLog.list()
   });
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function FixExposure() {
             misused_data_details: exposure.misused_data_details
           };
 
-      const result = await base44.functions.invoke('fixExposure', {
+      const result = await incognito.functions.invoke('fixExposure', {
         exposureId,
         exposureType: actionType,
         profileId: activeProfileId,
@@ -99,7 +99,7 @@ export default function FixExposure() {
   const generateEvidencePacket = async () => {
     setActionLoading(prev => ({ ...prev, evidence: true }));
     try {
-      const result = await base44.functions.invoke('generateEvidencePacket', {
+      const result = await incognito.functions.invoke('generateEvidencePacket', {
         findingId: exposureId,
         profileId: activeProfileId
       });
@@ -121,7 +121,7 @@ export default function FixExposure() {
     setActionLoading(prev => ({ ...prev, classAction: true }));
     try {
       const companyName = exposure.source_name || exposure.platform;
-      const result = await base44.functions.invoke('checkClassActions', {
+      const result = await incognito.functions.invoke('checkClassActions', {
         companyName,
         breachName: companyName
       });
@@ -141,7 +141,7 @@ export default function FixExposure() {
   const findAttorneys = async () => {
     setActionLoading(prev => ({ ...prev, attorney: true }));
     try {
-      const result = await base44.functions.invoke('findAttorneys', {
+      const result = await incognito.functions.invoke('findAttorneys', {
         exposureType: exposure.type === 'social_finding' ? 'impersonation' : 'data_broker'
       });
       

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText } from 'lucide-react';
 import CreditFreezeCard from '../components/dashboard/CreditFreezeCard';
@@ -23,32 +23,32 @@ export default function Dashboard() {
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => base44.entities.ScanResult.list()
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: allSearchQueries = [] } = useQuery({
     queryKey: ['searchQueryFindings'],
-    queryFn: () => base44.entities.SearchQueryFinding.list()
+    queryFn: () => incognito.entities.SearchQueryFinding.list()
   });
 
   const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
-    queryFn: () => base44.entities.DeletionRequest.list()
+    queryFn: () => incognito.entities.DeletionRequest.list()
   });
 
   const { data: allProfiles = [] } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => base44.entities.Profile.list()
+    queryFn: () => incognito.entities.Profile.list()
   });
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['financialAccounts'],
-    queryFn: () => base44.entities.FinancialAccount.list()
+    queryFn: () => incognito.entities.FinancialAccount.list()
   });
 
   const activeProfile = allProfiles.find(p => p.id === activeProfileId);
@@ -104,14 +104,14 @@ export default function Dashboard() {
       // Step 1: Check data brokers
       setScanStatus('Scanning 120+ data broker sites...');
       setScanProgress(20);
-      await base44.functions.invoke('detectSearchQueries', { profileId: activeProfileId });
+      await incognito.functions.invoke('detectSearchQueries', { profileId: activeProfileId });
       
       // Step 2: Check breach databases
       setScanStatus('Checking breach databases...');
       setScanProgress(50);
       const emails = personalData.filter(d => d.data_type === 'email' && d.monitoring_enabled);
       if (emails.length > 0) {
-        await base44.functions.invoke('checkBreaches', {
+        await incognito.functions.invoke('checkBreaches', {
           profileId: activeProfileId,
           identifiers: emails.map(e => ({ id: e.id, data_type: e.data_type, value: e.value }))
         });
@@ -120,7 +120,7 @@ export default function Dashboard() {
       // Step 3: Check social media
       setScanStatus('Scanning social media...');
       setScanProgress(80);
-      await base44.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+      await incognito.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
 
       setScanProgress(100);
       setScanStatus('Scan complete!');

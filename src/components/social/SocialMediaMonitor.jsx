@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Loader2, MessageCircle, AlertTriangle, TrendingUp, Shield, ExternalLink } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -21,14 +21,14 @@ export default function SocialMediaMonitor({ profileId }) {
 
   const { data: allMentions = [] } = useQuery({
     queryKey: ['socialMediaMentions'],
-    queryFn: () => base44.entities.SocialMediaMention.list(),
+    queryFn: () => incognito.entities.SocialMediaMention.list(),
     enabled: !!profileId
   });
 
   const mentions = allMentions.filter(m => m.profile_id === profileId);
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }) => base44.entities.SocialMediaMention.update(id, { status }),
+    mutationFn: ({ id, status }) => incognito.entities.SocialMediaMention.update(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries(['socialMediaMentions']);
     }
@@ -37,7 +37,7 @@ export default function SocialMediaMonitor({ profileId }) {
   const handleMonitor = async () => {
     setMonitoring(true);
     try {
-      const response = await base44.functions.invoke('monitorSocialMedia', { profileId });
+      const response = await incognito.functions.invoke('monitorSocialMedia', { profileId });
       queryClient.invalidateQueries(['socialMediaMentions']);
       queryClient.invalidateQueries(['socialMediaFindings']);
       queryClient.invalidateQueries(['notificationAlerts']);

@@ -10,7 +10,7 @@ import {
   Loader2, Mail, Globe, Phone, FileText, Copy, ExternalLink, 
   CheckCircle, AlertTriangle, Send, Printer, Shield, Clock
 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -31,7 +31,7 @@ export default function AutomatedDeletionModal({
   const handleGenerateRequest = async () => {
     setLoading(true);
     try {
-      const response = await base44.functions.invoke('automateGDPRDeletion', {
+      const response = await incognito.functions.invoke('automateGDPRDeletion', {
         findingId: finding.id,
         findingType,
         profileId
@@ -48,7 +48,7 @@ export default function AutomatedDeletionModal({
   };
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }) => base44.entities.DeletionRequest.update(id, { status }),
+    mutationFn: ({ id, status }) => incognito.entities.DeletionRequest.update(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries(['deletionRequests']);
     }

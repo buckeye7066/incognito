@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Brain, Loader2, MapPin, Clock, User, Globe, Scale, Briefcase } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import RiskBadge from '../shared/RiskBadge';
 
 export default function FindingDetailModal({ finding, open, onClose }) {
@@ -41,7 +41,7 @@ Provide:
 9. NEXT_STEPS: Exact step-by-step process to pursue legal action
 10. ESTIMATED_COSTS: Legal fees, court costs, and potential recovery amounts`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await incognito.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {
@@ -165,7 +165,7 @@ Provide a plain language explanation covering:
 
 Write as if you're talking to a friend. No jargon. Be conversational but informative.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await incognito.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: true,
         response_json_schema: {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +25,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
 
     setGenerating(true);
     try {
-      const { base44 } = await import('@/api/base44Client');
-      const response = await base44.functions.invoke('generateVirtualCard', {
+      const response = await incognito.functions.invoke('generateVirtualCard', {
         profileId,
         ...cardForm
       });
@@ -47,8 +47,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
 
     setGenerating(true);
     try {
-      const { base44 } = await import('@/api/base44Client');
-      const response = await base44.functions.invoke('generateEmailAlias', {
+      const response = await incognito.functions.invoke('generateEmailAlias', {
         profileId,
         ...emailForm
       });

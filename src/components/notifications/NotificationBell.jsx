@@ -1,5 +1,5 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
@@ -24,7 +24,7 @@ const severityColors = {
 export default function NotificationBell({ activeProfileId }) {
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['notificationAlerts'],
-    queryFn: () => base44.entities.NotificationAlert.list(),
+    queryFn: () => incognito.entities.NotificationAlert.list(),
     refetchInterval: 60000 // Refetch every minute
   });
 
@@ -69,7 +69,7 @@ export default function NotificationBell({ activeProfileId }) {
                 }`}
                 onClick={() => {
                   if (!notification.is_read) {
-                    base44.entities.NotificationAlert.update(notification.id, { is_read: true });
+                    incognito.entities.NotificationAlert.update(notification.id, { is_read: true });
                   }
                 }}
               >

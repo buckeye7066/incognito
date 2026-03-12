@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ImpersonationFindings from '../social/ImpersonationFindings';
 
@@ -81,7 +81,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
   const { data: allSocialProfiles = [] } = useQuery({
     queryKey: ['socialMediaProfiles'],
-    queryFn: () => base44.entities.SocialMediaProfile.list(),
+    queryFn: () => incognito.entities.SocialMediaProfile.list(),
     enabled: !!profile
   });
 
@@ -89,14 +89,14 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
   const { data: allSocialFindings = [] } = useQuery({
     queryKey: ['socialMediaFindings'],
-    queryFn: () => base44.entities.SocialMediaFinding.list(),
+    queryFn: () => incognito.entities.SocialMediaFinding.list(),
     enabled: !!profile
   });
 
   const socialFindings = allSocialFindings.filter(f => f.profile_id === profile?.id);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PersonalData.create(data),
+    mutationFn: (data) => incognito.entities.PersonalData.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
       setShowAddForm(false);
@@ -111,7 +111,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   });
 
   const createSocialMutation = useMutation({
-    mutationFn: (data) => base44.entities.SocialMediaProfile.create(data),
+    mutationFn: (data) => incognito.entities.SocialMediaProfile.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['socialMediaProfiles']);
       setShowAddSocialForm(false);
@@ -126,14 +126,14 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PersonalData.delete(id),
+    mutationFn: (id) => incognito.entities.PersonalData.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
     }
   });
 
   const deleteSocialMutation = useMutation({
-    mutationFn: (id) => base44.entities.SocialMediaProfile.delete(id),
+    mutationFn: (id) => incognito.entities.SocialMediaProfile.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['socialMediaProfiles']);
     }
@@ -141,7 +141,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
   const toggleMonitoringMutation = useMutation({
     mutationFn: ({ id, monitoring_enabled }) => 
-      base44.entities.PersonalData.update(id, { monitoring_enabled }),
+      incognito.entities.PersonalData.update(id, { monitoring_enabled }),
     onSuccess: () => {
       queryClient.invalidateQueries(['personalData']);
     }
@@ -182,7 +182,7 @@ For EACH distinct source where this data appears, provide:
 - data_exposed: array of data types found
 Return JSON array of findings.`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
+        const result = await incognito.integrations.Core.InvokeLLM({
           prompt,
           add_context_from_internet: true,
           response_json_schema: {
@@ -207,7 +207,7 @@ Return JSON array of findings.`;
 
         if (result.findings && result.findings.length > 0) {
           for (const finding of result.findings) {
-            await base44.entities.ScanResult.create({
+            await incognito.entities.ScanResult.create({
               profile_id: profile.id,
               personal_data_id: data.id,
               source_name: finding.source_name,
@@ -223,7 +223,7 @@ Return JSON array of findings.`;
         }
       }
 
-      await base44.entities.Profile.update(profile.id, {
+      await incognito.entities.Profile.update(profile.id, {
         last_scan_date: new Date().toISOString().split('T')[0]
       });
 
@@ -248,7 +248,7 @@ Return JSON array of findings.`;
 
     setCheckingImpersonation(true);
     try {
-      const response = await base44.functions.invoke('checkSocialMediaImpersonation', { 
+      const response = await incognito.functions.invoke('checkSocialMediaImpersonation', { 
         profileId: profile.id 
       });
 

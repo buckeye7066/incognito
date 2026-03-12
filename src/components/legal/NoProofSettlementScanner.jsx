@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +41,7 @@ export default function NoProofSettlementScanner({ profileId }) {
     setExpandedIdx(null);
 
     try {
-      const resp = await base44.functions.invoke('searchNoProofSettlements', {
+      const resp = await incognito.functions.invoke('searchNoProofSettlements', {
         profileId,
       });
       setResults(resp.data || resp);

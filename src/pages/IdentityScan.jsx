@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -201,7 +201,7 @@ export default function IdentityScan() {
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
@@ -215,10 +215,10 @@ export default function IdentityScan() {
 
     setScanning(true);
     try {
-      const response = await base44.functions.invoke('runIdentityScan', { profileId: activeProfileId });
+      const response = await incognito.functions.invoke('runIdentityScan', { profileId: activeProfileId });
       
       // Get correlation data
-      const correlationResponse = await base44.functions.invoke('correlateProfileData', { 
+      const correlationResponse = await incognito.functions.invoke('correlateProfileData', { 
         profileId: activeProfileId 
       });
       

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Globe, Loader2, Eye, CheckCircle, Trash2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -29,21 +29,21 @@ export default function SearchQueryFindings({ profileId }) {
 
   const { data: allFindings = [] } = useQuery({
     queryKey: ['searchQueryFindings'],
-    queryFn: () => base44.entities.SearchQueryFinding.list(),
+    queryFn: () => incognito.entities.SearchQueryFinding.list(),
     enabled: !!profileId
   });
 
   const findings = allFindings.filter(f => f.profile_id === profileId);
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }) => base44.entities.SearchQueryFinding.update(id, { status }),
+    mutationFn: ({ id, status }) => incognito.entities.SearchQueryFinding.update(id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries(['searchQueryFindings']);
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.SearchQueryFinding.delete(id),
+    mutationFn: (id) => incognito.entities.SearchQueryFinding.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['searchQueryFindings']);
     }
@@ -52,7 +52,7 @@ export default function SearchQueryFindings({ profileId }) {
   const handleDetectSearches = async () => {
     setDetecting(true);
     try {
-      const response = await base44.functions.invoke('detectSearchQueries', { profileId });
+      const response = await incognito.functions.invoke('detectSearchQueries', { profileId });
       queryClient.invalidateQueries(['searchQueryFindings']);
       queryClient.invalidateQueries(['notificationAlerts']);
       alert(response.data.message);

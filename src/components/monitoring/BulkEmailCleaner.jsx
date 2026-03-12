@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Trash2, Mail, Loader2, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 
 export default function BulkEmailCleaner() {
   const [loading, setLoading] = useState(false);

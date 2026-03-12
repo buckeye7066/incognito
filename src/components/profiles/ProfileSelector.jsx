@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Plus, User } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const colorClasses = {
 export default function ProfileSelector({ activeProfile, onProfileChange, onCreateNew }) {
   const { data: profiles = [] } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => base44.entities.Profile.list()
+    queryFn: () => incognito.entities.Profile.list()
   });
 
   const getInitials = (name) => {

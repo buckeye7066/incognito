@@ -877,7 +877,7 @@ ${(noticeText || '').slice(0, 8000)}
 // ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
-export const base44 = {
+export const incognito = {
   auth: {
     me: async () => ({ id: 'local_user', name: 'Local User' }),
     requireUser: () => ({ id: 'local_user', name: 'Local User' }),
@@ -908,41 +908,4 @@ export const base44 = {
   asServiceRole: { entities },
 };
 
-export async function migrateFromBase44() {
-  const MIGRATION_KEY = 'incognito_base44_migration_done';
-  if (localStorage.getItem(MIGRATION_KEY)) return;
-
-  const appId = localStorage.getItem('base44_app_id');
-  const serverUrl = localStorage.getItem('base44_server_url') || 'https://base44.app';
-  const token = localStorage.getItem('base44_access_token');
-
-  if (!appId || !token) {
-    localStorage.setItem(MIGRATION_KEY, 'skipped');
-    return;
-  }
-
-  let totalRecovered = 0;
-  for (const entityName of ENTITY_NAMES) {
-    const localKey = STORAGE_PREFIX + entityName;
-    const existing = localStorage.getItem(localKey);
-    if (existing && JSON.parse(existing).length > 0) continue;
-    try {
-      const url = `${serverUrl}/api/apps/${appId}/entities/${entityName}`;
-      const resp = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}`, 'X-App-Id': appId },
-      });
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      const items = Array.isArray(data) ? data : (data?.results || data?.items || []);
-      if (items.length > 0) {
-        localStorage.setItem(localKey, JSON.stringify(items));
-        totalRecovered += items.length;
-      }
-    } catch { /* continue */ }
-  }
-
-  localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
-  if (totalRecovered > 0) window.location.reload();
-}
-
-export default base44;
+export default incognito;

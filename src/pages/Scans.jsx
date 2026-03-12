@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,21 +20,21 @@ export default function Scans() {
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
-    queryFn: () => base44.entities.PersonalData.list()
+    queryFn: () => incognito.entities.PersonalData.list()
   });
 
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
 
   const { data: userPreferences = [], refetch: refetchPreferences } = useQuery({
     queryKey: ['userPreferences'],
-    queryFn: () => base44.entities.UserPreferences.list()
+    queryFn: () => incognito.entities.UserPreferences.list()
   });
 
   const preference = userPreferences[0] || {};
   const darkWebEnabled = preference.dark_web_scan_enabled || false;
 
   const createResultMutation = useMutation({
-    mutationFn: (data) => base44.entities.ScanResult.create(data),
+    mutationFn: (data) => incognito.entities.ScanResult.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['scanResults']);
     }
@@ -43,9 +43,9 @@ export default function Scans() {
   const updatePreferencesMutation = useMutation({
     mutationFn: (data) => {
       if (preference.id) {
-        return base44.entities.UserPreferences.update(preference.id, data);
+        return incognito.entities.UserPreferences.update(preference.id, data);
       } else {
-        return base44.entities.UserPreferences.create(data);
+        return incognito.entities.UserPreferences.create(data);
       }
     },
     onSuccess: () => {
@@ -68,7 +68,7 @@ export default function Scans() {
 
       try {
         // Call REAL Have I Been Pwned API
-        const response = await base44.functions.invoke('checkHIBP', { email: emailData.value });
+        const response = await incognito.functions.invoke('checkHIBP', { email: emailData.value });
         
         if (response.data.found && response.data.breaches?.length > 0) {
           // Create scan results for REAL breaches
@@ -128,7 +128,7 @@ export default function Scans() {
 
       try {
         // Call REAL Have I Been Pwned API
-        const response = await base44.functions.invoke('checkHIBP', { email: emailData.value });
+        const response = await incognito.functions.invoke('checkHIBP', { email: emailData.value });
         
         if (response.data.found && response.data.breaches?.length > 0) {
           // Filter for sensitive/serious breaches for "dark web" category

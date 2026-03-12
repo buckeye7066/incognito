@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,7 +31,7 @@ export default function Notifications() {
 
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['notificationAlerts'],
-    queryFn: () => base44.entities.NotificationAlert.list()
+    queryFn: () => incognito.entities.NotificationAlert.list()
   });
 
   const notifications = allNotifications
@@ -39,14 +39,14 @@ export default function Notifications() {
     .sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.NotificationAlert.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.NotificationAlert.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['notificationAlerts']);
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.NotificationAlert.delete(id),
+    mutationFn: (id) => incognito.entities.NotificationAlert.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries(['notificationAlerts']);
     }

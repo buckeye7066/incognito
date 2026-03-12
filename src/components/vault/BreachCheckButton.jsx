@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +28,7 @@ export default function BreachCheckButton({ personalData, profileId }) {
         return;
       }
 
-      const response = await base44.functions.invoke('checkBreaches', {
+      const response = await incognito.functions.invoke('checkBreaches', {
         profileId,
         identifiers: checkableData
       });

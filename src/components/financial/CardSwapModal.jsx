@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ export default function CardSwapModal({ open, onClose, subscription, profileId }
   const generateReplacementCard = async () => {
     setStep(STEPS.GENERATING);
     try {
-      const resp = await base44.functions.invoke('generateVirtualCard', {
+      const resp = await incognito.functions.invoke('generateVirtualCard', {
         profileId,
         purpose: `Replace card for ${merchant}`,
         website: merchant,
@@ -88,7 +88,7 @@ export default function CardSwapModal({ open, onClose, subscription, profileId }
     if (deleteAfterSwap) {
       setAiLog(prev => [...prev, { type: 'info', text: 'After swap completes, the old card will be closed permanently.' }]);
       try {
-        await base44.functions.invoke('closeCard', { cardToken: subscription?.cardToken });
+        await incognito.functions.invoke('closeCard', { cardToken: subscription?.cardToken });
         setAiLog(prev => [...prev, { type: 'success', text: `Old card ••••${subscription?.lastFour} has been closed.` }]);
       } catch (err) {
         setAiLog(prev => [...prev, { type: 'error', text: `Could not close old card: ${err.message}` }]);
@@ -107,7 +107,7 @@ export default function CardSwapModal({ open, onClose, subscription, profileId }
     setAiLog(prev => [...prev, { type: 'info', text: `Closing card ••••${subscription?.lastFour} to block all future charges...` }]);
 
     try {
-      await base44.functions.invoke('closeCard', { cardToken: subscription?.cardToken });
+      await incognito.functions.invoke('closeCard', { cardToken: subscription?.cardToken });
       setAiLog(prev => [...prev, { type: 'success', text: `Card ••••${subscription?.lastFour} closed. ${merchant} can no longer charge this card.` }]);
     } catch (err) {
       setAiLog(prev => [...prev, { type: 'error', text: `Failed to close card: ${err.message}` }]);

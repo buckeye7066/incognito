@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,34 +58,34 @@ export default function FinancialMonitor() {
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['financialAccounts'],
-    queryFn: () => base44.entities.FinancialAccount.list()
+    queryFn: () => incognito.entities.FinancialAccount.list()
   });
 
   const { data: allActivities = [] } = useQuery({
     queryKey: ['suspiciousActivities'],
-    queryFn: () => base44.entities.SuspiciousActivity.list()
+    queryFn: () => incognito.entities.SuspiciousActivity.list()
   });
 
   const accounts = allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId);
   const activities = allActivities.filter(a => !activeProfileId || a.profile_id === activeProfileId);
 
   const createAccount = useMutation({
-    mutationFn: (data) => base44.entities.FinancialAccount.create({ ...data, profile_id: activeProfileId }),
+    mutationFn: (data) => incognito.entities.FinancialAccount.create({ ...data, profile_id: activeProfileId }),
     onSuccess: () => { queryClient.invalidateQueries(['financialAccounts']); setShowAddAccount(false); setAccountForm({ account_type: 'checking', institution_name: '', last_four: '', nickname: '', alert_threshold: 500, monitoring_enabled: true }); }
   });
 
   const deleteAccount = useMutation({
-    mutationFn: (id) => base44.entities.FinancialAccount.delete(id),
+    mutationFn: (id) => incognito.entities.FinancialAccount.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['financialAccounts'])
   });
 
   const logActivity = useMutation({
-    mutationFn: (data) => base44.entities.SuspiciousActivity.create({ ...data, profile_id: activeProfileId, amount: data.amount ? parseFloat(data.amount) : undefined }),
+    mutationFn: (data) => incognito.entities.SuspiciousActivity.create({ ...data, profile_id: activeProfileId, amount: data.amount ? parseFloat(data.amount) : undefined }),
     onSuccess: () => { queryClient.invalidateQueries(['suspiciousActivities']); setShowLogActivity(false); }
   });
 
   const updateActivity = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.SuspiciousActivity.update(id, data),
+    mutationFn: ({ id, data }) => incognito.entities.SuspiciousActivity.update(id, data),
     onSuccess: () => queryClient.invalidateQueries(['suspiciousActivities'])
   });
 

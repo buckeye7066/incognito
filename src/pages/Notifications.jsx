@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -27,7 +28,7 @@ export default function Notifications() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('all');
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: allNotifications = [] } = useQuery({
     queryKey: ['notificationAlerts'],

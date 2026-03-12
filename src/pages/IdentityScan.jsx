@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -197,7 +198,7 @@ export default function IdentityScan() {
   const [expandedCards, setExpandedCards] = useState({});
   const [activeTab, setActiveTab] = useState('all');
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],

@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,7 +36,7 @@ export default function Findings() {
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState(null);
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: allScanResults = [], isLoading } = useQuery({
     queryKey: ['scanResults'],

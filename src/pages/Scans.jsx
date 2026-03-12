@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +17,7 @@ export default function Scans() {
   const [showDarkWebConsent, setShowDarkWebConsent] = useState(false);
   const [darkWebScanning, setDarkWebScanning] = useState(false);
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],

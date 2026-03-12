@@ -1,3 +1,4 @@
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
@@ -21,7 +22,7 @@ export default function LegalSupport() {
   const [attorneys, setAttorneys] = useState([]);
   const [generatingPacket, setGeneratingPacket] = useState(null);
 
-  const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const { activeProfileId } = useActiveProfile();
 
   const { data: scanResults = [] } = useQuery({
     queryKey: ['scanResults'],

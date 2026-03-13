@@ -48,8 +48,33 @@ export default function Findings() {
     queryFn: () => incognito.entities.SearchQueryFinding.list()
   });
 
+  const { data: allPersonalData2 = [] } = useQuery({
+    queryKey: ['personalData'],
+    queryFn: () => incognito.entities.PersonalData.list()
+  });
+
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
   const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
+  const myIdentifiers = allPersonalData2.filter(d => !activeProfileId || d.profile_id === activeProfileId);
+
+  const getMatchedIdentifier = (result) => {
+    if (result.metadata?.email) {
+      return { type: 'email', value: result.metadata.email, masked: maskEmail(result.metadata.email) };
+    }
+    if (result.personal_data_id) {
+      const pd = myIdentifiers.find(d => d.id === result.personal_data_id);
+      if (pd) {
+        let masked = pd.value;
+        if (pd.data_type === 'email') masked = maskEmail(pd.value);
+        else if (pd.data_type === 'phone') masked = maskPhone(pd.value);
+        else if (pd.data_type === 'address') masked = maskAddress(pd.value);
+        else if (pd.data_type === 'credit_card') masked = '•••• ' + pd.value.slice(-4);
+        else if (pd.value?.length > 4) masked = pd.value.slice(0, 2) + '•••' + pd.value.slice(-2);
+        return { type: pd.data_type, value: pd.value, masked };
+      }
+    }
+    return null;
+  };
 
   // Combine leaks and inquiries
   const leaks = scanResults.map(r => ({ ...r, type: 'leak' }));
@@ -631,6 +656,18 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                             <p className="text-gray-300 text-sm mb-1">
                               {result.source_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </p>
+                            {(() => {
+                              const matched = getMatchedIdentifier(result);
+                              if (matched) return (
+                                <p className="text-red-300 text-xs mb-1 flex items-center gap-1">
+                                  <span className="font-semibold">Matched:</span>
+                                  <span className="bg-red-500/20 px-1.5 py-0.5 rounded font-mono">
+                                    {matched.type.replace(/_/g, ' ')} — {matched.masked}
+                                  </span>
+                                </p>
+                              );
+                              return null;
+                            })()}
                             {result.scan_date && (
                               <p className="text-gray-400 text-xs">
                                 Discovered: {new Date(result.scan_date).toLocaleDateString()}

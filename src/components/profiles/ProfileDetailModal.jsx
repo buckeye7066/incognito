@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { incognito } from '@/api/client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
@@ -28,7 +29,7 @@ const DATA_TYPES = [
   { value: 'drivers_license', label: 'Driver\'s License', icon: '🪪' },
   { value: 'passport', label: 'Passport Number', icon: '🛂' },
   { value: 'green_card', label: 'Green Card Number', icon: '💳' },
-  { value: 'credit_card', label: 'Credit Card (Last 4)', icon: '💳' },
+  { value: 'credit_card', label: 'Credit Card Number', icon: '💳' },
   { value: 'bank_account', label: 'Bank Account Number', icon: '🏦' },
   { value: 'tax_id', label: 'Tax ID / EIN', icon: '📄' },
   { value: 'medical_id', label: 'Medical/Insurance ID', icon: '🏥' },
@@ -263,10 +264,54 @@ Return JSON array of findings.`;
     }
   };
 
-  const maskValue = (value) => {
+  const { data: allScanResults = [] } = useQuery({
+    queryKey: ['scanResults'],
+    queryFn: () => incognito.entities.ScanResult.list(),
+    enabled: !!profile
+  });
+
+  const { data: allSearchFindings = [] } = useQuery({
+    queryKey: ['searchQueryFindings'],
+    queryFn: () => incognito.entities.SearchQueryFinding.list(),
+    enabled: !!profile
+  });
+
+  const profileScans = allScanResults.filter(r => r.profile_id === profile?.id);
+  const profileSearches = allSearchFindings.filter(r => r.profile_id === profile?.id);
+
+  const getIdentifierHits = (item) => {
+    const breaches = profileScans.filter(s =>
+      s.personal_data_id === item.id ||
+      (item.data_type === 'email' && s.metadata?.email === item.value)
+    );
+    const searches = profileSearches.filter(s =>
+      s.data_found?.some(d => d.toLowerCase().includes(item.data_type.replace('_', ' ')))
+    );
+    return { breaches: breaches.length, searches: searches.length, total: breaches.length + searches.length };
+  };
+
+  const maskValue = (value, dataType) => {
     if (!value) return '';
+    if (dataType === 'credit_card') {
+      const digits = value.replace(/\D/g, '');
+      return `•••• •••• •••• ${digits.slice(-4)}`;
+    }
+    if (dataType === 'email') {
+      return value.replace(/(.{2}).+(@.+)/, "$1***$2");
+    }
+    if (dataType === 'phone') {
+      return value.replace(/\d(?=\d{4})/g, '*');
+    }
+    if (dataType === 'ssn' || dataType === 'bank_account') {
+      return '•••-••-' + value.slice(-4);
+    }
     if (value.length <= 4) return '•'.repeat(value.length);
     return value.slice(0, 2) + '•'.repeat(value.length - 4) + value.slice(-2);
+  };
+
+  const formatCardInput = (raw) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 16);
+    return digits.replace(/(.{4})/g, '$1 ').trim();
   };
 
   const colorClasses = {
@@ -397,14 +442,29 @@ Return JSON array of findings.`;
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-purple-200 text-sm">Value</Label>
+                    <Label className="text-purple-200 text-sm">
+                      {formData.data_type === 'credit_card' ? 'Full Card Number' : 'Value'}
+                    </Label>
                     <Input
-                      value={formData.value}
-                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                      placeholder="Enter the actual data"
-                      className="bg-slate-900/50 border-purple-500/30 text-white"
+                      value={formData.data_type === 'credit_card' ? formatCardInput(formData.value) : formData.value}
+                      onChange={(e) => {
+                        const raw = formData.data_type === 'credit_card'
+                          ? e.target.value.replace(/\D/g, '').slice(0, 16)
+                          : e.target.value;
+                        setFormData({ ...formData, value: raw });
+                      }}
+                      placeholder={formData.data_type === 'credit_card'
+                        ? '1234 5678 9012 3456'
+                        : 'Enter the actual data'}
+                      maxLength={formData.data_type === 'credit_card' ? 19 : undefined}
+                      className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
                       required
                     />
+                    {formData.data_type === 'credit_card' && (
+                      <p className="text-xs text-purple-400">
+                        Enter full number. Only the last 4 digits will be displayed.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-purple-200 text-sm">Notes (Optional)</Label>
@@ -453,8 +513,13 @@ Return JSON array of findings.`;
                 {profileData.length > 0 ? (
                   profileData.map((item) => {
                     const typeInfo = DATA_TYPES.find(t => t.value === item.data_type);
+                    const hits = getIdentifierHits(item);
                     return (
-                      <Card key={item.id} className="border-purple-500/20 bg-slate-800/30">
+                      <Card key={item.id} className={`bg-slate-800/30 ${
+                        hits.total > 0
+                          ? 'border-red-500/30'
+                          : 'border-purple-500/20'
+                      }`}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -466,8 +531,32 @@ Return JSON array of findings.`;
                                 )}
                               </div>
                               <p className="text-white font-mono text-sm mb-2">
-                                {showValues ? item.value : maskValue(item.value)}
+                                {showValues
+                                  ? (item.data_type === 'credit_card'
+                                      ? formatCardInput(item.value)
+                                      : item.value)
+                                  : maskValue(item.value, item.data_type)}
                               </p>
+                              {hits.total > 0 ? (
+                                <div className="flex flex-wrap gap-1.5 mb-1">
+                                  {hits.breaches > 0 && (
+                                    <Badge className="bg-red-600/20 text-red-300 border-red-600/40 text-[10px] px-1.5 py-0 gap-1">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      {hits.breaches} breach{hits.breaches !== 1 ? 'es' : ''}
+                                    </Badge>
+                                  )}
+                                  {hits.searches > 0 && (
+                                    <Badge className="bg-amber-600/20 text-amber-300 border-amber-600/40 text-[10px] px-1.5 py-0 gap-1">
+                                      {hits.searches} search exposure{hits.searches !== 1 ? 's' : ''}
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : item.monitoring_enabled ? (
+                                <div className="flex items-center gap-1 mb-1">
+                                  <ShieldCheck className="w-3 h-3 text-green-400" />
+                                  <span className="text-[10px] text-green-400">No exposures found</span>
+                                </div>
+                              ) : null}
                               {item.notes && (
                                 <p className="text-xs text-purple-300">{item.notes}</p>
                               )}

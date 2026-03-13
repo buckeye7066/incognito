@@ -12,6 +12,21 @@ export const AuthProvider = ({ children }) => {
     initLocalAuth();
   }, []);
 
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key?.startsWith('incognito_entity_')) {
+        initLocalAuth();
+      }
+    };
+    const handleFocus = () => initLocalAuth();
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   const initLocalAuth = async () => {
     try {
       const currentUser = await incognito.auth.me();

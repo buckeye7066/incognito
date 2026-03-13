@@ -16,25 +16,51 @@ export function setApiKeys(keys) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...keys }));
 }
 
+const CRITICAL_ENTITIES = ['Profile', 'PersonalData', 'UserPreferences'];
+
 function createEntityStore(entityName) {
   const storageKey = STORAGE_PREFIX + entityName;
+  const backupKey = storageKey + '_bak';
+  const isCritical = CRITICAL_ENTITIES.includes(entityName);
   let cache = null;
+
+  function readStorage(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
 
   function getAll() {
     if (cache !== null) return cache;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      cache = raw ? JSON.parse(raw) : [];
-      return cache;
-    } catch { cache = []; return cache; }
+    let data = readStorage(storageKey);
+    if (!data && isCritical) {
+      data = readStorage(backupKey);
+      if (data) {
+        console.warn(`[${entityName}] Restored ${data.length} items from backup`);
+        try { localStorage.setItem(storageKey, JSON.stringify(data)); } catch {}
+      }
+    }
+    cache = data || [];
+    return cache;
   }
 
   function saveAll(items) {
     cache = items;
-    localStorage.setItem(storageKey, JSON.stringify(items));
+    try {
+      const json = JSON.stringify(items);
+      localStorage.setItem(storageKey, json);
+      if (isCritical) {
+        localStorage.setItem(backupKey, json);
+      }
+    } catch (e) {
+      console.error(`[${entityName}] Storage write failed:`, e);
+    }
   }
 
   return {
+    _invalidateCache() { cache = null; },
+
     async list(sortField, limit) {
       const all = getAll();
       const needsCopy = (sortField && typeof sortField === 'string') || (typeof limit === 'number' && limit > 0);
@@ -110,6 +136,14 @@ const ENTITY_NAMES = [
 const entities = {};
 for (const name of ENTITY_NAMES) {
   entities[name] = createEntityStore(name);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    for (const store of Object.values(entities)) {
+      store._invalidateCache?.();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

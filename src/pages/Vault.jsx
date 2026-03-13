@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Lock, Eye, EyeOff, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import BreachCheckButton from '../components/vault/BreachCheckButton';
 
 const DATA_TYPES = [
@@ -23,7 +24,7 @@ const DATA_TYPES = [
   { value: 'drivers_license', label: 'Driver\'s License', icon: '🪪' },
   { value: 'passport', label: 'Passport Number', icon: '🛂' },
   { value: 'green_card', label: 'Green Card Number', icon: '💳' },
-  { value: 'credit_card', label: 'Credit Card (Last 4)', icon: '💳' },
+  { value: 'credit_card', label: 'Credit Card Number', icon: '💳' },
   { value: 'bank_account', label: 'Bank Account Number', icon: '🏦' },
   { value: 'tax_id', label: 'Tax ID / EIN', icon: '📄' },
   { value: 'medical_id', label: 'Medical/Insurance ID', icon: '🏥' },
@@ -55,7 +56,30 @@ export default function Vault() {
     queryFn: () => incognito.entities.PersonalData.list()
   });
 
+  const { data: allScanResults = [] } = useQuery({
+    queryKey: ['scanResults'],
+    queryFn: () => incognito.entities.ScanResult.list()
+  });
+
+  const { data: allSearchFindings = [] } = useQuery({
+    queryKey: ['searchQueryFindings'],
+    queryFn: () => incognito.entities.SearchQueryFinding.list()
+  });
+
   const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
+  const profileScans = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+  const profileSearches = allSearchFindings.filter(r => !activeProfileId || r.profile_id === activeProfileId);
+
+  const getIdentifierHits = (item) => {
+    const breaches = profileScans.filter(s =>
+      s.personal_data_id === item.id ||
+      (item.data_type === 'email' && s.metadata?.email === item.value)
+    );
+    const searches = profileSearches.filter(s =>
+      s.data_found?.some(d => d.toLowerCase().includes(item.data_type.replace('_', ' ')))
+    );
+    return { breaches: breaches.length, searches: searches.length, total: breaches.length + searches.length };
+  };
 
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.PersonalData.create(data),
@@ -103,7 +127,6 @@ export default function Vault() {
 
   const maskValue = (value, dataType) => {
     if (!value) return '';
-    // Enhanced masking based on data type
     if (dataType === 'email') {
       return value.replace(/(.{2}).+(@.+)/, "$1***$2");
     }
@@ -111,16 +134,23 @@ export default function Vault() {
       return value.replace(/\d(?=\d{4})/g, '*');
     }
     if (dataType === 'address') {
-      // Hide house number
       return value.replace(/^\d+\s+/, "*** ");
     }
-    if (dataType === 'ssn' || dataType === 'credit_card' || dataType === 'bank_account') {
-      // Only show last 4
-      return '***-**-' + value.slice(-4);
+    if (dataType === 'credit_card') {
+      const digits = value.replace(/\D/g, '');
+      const last4 = digits.slice(-4);
+      return `•••• •••• •••• ${last4}`;
     }
-    // Default masking
+    if (dataType === 'ssn' || dataType === 'bank_account') {
+      return '•••-••-' + value.slice(-4);
+    }
     if (value.length <= 4) return '•'.repeat(value.length);
     return value.slice(0, 2) + '•'.repeat(value.length - 4) + value.slice(-2);
+  };
+
+  const formatCardInput = (raw) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 16);
+    return digits.replace(/(.{4})/g, '$1 ').trim();
   };
 
   return (
@@ -200,14 +230,29 @@ export default function Vault() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-purple-200">Value</Label>
+                    <Label className="text-purple-200">
+                      {formData.data_type === 'credit_card' ? 'Full Card Number' : 'Value'}
+                    </Label>
                     <Input
-                      value={formData.value}
-                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                      placeholder="Enter the actual data"
-                      className="bg-slate-900/50 border-purple-500/30 text-white"
+                      value={formData.data_type === 'credit_card' ? formatCardInput(formData.value) : formData.value}
+                      onChange={(e) => {
+                        const raw = formData.data_type === 'credit_card'
+                          ? e.target.value.replace(/\D/g, '').slice(0, 16)
+                          : e.target.value;
+                        setFormData({ ...formData, value: raw });
+                      }}
+                      placeholder={formData.data_type === 'credit_card'
+                        ? '1234 5678 9012 3456'
+                        : 'Enter the actual data'}
+                      maxLength={formData.data_type === 'credit_card' ? 19 : undefined}
+                      className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
                       required
                     />
+                    {formData.data_type === 'credit_card' && (
+                      <p className="text-xs text-purple-400">
+                        Enter full number. Only the last 4 digits will be displayed.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -276,42 +321,73 @@ export default function Vault() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-lg bg-slate-900/50 border border-purple-500/10 hover:border-purple-500/30 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          {item.label && (
-                            <p className="text-xs text-purple-400 mb-1">{item.label}</p>
-                          )}
-                          <p className="text-white font-mono text-sm truncate">
-                            {showValues ? item.value : maskValue(item.value, item.data_type)}
-                          </p>
+                  {items.map((item) => {
+                    const hits = getIdentifierHits(item);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3 rounded-lg bg-slate-900/50 border transition-colors ${
+                          hits.total > 0
+                            ? 'border-red-500/30 hover:border-red-500/50'
+                            : 'border-purple-500/10 hover:border-purple-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            {item.label && (
+                              <p className="text-xs text-purple-400 mb-1">{item.label}</p>
+                            )}
+                            <p className="text-white font-mono text-sm truncate">
+                              {showValues
+                                ? (item.data_type === 'credit_card'
+                                    ? formatCardInput(item.value)
+                                    : item.value)
+                                : maskValue(item.value, item.data_type)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(item.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 w-8"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(item.id)}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 w-8"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {hits.total > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {hits.breaches > 0 && (
+                              <Badge className="bg-red-600/20 text-red-300 border-red-600/40 text-[10px] px-1.5 py-0 gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {hits.breaches} breach{hits.breaches !== 1 ? 'es' : ''}
+                              </Badge>
+                            )}
+                            {hits.searches > 0 && (
+                              <Badge className="bg-amber-600/20 text-amber-300 border-amber-600/40 text-[10px] px-1.5 py-0 gap-1">
+                                {hits.searches} search exposure{hits.searches !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : item.monitoring_enabled ? (
+                          <div className="flex items-center gap-1 mb-2">
+                            <ShieldCheck className="w-3 h-3 text-green-400" />
+                            <span className="text-[10px] text-green-400">No exposures found</span>
+                          </div>
+                        ) : null}
+                        <div className="flex items-center justify-between">
+                          <Switch
+                            checked={item.monitoring_enabled}
+                            onCheckedChange={(checked) =>
+                              toggleMonitoringMutation.mutate({ id: item.id, monitoring_enabled: checked })
+                            }
+                          />
+                          <span className="text-xs text-purple-400">
+                            {item.monitoring_enabled ? 'Monitoring' : 'Paused'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <Switch
-                          checked={item.monitoring_enabled}
-                          onCheckedChange={(checked) =>
-                            toggleMonitoringMutation.mutate({ id: item.id, monitoring_enabled: checked })
-                          }
-                        />
-                        <span className="text-xs text-purple-400">
-                          {item.monitoring_enabled ? 'Monitoring' : 'Paused'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             </motion.div>

@@ -17,7 +17,8 @@ const colorClasses = {
 export default function ProfileSelector({ activeProfile, onProfileChange, onCreateNew }) {
   const { data: profiles = [] } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => incognito.entities.Profile.list()
+    queryFn: () => incognito.entities.Profile.list(),
+    staleTime: 0,
   });
 
   const getInitials = (name) => {

@@ -33,17 +33,18 @@
  * =============================================================================
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard } from 'lucide-react';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard, Gift } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { useAuth } from '@/lib/AuthContext';
 
 const navigation = [
   { name: 'Dashboard', path: 'Dashboard', icon: Shield },
@@ -61,6 +62,7 @@ const navigation = [
   { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
   { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
   { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
+  { name: 'Free Perks', path: 'FreePerks', icon: Gift },
   { name: 'Identity Recovery', path: 'IdentityRecovery', icon: Activity },
   { name: 'Notifications', path: 'Notifications', icon: Bell },
   { name: 'Profiles', path: 'Profiles', icon: Users },
@@ -73,14 +75,12 @@ export default function Layout({ children, currentPageName }) {
   const { setActiveProfileId } = useActiveProfile();
   const queryClient = useQueryClient();
 
+  const { user: currentUser } = useAuth();
+
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => incognito.entities.Profile.list()
-  });
-
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => incognito.auth.me()
+    queryFn: () => incognito.entities.Profile.list(),
+    staleTime: 5000,
   });
 
   // Load active profile: prefer saved, fall back to default/first
@@ -93,17 +93,23 @@ export default function Layout({ children, currentPageName }) {
     setActiveProfileId(resolved.id);
   }, [profiles, setActiveProfileId]);
 
-  const handleProfileChange = (profile) => {
+  const handleProfileChange = useCallback((profile) => {
     setActiveProfile(profile);
     setActiveProfileId(profile.id);
-    queryClient.invalidateQueries();
-  };
+    queryClient.invalidateQueries({ queryKey: ['scanResults'] });
+    queryClient.invalidateQueries({ queryKey: ['personalData'] });
+    queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
+    queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
+    queryClient.invalidateQueries({ queryKey: ['financialAccounts'] });
+    queryClient.invalidateQueries({ queryKey: ['suspiciousActivities'] });
+  }, [setActiveProfileId, queryClient]);
 
-  const handleCreateProfile = async (formData) => {
+  const handleCreateProfile = useCallback(async (formData) => {
     await incognito.entities.Profile.create(formData);
     refetchProfiles();
     setShowProfileModal(false);
-  };
+  }, [refetchProfiles]);
 
   return (
     <ErrorBoundary>

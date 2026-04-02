@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ExternalLink, CheckCircle, Clock, AlertTriangle, Filter, Database } from 'lucide-react';
+import { Search, ExternalLink, CheckCircle, Clock, AlertTriangle, Filter, Database, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import BrokerOptOutModal from '@/components/deletion/BrokerOptOutModal';
 
 const DATA_BROKERS = [
   // People Search
@@ -114,6 +115,19 @@ export default function DataBrokerDirectory() {
   const clearAll = () => {
     setRemoved({});
     localStorage.removeItem('broker_removed');
+  };
+
+  const [selectedBroker, setSelectedBroker] = useState(null);
+
+  const handleOptOut = (broker, e) => {
+    e.stopPropagation();
+    setSelectedBroker(broker);
+  };
+
+  const handleOptedOut = (name) => {
+    const updated = { ...removed, [name]: true };
+    setRemoved(updated);
+    localStorage.setItem('broker_removed', JSON.stringify(updated));
   };
 
   const removedCount = Object.values(removed).filter(Boolean).length;
@@ -247,16 +261,14 @@ export default function DataBrokerDirectory() {
                     </Badge>
                   )}
 
-                  {/* Opt-Out Link */}
-                  <a
-                    href={broker.opt_out_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg px-3 py-1.5 hover:bg-red-500/10 transition-colors shrink-0"
+                  {/* AI Opt-Out Button */}
+                  <button
+                    onClick={e => handleOptOut(broker, e)}
+                    className="flex items-center gap-1.5 text-xs text-red-400 hover:text-white border border-red-500/30 rounded-lg px-3 py-1.5 hover:bg-red-600 transition-colors shrink-0"
                   >
-                    Opt Out <ExternalLink className="w-3 h-3" />
-                  </a>
+                    <Bot className="w-3.5 h-3.5" />
+                    AI Opt Out
+                  </button>
                 </div>
               );
             })}
@@ -267,6 +279,13 @@ export default function DataBrokerDirectory() {
       <p className="text-center text-xs text-gray-600">
         Opt-out links are maintained manually. Some sites may change their removal process. Always verify on the broker's official site.
       </p>
+
+      <BrokerOptOutModal
+        open={!!selectedBroker}
+        onClose={() => setSelectedBroker(null)}
+        broker={selectedBroker}
+        onOptedOut={handleOptedOut}
+      />
     </div>
   );
 }

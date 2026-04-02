@@ -11,17 +11,17 @@ import { formatDistanceToNow } from 'date-fns';
 export default function RecentActivityFeed({ activeProfileId }) {
   const { data: allScanResults = [] } = useQuery({
     queryKey: ['scanResults'],
-    queryFn: () => incognito.entities.ScanResult.list('-created_date', 20)
+    queryFn: () => incognito.entities.ScanResult.list()
   });
 
   const { data: allDeletionRequests = [] } = useQuery({
     queryKey: ['deletionRequests'],
-    queryFn: () => incognito.entities.DeletionRequest.list('-created_date', 20)
+    queryFn: () => incognito.entities.DeletionRequest.list()
   });
 
   const { data: allAlerts = [] } = useQuery({
     queryKey: ['notificationAlerts'],
-    queryFn: () => incognito.entities.NotificationAlert.list('-created_date', 20)
+    queryFn: () => incognito.entities.NotificationAlert.list()
   });
 
   const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);

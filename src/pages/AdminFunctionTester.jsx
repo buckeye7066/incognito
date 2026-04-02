@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayCircle, Loader2, CheckCircle, XCircle, AlertTriangle, Copy, Download, Lock } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function AdminFunctionTester() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState(null);
-
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => incognito.auth.me()
-  });
+  const { user } = useAuth();
 
   const runFullTestSuite = async () => {
     setRunning(true);

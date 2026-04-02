@@ -56,6 +56,7 @@ const DeletionCenter = React.lazy(() => import('./pages/DeletionCenter'));
 const FinancialMonitor = React.lazy(() => import('./pages/FinancialMonitor'));
 const Findings = React.lazy(() => import('./pages/Findings'));
 const FixExposure = React.lazy(() => import('./pages/FixExposure'));
+const FreePerks = React.lazy(() => import('./pages/FreePerks'));
 const FunctionReviewer = React.lazy(() => import('./pages/FunctionReviewer'));
 const Home = React.lazy(() => import('./pages/Home'));
 const IdentityRecovery = React.lazy(() => import('./pages/IdentityRecovery'));
@@ -83,6 +84,7 @@ export const PAGES = {
     "FinancialMonitor": FinancialMonitor,
     "Findings": Findings,
     "FixExposure": FixExposure,
+    "FreePerks": FreePerks,
     "FunctionReviewer": FunctionReviewer,
     "Home": Home,
     "IdentityRecovery": IdentityRecovery,

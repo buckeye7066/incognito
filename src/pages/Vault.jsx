@@ -159,7 +159,7 @@ export default function Vault() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-white mb-2">Secure Vault</h1>
-          <p className="text-purple-300">Encrypted storage for your personal identifiers</p>
+          <p className="text-purple-300">Device-local storage for your personal identifiers</p>
         </div>
         <div className="flex gap-3">
           <BreachCheckButton personalData={personalData} profileId={activeProfileId} />

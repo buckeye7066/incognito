@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database, Search, Mail, Phone, Globe, Wifi, ChevronDown, ChevronUp } from 'lucide-react';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,6 +16,7 @@ export default function Settings() {
   const [showDarkWebConsent, setShowDarkWebConsent] = useState(false);
   const [apiKeys, setApiKeysState] = useState(getApiKeys());
   const [keysSaved, setKeysSaved] = useState(false);
+  const [showMoreKeys, setShowMoreKeys] = useState(false);
 
   const handleSaveKeys = (updates) => {
     const merged = { ...apiKeys, ...updates };
@@ -63,21 +64,24 @@ export default function Settings() {
 
   const [wiping, setWiping] = useState(false);
   const wipeAllData = async () => {
-    if (!window.confirm('This will permanently delete ALL your data including vault, scan results, deletion requests, and alerts. This cannot be undone. Continue?')) return;
+    if (!window.confirm(
+      'This will permanently delete scan results, findings, alerts, and financial data. ' +
+      'Your PROFILES and PERSONAL IDENTIFIERS will be kept. This cannot be undone. Continue?'
+    )) return;
     setWiping(true);
     try {
       await Promise.all([
         incognito.entities.ScanResult.clear(),
-        incognito.entities.PersonalData.clear(),
         incognito.entities.DeletionRequest.clear(),
         incognito.entities.NotificationAlert.clear(),
         incognito.entities.SearchQueryFinding.clear(),
         incognito.entities.SpamIncident.clear(),
         incognito.entities.FinancialAccount.clear(),
         incognito.entities.SuspiciousActivity.clear(),
+        incognito.entities.SocialMediaFinding.clear(),
       ]);
       queryClient.invalidateQueries();
-      alert('All data has been wiped successfully.');
+      alert('Scan data has been wiped. Your profiles and identifiers were preserved.');
     } finally {
       setWiping(false);
     }
@@ -123,39 +127,23 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           <p className="text-sm text-gray-400">
-            These keys are stored locally in your browser only. They never leave your machine.
+            All keys are stored locally in your browser only. They never leave your machine except to call the corresponding API directly.
           </p>
 
+          {/* ── CORE: OpenAI ── */}
           <div className="space-y-2">
             <Label className="text-white flex items-center gap-2">
               <Brain className="w-4 h-4 text-purple-400" /> OpenAI API Key
             </Label>
             <p className="text-xs text-gray-500">Powers AI scans, dispute letters, settlement search, and breach analysis</p>
             <div className="flex gap-2">
-              <Input
-                type="password"
-                value={apiKeys.openai_api_key || ''}
-                onChange={(e) => setApiKeysState(prev => ({ ...prev, openai_api_key: e.target.value }))}
-                placeholder="sk-..."
-                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() => handleSaveKeys({ openai_api_key: apiKeys.openai_api_key })}
-                className="bg-blue-600 hover:bg-blue-700 shrink-0"
-              >
-                Save
-              </Button>
+              <Input type="password" value={apiKeys.openai_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, openai_api_key: e.target.value }))} placeholder="sk-..." className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ openai_api_key: apiKeys.openai_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
             </div>
             <div className="flex items-center gap-4 pt-1">
               <Label className="text-xs text-gray-400">Model:</Label>
-              <Select
-                value={apiKeys.openai_model || 'gpt-4o-mini'}
-                onValueChange={(v) => handleSaveKeys({ openai_model: v })}
-              >
-                <SelectTrigger className="w-48 h-8 bg-slate-900/50 border-blue-500/30 text-white text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={apiKeys.openai_model || 'gpt-4o-mini'} onValueChange={(v) => handleSaveKeys({ openai_model: v })}>
+                <SelectTrigger className="w-48 h-8 bg-slate-900/50 border-blue-500/30 text-white text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gpt-4o-mini">GPT-4o Mini (fast, cheap)</SelectItem>
                   <SelectItem value="gpt-4o">GPT-4o (best quality)</SelectItem>
@@ -164,84 +152,166 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Get a key at platform.openai.com →</a>
           </div>
 
+          {/* ── CORE: HIBP ── */}
           <div className="space-y-2 pt-4 border-t border-blue-500/20">
             <Label className="text-white flex items-center gap-2">
               <Database className="w-4 h-4 text-red-400" /> HIBP API Key
             </Label>
-            <p className="text-xs text-gray-500">Have I Been Pwned - checks if your emails appear in data breaches</p>
+            <p className="text-xs text-gray-500">Have I Been Pwned — checks if your emails appear in data breaches (real API)</p>
             <div className="flex gap-2">
-              <Input
-                type="password"
-                value={apiKeys.hibp_api_key || ''}
-                onChange={(e) => setApiKeysState(prev => ({ ...prev, hibp_api_key: e.target.value }))}
-                placeholder="Your HIBP API key"
-                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() => handleSaveKeys({ hibp_api_key: apiKeys.hibp_api_key })}
-                className="bg-blue-600 hover:bg-blue-700 shrink-0"
-              >
-                Save
-              </Button>
+              <Input type="password" value={apiKeys.hibp_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, hibp_api_key: e.target.value }))} placeholder="Your HIBP API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ hibp_api_key: apiKeys.hibp_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
             </div>
-            <a href="https://haveibeenpwned.com/API/Key" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
-              Get a key at haveibeenpwned.com/API/Key →
-            </a>
+            <a href="https://haveibeenpwned.com/API/Key" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Get a key at haveibeenpwned.com/API/Key ($3.50/mo) →</a>
           </div>
 
+          {/* ── CORE: Google Custom Search ── */}
+          <div className="space-y-2 pt-4 border-t border-blue-500/20">
+            <Label className="text-white flex items-center gap-2">
+              <Search className="w-4 h-4 text-blue-400" /> Google Custom Search
+            </Label>
+            <p className="text-xs text-gray-500">Searches Google for your personal data on data broker and people-search sites (real web results). 100 free searches/day.</p>
+            <div className="flex gap-2">
+              <Input type="password" value={apiKeys.google_search_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, google_search_api_key: e.target.value }))} placeholder="API Key (AIza...)" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ google_search_api_key: apiKeys.google_search_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+            </div>
+            <div className="flex gap-2">
+              <Input value={apiKeys.google_search_cx || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, google_search_cx: e.target.value }))} placeholder="Search Engine ID (cx)" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ google_search_cx: apiKeys.google_search_cx })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+            </div>
+            <a href="https://programmablesearchengine.google.com/controlpanel/all" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">1. Create search engine → 2. Get API key from console.cloud.google.com →</a>
+          </div>
+
+          {/* ── CORE: Hunter.io ── */}
+          <div className="space-y-2 pt-4 border-t border-blue-500/20">
+            <Label className="text-white flex items-center gap-2">
+              <Mail className="w-4 h-4 text-cyan-400" /> Hunter.io API Key
+            </Label>
+            <p className="text-xs text-gray-500">Email verification and intelligence — checks if your emails are exposed on company domains. 25 free lookups/mo.</p>
+            <div className="flex gap-2">
+              <Input type="password" value={apiKeys.hunter_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, hunter_api_key: e.target.value }))} placeholder="Your Hunter.io API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ hunter_api_key: apiKeys.hunter_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+            </div>
+            <a href="https://hunter.io/api-keys" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Get a free key at hunter.io →</a>
+          </div>
+
+          {/* ── CORE: Privacy.com ── */}
           <div className="space-y-2 pt-4 border-t border-blue-500/20">
             <Label className="text-white flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-green-400" /> Privacy.com API Key
             </Label>
-            <p className="text-xs text-gray-500">Virtual cards, subscription detection, card swap</p>
+            <p className="text-xs text-gray-500">Virtual cards, subscription detection, card swap workflows</p>
             <div className="flex gap-2">
-              <Input
-                type="password"
-                value={apiKeys.privacy_com_api_key || ''}
-                onChange={(e) => setApiKeysState(prev => ({ ...prev, privacy_com_api_key: e.target.value }))}
-                placeholder="Your Privacy.com API key"
-                className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() => handleSaveKeys({ privacy_com_api_key: apiKeys.privacy_com_api_key })}
-                className="bg-blue-600 hover:bg-blue-700 shrink-0"
-              >
-                Save
-              </Button>
+              <Input type="password" value={apiKeys.privacy_com_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, privacy_com_api_key: e.target.value }))} placeholder="Your Privacy.com API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+              <Button size="sm" onClick={() => handleSaveKeys({ privacy_com_api_key: apiKeys.privacy_com_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
             </div>
             <div className="flex items-center gap-3 pt-1">
               <Label className="text-xs text-gray-400 flex items-center gap-1">
-                <Switch
-                  checked={apiKeys.privacy_com_sandbox || false}
-                  onCheckedChange={(v) => handleSaveKeys({ privacy_com_sandbox: v })}
-                />
+                <Switch checked={apiKeys.privacy_com_sandbox || false} onCheckedChange={(v) => handleSaveKeys({ privacy_com_sandbox: v })} />
                 Sandbox mode
               </Label>
-              <a href="https://privacy.com/developer" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">
-                Get API key →
-              </a>
+              <a href="https://privacy.com/developer" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Get API key →</a>
             </div>
           </div>
 
-          {/* Status indicators */}
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-blue-500/20">
-            {[
-              { key: 'openai_api_key', label: 'OpenAI', icon: Brain, color: 'purple' },
-              { key: 'hibp_api_key', label: 'HIBP', icon: Database, color: 'red' },
-              { key: 'privacy_com_api_key', label: 'Privacy.com', icon: CreditCard, color: 'green' },
-            ].map(({ key, label, icon: Icon, color }) => (
-              <div key={key} className={`p-3 rounded-lg border ${apiKeys[key] ? `border-${color}-500/40 bg-${color}-500/10` : 'border-slate-700 bg-slate-800/30'}`}>
-                <div className="flex items-center gap-2">
-                  <Icon className={`w-4 h-4 ${apiKeys[key] ? `text-${color}-400` : 'text-gray-500'}`} />
-                  <span className={`text-xs font-medium ${apiKeys[key] ? 'text-white' : 'text-gray-500'}`}>{label}</span>
+          {/* ── ADDITIONAL KEYS (collapsible) ── */}
+          <button onClick={() => setShowMoreKeys(!showMoreKeys)} className="w-full flex items-center justify-between pt-4 border-t border-blue-500/20 text-sm text-gray-400 hover:text-white transition-colors">
+            <span>Additional API Keys ({['numverify_api_key', 'leakcheck_api_key', 'virustotal_api_key', 'shodan_api_key', 'dehashed_api_key'].filter(k => apiKeys[k]).length} configured)</span>
+            {showMoreKeys ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showMoreKeys && (
+            <div className="space-y-6 animate-in fade-in">
+              {/* NumVerify */}
+              <div className="space-y-2">
+                <Label className="text-white flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-green-400" /> NumVerify API Key
+                </Label>
+                <p className="text-xs text-gray-500">Phone number validation and carrier lookup. 100 free lookups/mo.</p>
+                <div className="flex gap-2">
+                  <Input type="password" value={apiKeys.numverify_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, numverify_api_key: e.target.value }))} placeholder="Your NumVerify API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Button size="sm" onClick={() => handleSaveKeys({ numverify_api_key: apiKeys.numverify_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
                 </div>
-                <p className={`text-[10px] mt-1 ${apiKeys[key] ? `text-${color}-300` : 'text-gray-600'}`}>
-                  {apiKeys[key] ? '✓ Configured' : '✗ Not set'}
-                </p>
+                <a href="https://numverify.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Free key at numverify.com →</a>
+              </div>
+
+              {/* LeakCheck */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Database className="w-4 h-4 text-orange-400" /> LeakCheck.io API Key
+                </Label>
+                <p className="text-xs text-gray-500">Additional breach database — checks email, phone, and username exposures. Paid plans start at $2.99.</p>
+                <div className="flex gap-2">
+                  <Input type="password" value={apiKeys.leakcheck_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, leakcheck_api_key: e.target.value }))} placeholder="Your LeakCheck API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Button size="sm" onClick={() => handleSaveKeys({ leakcheck_api_key: apiKeys.leakcheck_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+                </div>
+                <a href="https://leakcheck.io/api" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Get key at leakcheck.io →</a>
+              </div>
+
+              {/* VirusTotal */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-400" /> VirusTotal API Key
+                </Label>
+                <p className="text-xs text-gray-500">URL and domain safety scanning — checks if links in breach notifications are malicious. 500 free lookups/day.</p>
+                <div className="flex gap-2">
+                  <Input type="password" value={apiKeys.virustotal_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, virustotal_api_key: e.target.value }))} placeholder="Your VirusTotal API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Button size="sm" onClick={() => handleSaveKeys({ virustotal_api_key: apiKeys.virustotal_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+                </div>
+                <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Free key at virustotal.com →</a>
+              </div>
+
+              {/* Shodan */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Wifi className="w-4 h-4 text-amber-400" /> Shodan API Key
+                </Label>
+                <p className="text-xs text-gray-500">Network exposure scanner — shows what devices and services are visible on your IP address.</p>
+                <div className="flex gap-2">
+                  <Input type="password" value={apiKeys.shodan_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, shodan_api_key: e.target.value }))} placeholder="Your Shodan API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Button size="sm" onClick={() => handleSaveKeys({ shodan_api_key: apiKeys.shodan_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+                </div>
+                <a href="https://account.shodan.io/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Free academic key or paid at shodan.io →</a>
+              </div>
+
+              {/* Dehashed */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-red-400" /> Dehashed API
+                </Label>
+                <p className="text-xs text-gray-500">Comprehensive breach database — searches by email, username, IP, name, phone, address, VIN. Paid ($1.99+).</p>
+                <div className="flex gap-2">
+                  <Input value={apiKeys.dehashed_email || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, dehashed_email: e.target.value }))} placeholder="Dehashed account email" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <Input type="password" value={apiKeys.dehashed_api_key || ''} onChange={(e) => setApiKeysState(prev => ({ ...prev, dehashed_api_key: e.target.value }))} placeholder="Dehashed API key" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Button size="sm" onClick={() => handleSaveKeys({ dehashed_email: apiKeys.dehashed_email, dehashed_api_key: apiKeys.dehashed_api_key })} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+                </div>
+                <a href="https://www.dehashed.com/register" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Register at dehashed.com →</a>
+              </div>
+            </div>
+          )}
+
+          {/* Status indicators */}
+          <div className="grid grid-cols-4 gap-2 pt-4 border-t border-blue-500/20">
+            {[
+              { key: 'openai_api_key', label: 'OpenAI', color: 'text-purple-400' },
+              { key: 'hibp_api_key', label: 'HIBP', color: 'text-red-400' },
+              { key: 'google_search_api_key', label: 'Google', color: 'text-blue-400' },
+              { key: 'hunter_api_key', label: 'Hunter', color: 'text-cyan-400' },
+              { key: 'privacy_com_api_key', label: 'Privacy', color: 'text-green-400' },
+              { key: 'numverify_api_key', label: 'NumVerify', color: 'text-green-400' },
+              { key: 'leakcheck_api_key', label: 'LeakCheck', color: 'text-orange-400' },
+              { key: 'virustotal_api_key', label: 'VirusTotal', color: 'text-blue-400' },
+              { key: 'shodan_api_key', label: 'Shodan', color: 'text-amber-400' },
+              { key: 'dehashed_api_key', label: 'Dehashed', color: 'text-red-400' },
+            ].map(({ key, label, color }) => (
+              <div key={key} className={`p-2 rounded-lg border text-center ${apiKeys[key] ? 'border-green-500/30 bg-green-500/5' : 'border-slate-700 bg-slate-800/30'}`}>
+                <span className={`text-[10px] font-medium ${apiKeys[key] ? color : 'text-gray-600'}`}>{label}</span>
+                <p className={`text-[9px] ${apiKeys[key] ? 'text-green-400' : 'text-gray-700'}`}>{apiKeys[key] ? '✓' : '—'}</p>
               </div>
             ))}
           </div>
@@ -576,15 +646,11 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-white mb-1">Two-Factor Authentication</p>
-              <p className="text-sm text-purple-300">Add an extra layer of security</p>
+              <p className="text-sm text-purple-300">Local-first app — protected by your device lock</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-purple-500/50 text-purple-300"
-            >
-              Enable
-            </Button>
+            <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-sm font-semibold">
+              Device-Level
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -620,8 +686,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-white mb-1">Delete All Data</p>
-              <p className="text-sm text-purple-300">Permanently erase vault, scan results, alerts and all records</p>
+              <p className="font-medium text-white mb-1">Wipe Scan Data</p>
+              <p className="text-sm text-purple-300">Erase scan results, findings, alerts, and financial data (profiles and identifiers are preserved)</p>
             </div>
             <Button
               variant="outline"

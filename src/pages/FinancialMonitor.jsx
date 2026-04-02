@@ -19,6 +19,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import SubscriptionManager from '@/components/financial/SubscriptionManager';
 import CardSwapModal from '@/components/financial/CardSwapModal';
+import MySubscriptions from '@/components/financial/MySubscriptions';
+import CancellationTaskTracker from '@/components/financial/CancellationTaskTracker';
 
 const ACCOUNT_ICONS = {
   checking: '🏦', savings: '💰', credit_card: '💳', investment: '📈',
@@ -101,10 +103,10 @@ export default function FinancialMonitor() {
           <p className="text-gray-400">Track cards, detect subscriptions, and control who has your payment info</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => setShowLogActivity(true)} variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/10">
+          <Button onClick={() => activeProfileId ? setShowLogActivity(true) : alert('Please select a profile first.')} variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/10">
             <ShieldAlert className="w-4 h-4 mr-2" /> Log Suspicious Activity
           </Button>
-          <Button onClick={() => setShowAddAccount(true)} className="bg-gradient-to-r from-red-600 to-purple-600">
+          <Button onClick={() => activeProfileId ? setShowAddAccount(true) : alert('Please select a profile first.')} className="bg-gradient-to-r from-red-600 to-purple-600">
             <Plus className="w-4 h-4 mr-2" /> Add Account
           </Button>
         </div>
@@ -130,12 +132,20 @@ export default function FinancialMonitor() {
         ))}
       </div>
 
-      {/* Main Tabs: Subscriptions vs Accounts & Activity */}
-      <Tabs defaultValue="subscriptions" className="w-full">
+      {/* Main Tabs */}
+      <Tabs defaultValue="my-subscriptions" className="w-full">
         <TabsList className="bg-slate-800/60 border border-slate-700">
-          <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 px-6">
+          <TabsTrigger value="my-subscriptions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-purple-600 px-6">
             <Store className="w-4 h-4 mr-2" />
-            Card Subscriptions
+            My Subscriptions
+          </TabsTrigger>
+          <TabsTrigger value="cancellation" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-600 data-[state=active]:to-red-600 px-6">
+            <ArrowRightLeft className="w-4 h-4 mr-2" />
+            Cancellation Tasks
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-600 data-[state=active]:to-emerald-600 px-6">
+            <CreditCard className="w-4 h-4 mr-2" />
+            Privacy.com Cards
           </TabsTrigger>
           <TabsTrigger value="accounts" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 px-6">
             <Landmark className="w-4 h-4 mr-2" />
@@ -143,7 +153,17 @@ export default function FinancialMonitor() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Subscription Manager */}
+        {/* Tab: My Subscriptions */}
+        <TabsContent value="my-subscriptions" className="pt-4">
+          <MySubscriptions profileId={activeProfileId} />
+        </TabsContent>
+
+        {/* Tab: Cancellation Task Tracker */}
+        <TabsContent value="cancellation" className="pt-4">
+          <CancellationTaskTracker profileId={activeProfileId} />
+        </TabsContent>
+
+        {/* Tab: Privacy.com Card Subscriptions */}
         <TabsContent value="subscriptions" className="pt-4">
           <SubscriptionManager
             profileId={activeProfileId}

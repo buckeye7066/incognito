@@ -1,6 +1,6 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
-import { incognito } from '@/api/client';
+import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Scan, Shield, AlertTriangle, Users, Database, Globe, 
   FileText, Mail, Phone, MapPin, User, Loader2, ExternalLink,
-  Eye, Lock, Gavel, MessageSquare, ChevronDown, ChevronUp, Wrench
+  Eye, Lock, Gavel, MessageSquare, ChevronDown, ChevronUp, Wrench, CheckCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
@@ -65,7 +65,7 @@ const FIELD_ICONS = {
   employer: FileText
 };
 
-function MatchCard({ match, expanded, onToggle }) {
+function MatchCard({ match, expanded, onToggle, onMarkReviewed }) {
   const getSeverityColor = (severity) => {
     switch (severity) {
       case 'critical': return 'bg-red-600/20 text-red-300 border-red-600/40';
@@ -172,9 +172,14 @@ function MatchCard({ match, expanded, onToggle }) {
               )}
               
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="border-purple-500/50 text-purple-300">
-                  <Eye className="w-3 h-3 mr-1" />
-                  Mark Reviewed
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`border-purple-500/50 ${match.reviewed ? 'text-green-300 border-green-500/50' : 'text-purple-300'}`}
+                  onClick={(e) => { e.stopPropagation(); onMarkReviewed?.(match); }}
+                >
+                  {match.reviewed ? <CheckCircle className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                  {match.reviewed ? 'Reviewed' : 'Mark Reviewed'}
                 </Button>
                 <Link to={`${createPageUrl('FixExposure')}?exposure_id=${match.id || ''}&type=${match.source_type || 'unknown'}`}>
                   <Button size="sm" className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
@@ -198,6 +203,14 @@ export default function IdentityScan() {
   const [expandedCards, setExpandedCards] = useState({});
   const [activeTab, setActiveTab] = useState('all');
 
+  const markReviewed = (match) => {
+    if (!scanResults) return;
+    const updatedFindings = scanResults.findings.map(f =>
+      f === match ? { ...f, reviewed: true } : f
+    );
+    setScanResults({ ...scanResults, findings: updatedFindings });
+  };
+
   const { activeProfileId } = useActiveProfile();
 
   const { data: allPersonalData = [] } = useQuery({
@@ -215,26 +228,94 @@ export default function IdentityScan() {
     }
 
     setScanning(true);
+    const warnings = [];
+
+    const fnItem = personalData.find(d => d.data_type === 'full_name');
+    const fullName = fnItem ? resolvePersonalDataValue(fnItem) : '';
+    const emails = personalData.filter(d => d.data_type === 'email').map(d => resolvePersonalDataValue(d));
+    const phones = personalData.filter(d => d.data_type === 'phone').map(d => resolvePersonalDataValue(d));
+    const addresses = personalData.filter(d => d.data_type === 'address').map(d => resolvePersonalDataValue(d));
+
+    let scanData = null;
+    let correlationData = null;
+
     try {
-      const response = await incognito.functions.invoke('runIdentityScan', { profileId: activeProfileId });
-      
-      // Get correlation data
-      const correlationResponse = await incognito.functions.invoke('correlateProfileData', { 
-        profileId: activeProfileId 
+      const response = await incognito.functions.invoke('runIdentityScan', {
+        profileId: activeProfileId,
+        fullName,
+        emails,
+        phones,
+        addresses,
       });
-      
-      setScanResults({
-        ...response.data,
-        correlation: correlationResponse.data
-      });
-      
-      queryClient.invalidateQueries(['scanResults']);
-      queryClient.invalidateQueries(['notificationAlerts']);
-    } catch (error) {
-      alert('Scan failed: ' + error.message);
-    } finally {
-      setScanning(false);
+      scanData = response.data || {};
+      if (scanData.scan_summary?.includes('Skipped')) {
+        warnings.push('Identity scan skipped — OpenAI API key not configured.');
+      }
+    } catch (e) {
+      console.warn('[IdentityScan] scan failed:', e?.message);
+      warnings.push(`Identity scan: ${e?.message || 'Failed'}`);
+      scanData = { findings: [], overall_risk: 'unknown', scan_summary: 'Scan could not complete.' };
     }
+
+    try {
+      const correlationResponse = await incognito.functions.invoke('correlateProfileData', {
+        profileId: activeProfileId
+      });
+      correlationData = correlationResponse.data || {};
+    } catch (e) {
+      console.warn('[IdentityScan] correlation failed:', e?.message);
+      warnings.push(`Correlation: ${e?.message || 'Failed'}`);
+      correlationData = { overall_risk_score: 0, matches: [], correlations: [] };
+    }
+
+    // Also run breach check and exposure scan in parallel for comprehensive results
+    try {
+      if (emails.length > 0) {
+        const breachResult = await incognito.functions.invoke('checkBreaches', {
+          profileId: activeProfileId,
+          emails,
+        });
+        if (breachResult.data?.skipped) {
+          warnings.push('Breach check skipped — HIBP API key not configured.');
+        }
+      }
+    } catch (e) {
+      console.warn('[IdentityScan] breach check failed:', e?.message);
+    }
+
+    try {
+      const exposureResult = await incognito.functions.invoke('detectSearchQueries', {
+        profileId: activeProfileId,
+        fullName,
+        emails,
+        phones,
+        addresses,
+      });
+      if (exposureResult.data?.skipped) {
+        warnings.push('Exposure scan skipped — OpenAI API key not configured.');
+      }
+    } catch (e) {
+      console.warn('[IdentityScan] exposure scan failed:', e?.message);
+    }
+
+    setScanResults({
+      ...scanData,
+      risk_score: correlationData.overall_risk_score || scanData.risk_score || 0,
+      correlation: correlationData,
+    });
+
+    queryClient.invalidateQueries(['scanResults']);
+    queryClient.invalidateQueries(['searchQueryFindings']);
+    queryClient.invalidateQueries(['notificationAlerts']);
+
+    if (warnings.length > 0) {
+      const needsKeys = warnings.some(w => w.includes('API key'));
+      let msg = `Scan completed with ${warnings.length} issue(s):\n\n• ${warnings.join('\n• ')}`;
+      if (needsKeys) msg += '\n\nTip: Add your API keys in Settings → API Keys for full scan coverage.';
+      alert(msg);
+    }
+
+    setScanning(false);
   };
 
   const toggleCard = (id) => {
@@ -412,6 +493,7 @@ export default function IdentityScan() {
                         match={match}
                         expanded={expandedCards[`all-${idx}`]}
                         onToggle={() => toggleCard(`all-${idx}`)}
+                        onMarkReviewed={markReviewed}
                       />
                     ))
                   ) : (
@@ -432,6 +514,7 @@ export default function IdentityScan() {
                           match={match}
                           expanded={expandedCards[`${category}-${idx}`]}
                           onToggle={() => toggleCard(`${category}-${idx}`)}
+                          onMarkReviewed={markReviewed}
                         />
                       ))
                     ) : (

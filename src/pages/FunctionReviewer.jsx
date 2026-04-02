@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -95,10 +95,7 @@ export default function FunctionReviewer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const { data: user } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => incognito.auth.me()
-  });
+  const { user } = useAuth();
 
   // Filter functions by search
   const filteredFunctions = useMemo(() => {
@@ -168,20 +165,8 @@ export default function FunctionReviewer() {
     }
   };
 
-  // Admin check
-  if (user && user.role !== 'admin') {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="glass-card border-red-500/30 max-w-md">
-          <CardContent className="p-8 text-center">
-            <Lock className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Admin Access Required</h2>
-            <p className="text-gray-400">This page is restricted to administrators only.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Local-first app: all users have full access (no backend roles)
+
 
   const selectedFunc = KNOWN_FUNCTIONS.find(f => f.functionId === selectedFunctionId);
 

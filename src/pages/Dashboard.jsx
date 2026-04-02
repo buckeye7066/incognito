@@ -1,12 +1,13 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import React, { useState } from 'react';
-import { incognito } from '@/api/client';
+import React, { useState, useMemo } from 'react';
+import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText } from 'lucide-react';
+import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText, Gavel, Rocket, DollarSign } from 'lucide-react';
 import CreditFreezeCard from '../components/dashboard/CreditFreezeCard';
 import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
 import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
 import PrivacyAssistant from '../components/dashboard/PrivacyAssistant';
+import ActionRecommendations from '../components/dashboard/ActionRecommendations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,11 @@ import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const DATA_TYPE_ICONS = {
+  email: Mail, phone: Phone, address: MapPin,
+  full_name: User, credit_card: CreditCard, ssn: FileText,
+};
 
 export default function Dashboard() {
   const { activeProfileId } = useActiveProfile();
@@ -54,42 +60,42 @@ export default function Dashboard() {
 
   const activeProfile = allProfiles.find(p => p.id === activeProfileId);
 
-  // Filter by active profile
-  const personalData = allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId);
-  const scanResults = allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId);
-  const searchQueries = allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId);
-  const deletionRequests = allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId);
-  const accounts = allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId);
+  const personalData = useMemo(() => allPersonalData.filter(d => !activeProfileId || d.profile_id === activeProfileId), [allPersonalData, activeProfileId]);
+  const scanResults = useMemo(() => allScanResults.filter(r => !activeProfileId || r.profile_id === activeProfileId), [allScanResults, activeProfileId]);
+  const searchQueries = useMemo(() => allSearchQueries.filter(q => !activeProfileId || q.profile_id === activeProfileId), [allSearchQueries, activeProfileId]);
+  const deletionRequests = useMemo(() => allDeletionRequests.filter(r => !activeProfileId || r.profile_id === activeProfileId), [allDeletionRequests, activeProfileId]);
+  const accounts = useMemo(() => allAccounts.filter(a => !activeProfileId || a.profile_id === activeProfileId), [allAccounts, activeProfileId]);
 
-  // Calculate stats like Cloaked
-  const totalExposures = scanResults.length + searchQueries.length;
-  const dataBrokerExposures = searchQueries.length;
-  const breachExposures = scanResults.filter(r => r.source_type === 'breach_database').length;
-  const removalsInProgress = deletionRequests.filter(r => r.status === 'pending' || r.status === 'in_progress').length;
-  const removalsCompleted = deletionRequests.filter(r => r.status === 'completed').length;
-
-  // Risk score calculation
-  const calculateRiskScore = () => {
-    if (totalExposures === 0) return 0;
+  const stats = useMemo(() => {
+    const totalExposures = scanResults.length + searchQueries.length;
+    const dataBrokerExposures = searchQueries.length;
+    const breachExposures = scanResults.filter(r => r.source_type === 'breach_database').length;
+    const removalsInProgress = deletionRequests.filter(r => r.status === 'pending' || r.status === 'in_progress').length;
+    const removalsCompleted = deletionRequests.filter(r => r.status === 'completed').length;
     const highRisk = scanResults.filter(r => r.risk_score >= 70).length;
     const criticalExposures = searchQueries.filter(q => q.risk_level === 'critical' || q.risk_level === 'high').length;
-    return Math.min(100, Math.round((highRisk * 15 + criticalExposures * 10 + totalExposures * 2)));
-  };
+    const riskScore = totalExposures === 0 ? 0 : Math.min(100, Math.round((highRisk * 15 + criticalExposures * 10 + totalExposures * 2)));
+    return { totalExposures, dataBrokerExposures, breachExposures, removalsInProgress, removalsCompleted, riskScore };
+  }, [scanResults, searchQueries, deletionRequests]);
 
-  const riskScore = calculateRiskScore();
+  const { totalExposures, dataBrokerExposures, breachExposures, removalsInProgress, removalsCompleted, riskScore } = stats;
 
-  // Data type icons
-  const getDataTypeIcon = (type) => {
-    const icons = {
-      email: Mail,
-      phone: Phone,
-      address: MapPin,
-      full_name: User,
-      credit_card: CreditCard,
-      ssn: FileText,
-    };
-    return icons[type] || Database;
-  };
+  const exposureCountByType = useMemo(() => {
+    const counts = {};
+    for (const r of scanResults) {
+      for (const dt of (r.matched_data_types || r.data_exposed || [])) {
+        counts[dt] = (counts[dt] || 0) + 1;
+      }
+    }
+    for (const q of searchQueries) {
+      for (const dt of (q.matched_data_types || q.data_exposed || [])) {
+        counts[dt] = (counts[dt] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [scanResults, searchQueries]);
+
+  const getDataTypeIcon = (type) => DATA_TYPE_ICONS[type] || Database;
 
   // Run comprehensive scan like Cloaked
   const runFullScan = async () => {
@@ -101,51 +107,58 @@ export default function Dashboard() {
     setScanning(true);
     setScanProgress(0);
 
+    const stepErrors = [];
     try {
-      // Step 1: Check data brokers
-      setScanStatus('Scanning 120+ data broker sites...');
+      const fnItem = personalData.find(p => p.data_type === 'full_name');
+      const fullName = fnItem ? resolvePersonalDataValue(fnItem) : '';
+      const emailItems = personalData.filter(d => d.data_type === 'email' && d.monitoring_enabled);
+      const emailValues = emailItems.map(e => e.value).filter(Boolean);
+      const phones = personalData.filter(p => p.data_type === 'phone').map(p => resolvePersonalDataValue(p));
+      const addresses = personalData.filter(p => p.data_type === 'address').map(p => resolvePersonalDataValue(p));
+
+      // Step 1: Data brokers
+      setScanStatus('Scanning data broker sites...');
       setScanProgress(20);
-      await incognito.functions.invoke('detectSearchQueries', { profileId: activeProfileId });
-      
-      // Step 2: Check breach databases
+      try {
+        await incognito.functions.invoke('detectSearchQueries', {
+          profileId: activeProfileId, fullName, emails: emailValues, phones, addresses,
+        });
+      } catch (e) { stepErrors.push('Data broker scan: ' + e.message); }
+
+      // Step 2: Breach databases
       setScanStatus('Checking breach databases...');
       setScanProgress(50);
-      const emails = personalData.filter(d => d.data_type === 'email' && d.monitoring_enabled);
-      if (emails.length > 0) {
-        await incognito.functions.invoke('checkBreaches', {
-          profileId: activeProfileId,
-          identifiers: emails.map(e => ({ id: e.id, data_type: e.data_type, value: e.value }))
-        });
+      if (emailValues.length > 0) {
+        try {
+          await incognito.functions.invoke('checkBreaches', {
+            profileId: activeProfileId,
+            emails: emailValues,
+          });
+        } catch (e) { stepErrors.push('Breach check: ' + e.message); }
       }
 
-      // Step 3: Check social media
+      // Step 3: Social media
       setScanStatus('Scanning social media...');
       setScanProgress(80);
-      await incognito.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+      try {
+        await incognito.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
+      } catch (e) { stepErrors.push('Social media: ' + e.message); }
 
       setScanProgress(100);
-      setScanStatus('Scan complete!');
-      
-      // Refresh data
-      queryClient.invalidateQueries(['scanResults']);
-      queryClient.invalidateQueries(['searchQueryFindings']);
-      queryClient.invalidateQueries(['socialMediaFindings']);
+      setScanStatus(stepErrors.length > 0 ? `Scan done with ${stepErrors.length} warning(s)` : 'Scan complete!');
 
-      setTimeout(() => {
-        setScanning(false);
-        setScanProgress(0);
-        setScanStatus('');
-      }, 2000);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
+      queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
 
     } catch (error) {
-      console.error('Scan error:', error);
-      setScanStatus('Scan completed with some errors');
-      setTimeout(() => {
-        setScanning(false);
-        setScanProgress(0);
-        setScanStatus('');
-      }, 2000);
+      setScanStatus('Scan failed — check console for details');
     }
+    setTimeout(() => {
+      setScanning(false);
+      setScanProgress(0);
+      setScanStatus('');
+    }, 2500);
   };
 
   const getRiskColor = (score) => {
@@ -272,6 +285,9 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Priority Actions */}
+      <ActionRecommendations profileId={activeProfileId} maxItems={5} />
+
       {/* What We Monitor */}
       <Card className="glass-card border-purple-500/20">
         <CardHeader>
@@ -285,10 +301,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {personalData.filter(d => d.monitoring_enabled).slice(0, 8).map((data) => {
                 const Icon = getDataTypeIcon(data.data_type);
-                const exposureCount = [...scanResults, ...searchQueries].filter(r => 
-                  r.matched_data_types?.includes(data.data_type) ||
-                  r.data_exposed?.includes(data.data_type)
-                ).length;
+                const exposureCount = exposureCountByType[data.data_type] || 0;
 
                 return (
                   <div
@@ -303,7 +316,7 @@ export default function Dashboard() {
                       <Icon className={`w-5 h-5 ${exposureCount > 0 ? 'text-red-400' : 'text-green-400'}`} />
                       <span className="text-sm text-gray-300 capitalize">{data.data_type.replace(/_/g, ' ')}</span>
                     </div>
-                    <p className="text-xs text-gray-500 truncate">{data.value.slice(0, 20)}...</p>
+                    <p className="text-xs text-gray-500 truncate">{(data.value || '').slice(0, 20)}...</p>
                     <div className="flex items-center gap-1 mt-2">
                       {exposureCount > 0 ? (
                         <>
@@ -470,6 +483,31 @@ export default function Dashboard() {
             <Eye className="w-10 h-10 text-amber-400 mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">View All Exposures</h3>
             <p className="text-sm text-gray-400">See detailed breakdown of {totalExposures} findings</p>
+          </motion.div>
+        </Link>
+      </div>
+
+      {/* Extended Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link to={createPageUrl('LegalSupport')} className="block">
+          <motion.div whileHover={{ scale: 1.02 }} className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full">
+            <Gavel className="w-10 h-10 text-purple-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Settlement Finder</h3>
+            <p className="text-sm text-gray-400">Find class actions and no-proof settlements you may qualify for</p>
+          </motion.div>
+        </Link>
+        <Link to={createPageUrl('DeletionCenter')} className="block">
+          <motion.div whileHover={{ scale: 1.02 }} className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full">
+            <Rocket className="w-10 h-10 text-indigo-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Removal Campaigns</h3>
+            <p className="text-sm text-gray-400">Launch automated opt-out campaigns across data brokers</p>
+          </motion.div>
+        </Link>
+        <Link to={createPageUrl('FinancialMonitor')} className="block">
+          <motion.div whileHover={{ scale: 1.02 }} className="glass-card rounded-xl p-6 hover:glow-border transition-all cursor-pointer h-full">
+            <DollarSign className="w-10 h-10 text-green-400 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">Subscription Control</h3>
+            <p className="text-sm text-gray-400">Track, cancel, and protect your recurring payments</p>
           </motion.div>
         </Link>
       </div>

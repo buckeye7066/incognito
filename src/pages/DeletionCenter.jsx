@@ -11,6 +11,9 @@ import { motion } from 'framer-motion';
 import AutomatedTracking from '../components/deletion/AutomatedTracking';
 import BulkDeletionPanel from '../components/deletion/BulkDeletionPanel';
 import PlatformDeletionGuide from '../components/deletion/PlatformDeletionGuide';
+import BrokerCampaignEngine from '../components/deletion/BrokerCampaignEngine';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Rocket, ListChecks } from 'lucide-react';
 
 export default function DeletionCenter() {
   const queryClient = useQueryClient();
@@ -316,6 +319,21 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
         </Button>
       </div>
 
+      <Tabs defaultValue="campaigns" className="space-y-6">
+        <TabsList className="bg-slate-800/60 border border-slate-700">
+          <TabsTrigger value="campaigns" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 px-6">
+            <Rocket className="w-4 h-4 mr-2" /> Removal Campaigns
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-purple-600 px-6">
+            <ListChecks className="w-4 h-4 mr-2" /> Requests & Tools
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="campaigns" className="space-y-6">
+          <BrokerCampaignEngine profileId={activeProfileId} />
+        </TabsContent>
+
+        <TabsContent value="requests" className="space-y-6">
       {/* Automated Response Tracking */}
       <AutomatedTracking
         responses={responses}
@@ -585,6 +603,8 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
           )}
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

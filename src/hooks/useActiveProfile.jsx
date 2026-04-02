@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
 const ActiveProfileContext = createContext(null);
 
@@ -7,13 +7,15 @@ export function ActiveProfileProvider({ children }) {
     return localStorage.getItem('activeProfileId') || null;
   });
 
-  const setActiveProfileId = (id) => {
+  const setActiveProfileId = useCallback((id) => {
     localStorage.setItem('activeProfileId', id);
     setActiveProfileIdState(id);
-  };
+  }, []);
+
+  const value = useMemo(() => ({ activeProfileId, setActiveProfileId }), [activeProfileId, setActiveProfileId]);
 
   return (
-    <ActiveProfileContext.Provider value={{ activeProfileId, setActiveProfileId }}>
+    <ActiveProfileContext.Provider value={value}>
       {children}
     </ActiveProfileContext.Provider>
   );
@@ -22,7 +24,7 @@ export function ActiveProfileProvider({ children }) {
 export function useActiveProfile() {
   const ctx = useContext(ActiveProfileContext);
   if (!ctx) {
-    throw new Error('useActiveProfile must be used within ActiveProfileProvider');
+    return { activeProfileId: localStorage.getItem('activeProfileId') || null, setActiveProfileId: () => {} };
   }
   return ctx;
 }

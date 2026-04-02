@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { incognito } from '@/api/client';
+import { queryClientInstance } from '@/lib/query-client';
 
 const AuthContext = createContext();
 
@@ -8,26 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  useEffect(() => {
-    initLocalAuth();
-  }, []);
-
-  useEffect(() => {
-    const handleStorage = (e) => {
-      if (e.key?.startsWith('incognito_entity_')) {
-        initLocalAuth();
-      }
-    };
-    const handleFocus = () => initLocalAuth();
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
-  const initLocalAuth = async () => {
+  const initLocalAuth = useCallback(async () => {
     try {
       const currentUser = await incognito.auth.me();
       setUser(currentUser);
@@ -37,21 +19,35 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoadingAuth(false);
     }
-  };
+  }, []);
 
-  const logout = () => {
+  useEffect(() => {
+    initLocalAuth();
+  }, [initLocalAuth]);
+
+  const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
-  };
+  }, []);
+
+  const login = useCallback(() => {
+    setIsLoadingAuth(true);
+    queryClientInstance.invalidateQueries({ queryKey: ['profiles'] });
+    queryClientInstance.invalidateQueries({ queryKey: ['personalData'] });
+    initLocalAuth();
+  }, [initLocalAuth]);
+
+  const value = useMemo(() => ({
+    user,
+    isAuthenticated,
+    isLoadingAuth,
+    login,
+    logout,
+    checkAppState: initLocalAuth,
+  }), [user, isAuthenticated, isLoadingAuth, login, logout, initLocalAuth]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
-      isLoadingAuth,
-      logout,
-      checkAppState: initLocalAuth
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -60,7 +56,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return { user: null, isAuthenticated: false, isLoadingAuth: false, login: () => {}, logout: () => {}, checkAppState: () => {} };
   }
   return context;
 };

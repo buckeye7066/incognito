@@ -12,12 +12,58 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle, ShieldCheck, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { incognito } from '@/api/client';
+import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ImpersonationFindings from '../social/ImpersonationFindings';
+
+const US_STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY',
+  'LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND',
+  'OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC',
+];
+
+function parseStructuredValue(value, dataType) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  if (dataType === 'address') {
+    try { const p = JSON.parse(value); if (p.city || p.street) return p; } catch {}
+    return { street: value, city: '', state: '', zip: '' };
+  }
+  if (dataType === 'dob') {
+    try { const p = JSON.parse(value); if (p.month) return p; } catch {}
+    const parts = value.replace(/[/\-.]/g, '/').split('/');
+    if (parts.length === 3) return { month: parts[0], day: parts[1], year: parts[2] };
+    return { month: '', day: '', year: '', raw: value };
+  }
+  if (dataType === 'ssn') {
+    try { const p = JSON.parse(value); if (p.area) return p; } catch {}
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 9) return { area: digits.slice(0,3), group: digits.slice(3,5), serial: digits.slice(5,9) };
+    return { area: '', group: '', serial: '', raw: value };
+  }
+  return null;
+}
+
+function formatStructuredValue(value, dataType) {
+  const parsed = parseStructuredValue(value, dataType);
+  if (!parsed) return typeof value === 'string' ? value : '';
+  if (dataType === 'address') {
+    const parts = [parsed.street, parsed.city, parsed.state, parsed.zip].filter(Boolean);
+    return parts.join(', ');
+  }
+  if (dataType === 'dob') {
+    if (parsed.raw) return parsed.raw;
+    return [parsed.month, parsed.day, parsed.year].filter(Boolean).join('/');
+  }
+  if (dataType === 'ssn') {
+    if (parsed.raw) return parsed.raw;
+    return [parsed.area, parsed.group, parsed.serial].filter(Boolean).join('-');
+  }
+  return typeof value === 'string' ? value : '';
+}
 
 const DATA_TYPES = [
   { value: 'full_name', label: 'Full Name', icon: '👤' },
@@ -68,7 +114,11 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
     value: '',
     label: '',
     monitoring_enabled: true,
-    notes: ''
+    notes: '',
+    // structured sub-fields
+    addr_street: '', addr_city: '', addr_state: '', addr_zip: '',
+    dob_month: '', dob_day: '', dob_year: '',
+    ssn_area: '', ssn_group: '', ssn_serial: '',
   });
   const [socialFormData, setSocialFormData] = useState({
     platform: '',
@@ -102,11 +152,10 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
       queryClient.invalidateQueries(['personalData']);
       setShowAddForm(false);
       setFormData({
-        data_type: '',
-        value: '',
-        label: '',
-        monitoring_enabled: true,
-        notes: ''
+        data_type: '', value: '', label: '', monitoring_enabled: true, notes: '',
+        addr_street: '', addr_city: '', addr_state: '', addr_zip: '',
+        dob_month: '', dob_day: '', dob_year: '',
+        ssn_area: '', ssn_group: '', ssn_serial: '',
       });
     }
   });
@@ -150,7 +199,37 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    createMutation.mutate({ ...formData, profile_id: profile.id });
+    let finalValue = formData.value;
+
+    if (formData.data_type === 'address') {
+      finalValue = JSON.stringify({
+        street: formData.addr_street,
+        city: formData.addr_city,
+        state: formData.addr_state,
+        zip: formData.addr_zip,
+      });
+    } else if (formData.data_type === 'dob') {
+      finalValue = JSON.stringify({
+        month: formData.dob_month,
+        day: formData.dob_day,
+        year: formData.dob_year,
+      });
+    } else if (formData.data_type === 'ssn') {
+      finalValue = JSON.stringify({
+        area: formData.ssn_area,
+        group: formData.ssn_group,
+        serial: formData.ssn_serial,
+      });
+    }
+
+    createMutation.mutate({
+      data_type: formData.data_type,
+      value: finalValue,
+      label: formData.label,
+      monitoring_enabled: formData.monitoring_enabled,
+      notes: formData.notes,
+      profile_id: profile.id,
+    });
   };
 
   const handleSocialSubmit = (e) => {
@@ -160,83 +239,92 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
   const handleScanNow = async () => {
     if (!profile?.id) return;
-    
+
     const monitoredData = profileData.filter(d => d.monitoring_enabled);
-    
     if (monitoredData.length === 0) {
       alert('No monitored data to scan. Please add and enable monitoring for at least one identifier.');
       return;
     }
 
     setScanning(true);
-    try {
-      const resultsCreated = [];
-      
-      for (const data of monitoredData) {
-        const prompt = `Scan for exposures of this data: ${data.data_type} = ${data.value}. 
-Search across people finder sites, data brokers, public records, and social media.
-For EACH distinct source where this data appears, provide:
-- source_name: exact name
-- source_url: full URL
-- source_type: people_finder, data_broker, public_record, or social_media
-- risk_score: 0-100
-- data_exposed: array of data types found
-Return JSON array of findings.`;
+    const warnings = [];
+    let totalFound = 0;
+    let scansAttempted = 0;
 
-        const result = await incognito.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              findings: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    source_name: { type: "string" },
-                    source_url: { type: "string" },
-                    source_type: { type: "string" },
-                    risk_score: { type: "number" },
-                    data_exposed: { type: "array", items: { type: "string" } }
-                  }
-                }
-              }
-            }
-          }
-        });
+    const emails = monitoredData.filter(d => d.data_type === 'email').map(d => resolvePersonalDataValue(d));
+    const usernames = monitoredData.filter(d => d.data_type === 'username').map(d => resolvePersonalDataValue(d));
+    const phones = monitoredData.filter(d => d.data_type === 'phone').map(d => resolvePersonalDataValue(d));
+    const addresses = monitoredData.filter(d => d.data_type === 'address').map(d => resolvePersonalDataValue(d));
+    const fullName = (() => { const d = monitoredData.find(d => d.data_type === 'full_name'); return d ? resolvePersonalDataValue(d) : ''; })();
 
-        if (result.findings && result.findings.length > 0) {
-          for (const finding of result.findings) {
-            await incognito.entities.ScanResult.create({
-              profile_id: profile.id,
-              personal_data_id: data.id,
-              source_name: finding.source_name,
-              source_url: finding.source_url,
-              source_type: finding.source_type,
-              risk_score: finding.risk_score,
-              data_exposed: finding.data_exposed,
-              status: 'new',
-              scan_date: new Date().toISOString().split('T')[0]
-            });
-            resultsCreated.push(finding);
-          }
+    const safeScan = async (label, fn) => {
+      scansAttempted++;
+      try {
+        const result = await fn();
+        if (result?.data?.skipped) {
+          warnings.push(`${label}: ${result.data.reason || 'Skipped'}`);
+          return 0;
         }
+        return result?.data?.total || 0;
+      } catch (e) {
+        console.warn(`[Scan] ${label} failed:`, e?.message || e);
+        warnings.push(`${label}: ${e?.message || 'Unknown error'}`);
+        return 0;
       }
+    };
 
+    if (emails.length > 0) {
+      totalFound += await safeScan('Breach check', () =>
+        incognito.functions.invoke('checkBreaches', { profileId: profile.id, emails })
+      );
+    }
+
+    if (fullName || emails.length || phones.length || addresses.length) {
+      totalFound += await safeScan('Search exposure scan', () =>
+        incognito.functions.invoke('detectSearchQueries', {
+          profileId: profile.id,
+          fullName: fullName || '',
+          emails,
+          phones,
+          addresses,
+        })
+      );
+    }
+
+    if (usernames.length > 0 || fullName) {
+      totalFound += await safeScan('Social media scan', () =>
+        incognito.functions.invoke('monitorSocialMedia', {
+          profileId: profile.id,
+          fullName: fullName || '',
+          usernames,
+        })
+      );
+    }
+
+    try {
       await incognito.entities.Profile.update(profile.id, {
         last_scan_date: new Date().toISOString().split('T')[0]
       });
+    } catch (_) { /* localStorage write — non-critical */ }
 
-      queryClient.invalidateQueries(['scanResults']);
-      queryClient.invalidateQueries(['profiles']);
-      
-      alert(`Scan complete! Found ${resultsCreated.length} exposures for this profile.`);
-    } catch (error) {
-      alert('Scan failed: ' + error.message);
-    } finally {
-      setScanning(false);
+    queryClient.invalidateQueries(['scanResults']);
+    queryClient.invalidateQueries(['searchQueryFindings']);
+    queryClient.invalidateQueries(['socialMediaFindings']);
+    queryClient.invalidateQueries(['profiles']);
+
+    let msg = `Scan complete! Found ${totalFound} exposure${totalFound !== 1 ? 's' : ''}.`;
+    if (warnings.length > 0) {
+      const needsKeys = warnings.some(w =>
+        w.includes('API key not configured') || w.includes('Failed to fetch')
+      );
+      msg += `\n\n${warnings.length} of ${scansAttempted} scan(s) had issues:\n• ${warnings.join('\n• ')}`;
+      if (needsKeys) {
+        msg += '\n\nTip: Add your HIBP and OpenAI API keys in Settings → API Keys.';
+      }
     }
+
+    alert(msg);
+    setScanning(false);
   };
 
   const handleCheckImpersonation = async () => {
@@ -290,23 +378,48 @@ Return JSON array of findings.`;
     return { breaches: breaches.length, searches: searches.length, total: breaches.length + searches.length };
   };
 
+  const getDisplayValue = (value, dataType) => {
+    return formatStructuredValue(value, dataType);
+  };
+
   const maskValue = (value, dataType) => {
     if (!value) return '';
+    if (dataType === 'address') {
+      const parsed = parseStructuredValue(value, 'address');
+      if (parsed && parsed.city) {
+        return `••••••, ${parsed.city}, ${parsed.state || '••'} ${parsed.zip || '•••••'}`;
+      }
+    }
+    if (dataType === 'dob') {
+      const parsed = parseStructuredValue(value, 'dob');
+      if (parsed && parsed.month) {
+        return `${parsed.month}/••/${parsed.year || '••••'}`;
+      }
+    }
+    if (dataType === 'ssn') {
+      const parsed = parseStructuredValue(value, 'ssn');
+      if (parsed && parsed.serial) {
+        return `•••-••-${parsed.serial}`;
+      }
+      const flat = typeof value === 'string' ? value.replace(/\D/g, '') : '';
+      if (flat.length >= 4) return '•••-••-' + flat.slice(-4);
+    }
+    const str = typeof value === 'string' ? value : String(value);
     if (dataType === 'credit_card') {
-      const digits = value.replace(/\D/g, '');
+      const digits = str.replace(/\D/g, '');
       return `•••• •••• •••• ${digits.slice(-4)}`;
     }
     if (dataType === 'email') {
-      return value.replace(/(.{2}).+(@.+)/, "$1***$2");
+      return str.replace(/(.{2}).+(@.+)/, "$1***$2");
     }
     if (dataType === 'phone') {
-      return value.replace(/\d(?=\d{4})/g, '*');
+      return str.replace(/\d(?=\d{4})/g, '*');
     }
-    if (dataType === 'ssn' || dataType === 'bank_account') {
-      return '•••-••-' + value.slice(-4);
+    if (dataType === 'bank_account') {
+      return '•••-••-' + str.slice(-4);
     }
-    if (value.length <= 4) return '•'.repeat(value.length);
-    return value.slice(0, 2) + '•'.repeat(value.length - 4) + value.slice(-2);
+    if (str.length <= 4) return '•'.repeat(str.length);
+    return str.slice(0, 2) + '•'.repeat(str.length - 4) + str.slice(-2);
   };
 
   const formatCardInput = (raw) => {
@@ -441,31 +554,148 @@ Return JSON array of findings.`;
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-purple-200 text-sm">
-                      {formData.data_type === 'credit_card' ? 'Full Card Number' : 'Value'}
-                    </Label>
-                    <Input
-                      value={formData.data_type === 'credit_card' ? formatCardInput(formData.value) : formData.value}
-                      onChange={(e) => {
-                        const raw = formData.data_type === 'credit_card'
-                          ? e.target.value.replace(/\D/g, '').slice(0, 16)
-                          : e.target.value;
-                        setFormData({ ...formData, value: raw });
-                      }}
-                      placeholder={formData.data_type === 'credit_card'
-                        ? '1234 5678 9012 3456'
-                        : 'Enter the actual data'}
-                      maxLength={formData.data_type === 'credit_card' ? 19 : undefined}
-                      className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
-                      required
-                    />
-                    {formData.data_type === 'credit_card' && (
-                      <p className="text-xs text-purple-400">
-                        Enter full number. Only the last 4 digits will be displayed.
-                      </p>
-                    )}
-                  </div>
+                  {/* ── ADDRESS: Street / City / State / ZIP ── */}
+                  {formData.data_type === 'address' && (
+                    <div className="space-y-3">
+                      <Label className="text-purple-200 text-sm flex items-center gap-1"><MapPin className="w-3 h-3" /> Address</Label>
+                      <Input
+                        value={formData.addr_street}
+                        onChange={(e) => setFormData({ ...formData, addr_street: e.target.value })}
+                        placeholder="Street address"
+                        className="bg-slate-900/50 border-purple-500/30 text-white"
+                        required
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          value={formData.addr_city}
+                          onChange={(e) => setFormData({ ...formData, addr_city: e.target.value })}
+                          placeholder="City"
+                          className="bg-slate-900/50 border-purple-500/30 text-white"
+                          required
+                        />
+                        <Select value={formData.addr_state} onValueChange={(v) => setFormData({ ...formData, addr_state: v })}>
+                          <SelectTrigger className="bg-slate-900/50 border-purple-500/30 text-white">
+                            <SelectValue placeholder="State" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={formData.addr_zip}
+                          onChange={(e) => setFormData({ ...formData, addr_zip: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                          placeholder="ZIP"
+                          maxLength={5}
+                          className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── DATE OF BIRTH: Month / Day / Year ── */}
+                  {formData.data_type === 'dob' && (
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Date of Birth</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Select value={formData.dob_month} onValueChange={(v) => setFormData({ ...formData, dob_month: v })}>
+                          <SelectTrigger className="bg-slate-900/50 border-purple-500/30 text-white">
+                            <SelectValue placeholder="Month" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                              <SelectItem key={m} value={m}>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]} ({m})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={formData.dob_day} onValueChange={(v) => setFormData({ ...formData, dob_day: v })}>
+                          <SelectTrigger className="bg-slate-900/50 border-purple-500/30 text-white">
+                            <SelectValue placeholder="Day" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')).map(d => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={formData.dob_year}
+                          onChange={(e) => setFormData({ ...formData, dob_year: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                          placeholder="Year"
+                          maxLength={4}
+                          className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
+                          required
+                        />
+                      </div>
+                      <p className="text-xs text-purple-400">Select month, day, and enter 4-digit year</p>
+                    </div>
+                  )}
+
+                  {/* ── SSN: Area / Group / Serial ── */}
+                  {formData.data_type === 'ssn' && (
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Social Security Number</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={formData.ssn_area}
+                          onChange={(e) => setFormData({ ...formData, ssn_area: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                          placeholder="XXX"
+                          maxLength={3}
+                          className="bg-slate-900/50 border-purple-500/30 text-white font-mono text-center w-20"
+                          required
+                        />
+                        <span className="text-gray-500 text-lg">–</span>
+                        <Input
+                          value={formData.ssn_group}
+                          onChange={(e) => setFormData({ ...formData, ssn_group: e.target.value.replace(/\D/g, '').slice(0, 2) })}
+                          placeholder="XX"
+                          maxLength={2}
+                          className="bg-slate-900/50 border-purple-500/30 text-white font-mono text-center w-16"
+                          required
+                        />
+                        <span className="text-gray-500 text-lg">–</span>
+                        <Input
+                          value={formData.ssn_serial}
+                          onChange={(e) => setFormData({ ...formData, ssn_serial: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                          placeholder="XXXX"
+                          maxLength={4}
+                          className="bg-slate-900/50 border-purple-500/30 text-white font-mono text-center w-20"
+                          required
+                        />
+                      </div>
+                      <p className="text-xs text-purple-400">Only the last 4 digits will be displayed. Stored locally only.</p>
+                    </div>
+                  )}
+
+                  {/* ── CREDIT CARD ── */}
+                  {formData.data_type === 'credit_card' && (
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Full Card Number</Label>
+                      <Input
+                        value={formatCardInput(formData.value)}
+                        onChange={(e) => setFormData({ ...formData, value: e.target.value.replace(/\D/g, '').slice(0, 16) })}
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                        className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
+                        required
+                      />
+                      <p className="text-xs text-purple-400">Enter full number. Only the last 4 digits will be displayed.</p>
+                    </div>
+                  )}
+
+                  {/* ── ALL OTHER TYPES: single text field ── */}
+                  {formData.data_type && !['address', 'dob', 'ssn', 'credit_card'].includes(formData.data_type) && (
+                    <div className="space-y-2">
+                      <Label className="text-purple-200 text-sm">Value</Label>
+                      <Input
+                        value={formData.value}
+                        onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                        placeholder="Enter the actual data"
+                        className="bg-slate-900/50 border-purple-500/30 text-white font-mono"
+                        required
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label className="text-purple-200 text-sm">Notes (Optional)</Label>
                     <Textarea
@@ -534,7 +764,7 @@ Return JSON array of findings.`;
                                 {showValues
                                   ? (item.data_type === 'credit_card'
                                       ? formatCardInput(item.value)
-                                      : item.value)
+                                      : getDisplayValue(item.value, item.data_type))
                                   : maskValue(item.value, item.data_type)}
                               </p>
                               {hits.total > 0 ? (

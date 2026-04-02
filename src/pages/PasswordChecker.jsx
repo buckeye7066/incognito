@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Shield, Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Search, Lock, Copy } from 'lucide-react';
+import { Shield, Eye, EyeOff, CheckCircle, AlertTriangle, XCircle, Search, Lock, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { incognito } from '@/api/client';
+import { useActiveProfile } from '@/hooks/useActiveProfile';
 
 async function sha1(str) {
   const buf = new TextEncoder().encode(str);
@@ -14,6 +17,23 @@ async function sha1(str) {
     .join('')
     .toUpperCase();
 }
+
+const COMMON_CHANGE_PW_URLS = [
+  { name: 'Google / Gmail', url: 'https://myaccount.google.com/signinoptions/password', icon: '🔵' },
+  { name: 'Microsoft / Outlook', url: 'https://account.live.com/password/Change', icon: '🟦' },
+  { name: 'Apple ID', url: 'https://appleid.apple.com/account/manage', icon: '🍎' },
+  { name: 'Facebook', url: 'https://www.facebook.com/settings?tab=security', icon: '📘' },
+  { name: 'Instagram', url: 'https://www.instagram.com/accounts/password/change/', icon: '📷' },
+  { name: 'Twitter / X', url: 'https://twitter.com/settings/password', icon: '🐦' },
+  { name: 'Amazon', url: 'https://www.amazon.com/gp/css/account/info/view.html', icon: '📦' },
+  { name: 'Netflix', url: 'https://www.netflix.com/password', icon: '🎬' },
+  { name: 'LinkedIn', url: 'https://www.linkedin.com/psettings/change-password', icon: '💼' },
+  { name: 'GitHub', url: 'https://github.com/settings/security', icon: '💻' },
+  { name: 'Reddit', url: 'https://www.reddit.com/prefs/update/', icon: '🤖' },
+  { name: 'Discord', url: 'https://discord.com/channels/@me', icon: '🎮' },
+  { name: 'PayPal', url: 'https://www.paypal.com/myaccount/settings/security/password', icon: '💰' },
+  { name: 'Yahoo', url: 'https://login.yahoo.com/account/security', icon: '🟣' },
+];
 
 export default function PasswordChecker() {
   const [password, setPassword] = useState('');
@@ -25,6 +45,25 @@ export default function PasswordChecker() {
     try { return JSON.parse(localStorage.getItem('pw_check_history') || '[]'); } catch { return []; }
   });
 
+  const { activeProfileId } = useActiveProfile();
+
+  const { data: allScanResults = [] } = useQuery({
+    queryKey: ['scanResults'],
+    queryFn: () => incognito.entities.ScanResult.list()
+  });
+
+  const { data: allPersonalData = [] } = useQuery({
+    queryKey: ['personalData'],
+    queryFn: () => incognito.entities.PersonalData.list()
+  });
+
+  const myBreaches = allScanResults.filter(r =>
+    (!activeProfileId || r.profile_id === activeProfileId) && r.source_type === 'breach_database'
+  );
+  const passwordBreaches = myBreaches.filter(b =>
+    b.data_exposed?.some(d => /password/i.test(d))
+  );
+
   const checkPassword = async () => {
     if (!password) return;
     setLoading(true);
@@ -35,6 +74,7 @@ export default function PasswordChecker() {
       const suffix = hash.slice(5);
 
       const resp = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+      if (!resp.ok) throw new Error(`HIBP returned status ${resp.status}. Try again later.`);
       const text = await resp.text();
       const match = text.split('\n').find(line => line.startsWith(suffix));
       const count = match ? parseInt(match.split(':')[1]) : 0;
@@ -124,10 +164,27 @@ export default function PasswordChecker() {
         </CardContent>
       </Card>
 
+      {/* Error */}
+      <AnimatePresence>
+        {result?.error && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="glass-card border border-red-500/30 bg-red-500/5">
+              <CardContent className="p-6 flex items-center gap-4">
+                <XCircle className="w-10 h-10 text-red-400 shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-300">Check Failed</p>
+                  <p className="text-sm text-gray-400 mt-1">{result.error}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Result */}
       <AnimatePresence>
         {result && !result.error && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             {(() => {
               const sev = getSeverity(result.count);
               const Icon = sev.icon;
@@ -145,18 +202,6 @@ export default function PasswordChecker() {
                         </p>
                       </div>
                     </div>
-
-                    {!result.safe && (
-                      <div className="mt-4 p-4 rounded-xl bg-slate-900/50 border border-red-500/20">
-                        <p className="text-red-300 font-medium mb-2">⚠️ Immediate Actions Recommended:</p>
-                        <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                          <li>Stop using this password immediately</li>
-                          <li>Change it on all sites where you use it</li>
-                          <li>Use a unique, randomly generated password for each site</li>
-                          <li>Enable two-factor authentication wherever possible</li>
-                        </ul>
-                      </div>
-                    )}
 
                     {result.safe && (
                       <div className="mt-4 p-4 rounded-xl bg-green-900/20 border border-green-500/20">
@@ -182,6 +227,86 @@ export default function PasswordChecker() {
                 </Card>
               );
             })()}
+
+            {/* Breaches that leaked passwords */}
+            {!result.safe && passwordBreaches.length > 0 && (
+              <Card className="glass-card border-red-500/30">
+                <CardHeader className="pb-3 border-b border-red-500/20">
+                  <CardTitle className="text-white text-base flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-400" />
+                    Your Accounts in Password Breaches ({passwordBreaches.length})
+                  </CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">
+                    These breaches from your vault exposed passwords. Change credentials on these sites immediately.
+                  </p>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  {passwordBreaches.map((b, i) => (
+                    <div key={i} className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                      <div className="flex items-start justify-between mb-1">
+                        <div>
+                          <p className="text-white font-semibold text-sm">{b.source_name}</p>
+                          {b.metadata?.email && (
+                            <p className="text-red-300 text-xs font-mono">
+                              {b.metadata.email.replace(/(.{2}).+(@.+)/, "$1***$2")}
+                            </p>
+                          )}
+                        </div>
+                        <Badge className="bg-red-600/20 text-red-300 border-red-600/40 text-[10px]">
+                          Risk: {b.risk_score}
+                        </Badge>
+                      </div>
+                      {b.breach_date && (
+                        <p className="text-gray-400 text-xs">Breached: {b.breach_date}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(b.data_exposed || []).map((d, j) => (
+                          <span key={j} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            /password/i.test(d)
+                              ? 'bg-red-600/30 text-red-200 font-semibold'
+                              : 'bg-slate-700/50 text-gray-300'
+                          }`}>
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Change Password Links */}
+            {!result.safe && (
+              <Card className="glass-card border-amber-500/30">
+                <CardHeader className="pb-3 border-b border-amber-500/20">
+                  <CardTitle className="text-white text-base flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-amber-400" />
+                    Change Your Passwords Now
+                  </CardTitle>
+                  <p className="text-xs text-gray-400 mt-1">
+                    If you used this password on any of these sites, change it immediately.
+                  </p>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {COMMON_CHANGE_PW_URLS.map((site) => (
+                      <a
+                        key={site.name}
+                        href={site.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/5 transition-colors group"
+                      >
+                        <span className="text-lg">{site.icon}</span>
+                        <span className="text-sm text-gray-300 group-hover:text-white flex-1">{site.name}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-gray-500 group-hover:text-amber-400" />
+                      </a>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -33,8 +33,14 @@ export default defineConfig({
             if (id.includes('@tanstack/react-query')) {
               return 'vendor-query';
             }
-            if (id.includes('jspdf') || id.includes('html2canvas')) {
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('jspdf')) {
               return 'vendor-pdf';
+            }
+            if (id.includes('date-fns')) {
+              return 'vendor-datefns';
             }
           }
         },
@@ -42,6 +48,12 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
+    strictPort: true,
     hmr: true,
+  },
+  preview: {
+    port: 4173,
+    strictPort: true,
   },
 });

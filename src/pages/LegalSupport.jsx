@@ -14,6 +14,9 @@ import { motion } from 'framer-motion';
 
 import BreachNoticeUploader from '@/components/legal/BreachNoticeUploader';
 import NoProofSettlementScanner from '@/components/legal/NoProofSettlementScanner';
+import SettlementCenter from '@/components/legal/SettlementCenter';
+import CreditDebtCenter from '@/components/legal/CreditDebtCenter';
+import BureauDisputeWorkflow from '@/components/legal/BureauDisputeWorkflow';
 
 export default function LegalSupport() {
   const [searchingClassActions, setSearchingClassActions] = useState(false);
@@ -166,13 +169,22 @@ export default function LegalSupport() {
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="breach_notices" className="space-y-6">
+      <Tabs defaultValue="settlements" className="space-y-6">
         <TabsList className="bg-slate-900/50 border border-purple-500/20 flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="breach_notices" className="data-[state=active]:bg-purple-600 gap-1.5">
-            <Upload className="w-3.5 h-3.5" /> Breach Notices
+          <TabsTrigger value="settlements" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-indigo-600 gap-1.5">
+            <Gavel className="w-3.5 h-3.5" /> Settlement Finder
+          </TabsTrigger>
+          <TabsTrigger value="credit_debt" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600 data-[state=active]:to-orange-600 gap-1.5">
+            <Scale className="w-3.5 h-3.5" /> Credit & Debt
+          </TabsTrigger>
+          <TabsTrigger value="bureau_disputes" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Bureau Disputes
           </TabsTrigger>
           <TabsTrigger value="no_proof" className="data-[state=active]:bg-green-600 gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> No-Proof Settlements
+            <Sparkles className="w-3.5 h-3.5" /> No-Proof
+          </TabsTrigger>
+          <TabsTrigger value="breach_notices" className="data-[state=active]:bg-purple-600 gap-1.5">
+            <Upload className="w-3.5 h-3.5" /> Notices
           </TabsTrigger>
           <TabsTrigger value="class_actions" className="gap-1.5">
             <Gavel className="w-3.5 h-3.5" /> Class Actions
@@ -190,6 +202,21 @@ export default function LegalSupport() {
             <AlertTriangle className="w-3.5 h-3.5" /> Next Steps
           </TabsTrigger>
         </TabsList>
+
+        {/* Settlement Finder Tab */}
+        <TabsContent value="settlements">
+          <SettlementCenter profileId={activeProfileId} />
+        </TabsContent>
+
+        {/* Credit & Debt Recovery Tab */}
+        <TabsContent value="credit_debt">
+          <CreditDebtCenter profileId={activeProfileId} />
+        </TabsContent>
+
+        {/* Three-Bureau Dispute Workflow Tab */}
+        <TabsContent value="bureau_disputes">
+          <BureauDisputeWorkflow profileId={activeProfileId} />
+        </TabsContent>
 
         {/* Breach Notice Upload Tab */}
         <TabsContent value="breach_notices">

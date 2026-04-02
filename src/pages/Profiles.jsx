@@ -27,7 +27,8 @@ export default function Profiles() {
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ['profiles'],
-    queryFn: () => incognito.entities.Profile.list()
+    queryFn: () => incognito.entities.Profile.list(),
+    staleTime: 0,
   });
 
   const { data: personalData = [] } = useQuery({
@@ -150,7 +151,12 @@ export default function Profiles() {
 
       {/* Profiles Grid */}
       <AnimatePresence mode="popLayout">
-        {profiles.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-purple-300">Loading profiles...</p>
+          </div>
+        ) : profiles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {profiles.map((profile) => {
               const stats = getProfileStats(profile.id);
@@ -166,7 +172,7 @@ export default function Profiles() {
                     <CardHeader className="border-b border-purple-500/20">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[profile.avatar_color]} flex items-center justify-center text-white font-bold shadow-lg`}>
+                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[profile.avatar_color] || colorClasses.purple} flex items-center justify-center text-white font-bold shadow-lg`}>
                             {getInitials(profile.name)}
                           </div>
                           <div>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Globe, Loader2, Eye, CheckCircle, Trash2 } from 'lucide-react';
-import { incognito } from '@/api/client';
+import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -52,12 +52,42 @@ export default function SearchQueryFindings({ profileId }) {
   const handleDetectSearches = async () => {
     setDetecting(true);
     try {
-      const response = await incognito.functions.invoke('detectSearchQueries', { profileId });
-      queryClient.invalidateQueries(['searchQueryFindings']);
-      queryClient.invalidateQueries(['notificationAlerts']);
-      alert(`Scan complete: ${response.data?.total || 0} exposures detected.`);
+      const allPersonalData = await incognito.entities.PersonalData.list();
+      const myData = allPersonalData.filter(d => d.profile_id === profileId);
+
+      const fnItem = myData.find(d => d.data_type === 'full_name');
+      const fullName = fnItem ? resolvePersonalDataValue(fnItem) : '';
+      const emails = myData.filter(d => d.data_type === 'email').map(d => resolvePersonalDataValue(d));
+      const phones = myData.filter(d => d.data_type === 'phone').map(d => resolvePersonalDataValue(d));
+      const addresses = myData.filter(d => d.data_type === 'address').map(d => resolvePersonalDataValue(d));
+
+      const response = await incognito.functions.invoke('detectSearchQueries', {
+        profileId,
+        fullName,
+        emails,
+        phones,
+        addresses,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
+
+      const d = response.data || {};
+      const newCount = d.new_count ?? d.total ?? 0;
+      const existingCount = d.existing_count ?? 0;
+      const msg = newCount > 0
+        ? `Found ${newCount} new exposure(s).${existingCount > 0 ? ` (${existingCount} already tracked)` : ''}`
+        : existingCount > 0
+          ? `No new exposures. ${existingCount} already tracked.`
+          : `Scan complete — ${d.total || 0} broker(s) checked.`;
+      alert(msg);
     } catch (error) {
-      alert('Search detection failed: ' + error.message);
+      const msg = error?.message || 'Unknown error';
+      if (msg.includes('Failed to fetch') || msg.includes('API key')) {
+        alert(`Search scan could not complete: ${msg}\n\nTip: Check your API keys in Settings and try again.`);
+      } else {
+        alert('Search detection failed: ' + msg);
+      }
     } finally {
       setDetecting(false);
     }
@@ -110,7 +140,7 @@ export default function SearchQueryFindings({ profileId }) {
                 Public Data Exposure Detection
               </p>
               <p className="text-xs text-purple-300">
-                AI scans people search sites, data brokers, and public records to find where your personal information appears online.
+                Scans 25+ data brokers and people search sites to find where your personal information appears online. Works out-of-the-box — add API keys in Settings for deeper results.
               </p>
             </div>
           </div>

@@ -1,16 +1,17 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import React, { useState } from 'react';
-import { incognito } from '@/api/client';
+import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import RiskBadge from '../components/shared/RiskBadge';
-import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale, Printer, Wand2 } from 'lucide-react';
+import { ExternalLink, Trash2, Eye, EyeOff, FileText, Shield, AlertTriangle, Brain, Loader2, Scale, Printer, Wand2, Fingerprint, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchQueryFindings from '../components/monitoring/SearchQueryFindings';
 import AutomatedDeletionModal from '../components/deletion/AutomatedDeletionModal';
+import ExposureTracker from '../components/monitoring/ExposureTracker';
 
 // SECURITY: PII masking functions
 const maskEmail = (email) => {
@@ -28,6 +29,7 @@ const maskAddress = (addr) => {
 
 export default function Findings() {
   const queryClient = useQueryClient();
+  const [view, setView] = useState('by-identifier');
   const [filter, setFilter] = useState('all');
   const [analyzingId, setAnalyzingId] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState({});
@@ -64,13 +66,14 @@ export default function Findings() {
     if (result.personal_data_id) {
       const pd = myIdentifiers.find(d => d.id === result.personal_data_id);
       if (pd) {
-        let masked = pd.value;
-        if (pd.data_type === 'email') masked = maskEmail(pd.value);
-        else if (pd.data_type === 'phone') masked = maskPhone(pd.value);
-        else if (pd.data_type === 'address') masked = maskAddress(pd.value);
-        else if (pd.data_type === 'credit_card') masked = '•••• ' + pd.value.slice(-4);
-        else if (pd.value?.length > 4) masked = pd.value.slice(0, 2) + '•••' + pd.value.slice(-2);
-        return { type: pd.data_type, value: pd.value, masked };
+        const resolved = resolvePersonalDataValue(pd);
+        let masked = resolved;
+        if (pd.data_type === 'email') masked = maskEmail(resolved);
+        else if (pd.data_type === 'phone') masked = maskPhone(resolved);
+        else if (pd.data_type === 'address') masked = maskAddress(resolved);
+        else if (pd.data_type === 'credit_card') masked = '•••• ' + resolved.slice(-4);
+        else if (resolved?.length > 4) masked = resolved.slice(0, 2) + '•••' + resolved.slice(-2);
+        return { type: pd.data_type, value: resolved, masked };
       }
     }
     return null;
@@ -90,12 +93,23 @@ export default function Findings() {
     }
   });
 
-  const deleteMutation = useMutation({
+  const deleteScanMutation = useMutation({
     mutationFn: (id) => incognito.entities.ScanResult.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['scanResults']);
-    }
+    onSuccess: () => queryClient.invalidateQueries(['scanResults']),
   });
+
+  const deleteInquiryMutation = useMutation({
+    mutationFn: (id) => incognito.entities.SearchQueryFinding.delete(id),
+    onSuccess: () => queryClient.invalidateQueries(['searchQueryFindings']),
+  });
+
+  const handleDelete = (finding) => {
+    if (finding.type === 'inquiry') {
+      deleteInquiryMutation.mutate(finding.id);
+    } else {
+      deleteScanMutation.mutate(finding.id);
+    }
+  };
 
   const filteredResults = allFindings.filter(result => {
     if (filter === 'all') return true;
@@ -203,97 +217,30 @@ RESEARCH REQUIREMENTS:
 
 IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current legal directories.`;
 
-      const result = await incognito.integrations.Core.InvokeLLM({
-        prompt,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: 'object',
-          properties: {
-            company_legal_name: { type: 'string' },
-            company_contact: {
-              type: 'object',
-              properties: {
-                email: { type: 'string' },
-                fax: { type: 'string' },
-                address: { type: 'string' }
-              }
-            },
-            applicable_laws: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  law_name: { type: 'string' },
-                  specific_section: { type: 'string' },
-                  why_applicable: { type: 'string' },
-                  damages_available: { type: 'string' }
-                }
-              }
-            },
-            existing_class_action: { type: 'boolean' },
-            class_action_details: { type: 'string' },
-            class_action_how_to_join: { type: 'string' },
-            attorney_name: { type: 'string' },
-            attorney_credentials: { type: 'string' },
-            attorney_firm: { type: 'string' },
-            attorney_location: { type: 'string' },
-            attorney_phone: { type: 'string' },
-            attorney_email: { type: 'string' },
-            attorney_experience: { type: 'string' },
-            alternative_attorneys: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  firm: { type: 'string' },
-                  location: { type: 'string' },
-                  phone: { type: 'string' },
-                  email: { type: 'string' }
-                }
-              }
-            },
-            legal_basis: { type: 'string' },
-            legal_basis_strength: { type: 'string' },
-            key_elements_to_prove: {
-              type: 'array',
-              items: { type: 'string' }
-            },
-            potential_damages: { type: 'string' },
-            damages_breakdown: {
-              type: 'object',
-              properties: {
-                statutory_damages: { type: 'string' },
-                actual_damages: { type: 'string' },
-                punitive_damages: { type: 'string' },
-                estimated_recovery_low: { type: 'string' },
-                estimated_recovery_high: { type: 'string' },
-                attorney_fees_recoverable: { type: 'boolean' }
-              }
-            },
-            legally_required_steps: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  step_title: { type: 'string' },
-                  explanation: { type: 'string' },
-                  contact_info: { type: 'string' },
-                  how_to_complete: { type: 'string' }
-                }
-              }
-            },
-            statute_deadline: { type: 'string' }
-          }
-        }
+      const result = await incognito.functions.invoke('analyzeLegalAction', {
+        finding: {
+          source_name: finding.source_name,
+          source_type: finding.source_type,
+          data_exposed: finding.data_exposed,
+          risk_score: finding.risk_score,
+          scan_date: finding.scan_date,
+          source_url: finding.source_url,
+          metadata: finding.metadata,
+        },
+        dataAnalysis,
       });
 
       setLegalInfo(prev => ({
         ...prev,
-        [finding.id]: result
+        [finding.id]: result.data || result
       }));
     } catch (error) {
-      alert('Failed to retrieve legal information: ' + error.message);
+      const msg = error?.message || 'Unknown error';
+      if (msg.includes('API key') || msg.includes('Failed to fetch')) {
+        alert(`Legal analysis requires an OpenAI API key.\n\nGo to Settings → API Keys to add it.`);
+      } else {
+        alert('Failed to retrieve legal information: ' + msg);
+      }
     } finally {
       setLoadingLegal(null);
     }
@@ -540,24 +487,21 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
   - my_data_found: array of my matched values in format "type: value" (e.g., "email: john@example.com")
   - explanation: explain what evidence shows my data is or isn't in this breach`;
 
-      const result = await incognito.integrations.Core.InvokeLLM({
+      const result = await incognito.functions.invoke('analyzeBreachMatch', {
         prompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            includes_me: { type: "boolean" },
-            my_data_found: { type: "array", items: { type: "string" } },
-            explanation: { type: "string" }
-          }
-        }
       });
 
       setAiAnalysis(prev => ({
         ...prev,
-        [finding.id]: result
+        [finding.id]: result.data || result
       }));
     } catch (error) {
-      alert('AI analysis failed: ' + error.message);
+      const msg = error?.message || 'Unknown error';
+      if (msg.includes('API key') || msg.includes('Failed to fetch')) {
+        alert(`AI analysis requires an OpenAI API key.\n\nGo to Settings → API Keys to add it.`);
+      } else {
+        alert('AI analysis failed: ' + msg);
+      }
     } finally {
       setAnalyzingId(null);
     }
@@ -565,15 +509,44 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
 
   return (
     <div className="space-y-8 max-w-6xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-white mb-2">Findings</h1>
-        <p className="text-purple-300">Review and manage discovered exposures</p>
+      {/* Header + View Toggle */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Findings</h1>
+          <p className="text-purple-300">Review and manage discovered exposures</p>
+        </div>
+        <div className="flex gap-2 bg-slate-800/60 p-1 rounded-lg border border-slate-700">
+          <Button
+            size="sm"
+            variant={view === 'by-identifier' ? 'default' : 'ghost'}
+            onClick={() => setView('by-identifier')}
+            className={view === 'by-identifier' ? 'bg-gradient-to-r from-red-600 to-purple-600' : 'text-gray-400 hover:text-white'}
+          >
+            <Fingerprint className="w-4 h-4 mr-1.5" />
+            Who Has My Data
+          </Button>
+          <Button
+            size="sm"
+            variant={view === 'by-source' ? 'default' : 'ghost'}
+            onClick={() => setView('by-source')}
+            className={view === 'by-source' ? 'bg-gradient-to-r from-red-600 to-purple-600' : 'text-gray-400 hover:text-white'}
+          >
+            <List className="w-4 h-4 mr-1.5" />
+            All Findings
+          </Button>
+        </div>
       </div>
 
       {/* Search Query Monitor */}
       <SearchQueryFindings profileId={activeProfileId} />
 
+      {/* === BY IDENTIFIER VIEW === */}
+      {view === 'by-identifier' && (
+        <ExposureTracker profileId={activeProfileId} />
+      )}
+
+      {/* === BY SOURCE VIEW (original) === */}
+      {view === 'by-source' && <>
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">
         <Tabs value={filter} onValueChange={setFilter}>
@@ -701,7 +674,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteMutation.mutate(result.id)}
+                          onClick={() => handleDelete(result)}
                           className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -1169,6 +1142,11 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
               </motion.div>
             ))}
           </div>
+        ) : isLoading ? (
+          <div className="text-center py-16">
+            <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-purple-300">Loading findings...</p>
+          </div>
         ) : (
           <div className="text-center py-16">
             <Eye className="w-16 h-16 text-purple-500 mx-auto mb-4" />
@@ -1181,6 +1159,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
           </div>
         )}
       </AnimatePresence>
+      </>}
 
       {/* Automated Deletion Modal */}
       <AutomatedDeletionModal

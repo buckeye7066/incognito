@@ -12,6 +12,7 @@ import AutomatedTracking from '../components/deletion/AutomatedTracking';
 import BulkDeletionPanel from '../components/deletion/BulkDeletionPanel';
 import PlatformDeletionGuide from '../components/deletion/PlatformDeletionGuide';
 import BrokerCampaignEngine from '../components/deletion/BrokerCampaignEngine';
+import RemovalVerifier from '../components/deletion/RemovalVerifier';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Rocket, ListChecks } from 'lucide-react';
 
@@ -334,6 +335,13 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-6">
+      {/* Removal Verification */}
+      <RemovalVerifier
+        deletionRequests={deletionRequests}
+        scanResults={scanResults}
+        profileId={activeProfileId}
+      />
+
       {/* Automated Response Tracking */}
       <AutomatedTracking
         responses={responses}

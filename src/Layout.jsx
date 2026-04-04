@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard, Gift } from 'lucide-react';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard, Gift, HeartPulse } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
@@ -67,6 +67,7 @@ const navigation = [
   { name: 'Notifications', path: 'Notifications', icon: Bell },
   { name: 'Profiles', path: 'Profiles', icon: Users },
   { name: 'Settings', path: 'Settings', icon: Settings },
+  { name: 'System Check', path: 'SystemSelfCheck', icon: HeartPulse, adminOnly: true },
 ];
 
 export default function Layout({ children, currentPageName }) {

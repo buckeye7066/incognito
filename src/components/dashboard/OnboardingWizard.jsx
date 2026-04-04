@@ -37,7 +37,7 @@ export default function OnboardingWizard({ onComplete }) {
       setCreatedProfileId(profile.id);
       setActiveProfileId(profile.id);
       localStorage.setItem('activeProfileId', profile.id);
-      queryClient.invalidateQueries(['profiles']);
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setStep(2);
     } finally {
       setSaving(false);
@@ -61,7 +61,7 @@ export default function OnboardingWizard({ onComplete }) {
       for (const entry of entries) {
         await incognito.entities.PersonalData.create(entry);
       }
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
       setStep(3);
     } finally {
       setSaving(false);

@@ -135,11 +135,11 @@ export async function fetchLiveBreachList() {
       try {
         localStorage.setItem(HIBP_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
       } catch { /* QuotaExceeded — fine, we have it in memory */ }
-      console.log(`[HIBP] Loaded ${data.length} live breaches (free, no key)`);
+      // Loaded live breaches from HIBP
       return data;
     }
   } catch (e) {
-    console.warn('[HIBP] Failed to fetch live breach list:', e.message);
+    if (import.meta.env.DEV) console.warn('[HIBP] Failed to fetch live breach list:', e.message);
   }
   return null;
 }
@@ -158,7 +158,7 @@ export async function leakCheckPublic(email) {
     if (!resp.ok) throw new Error(`LeakCheck: ${resp.status}`);
     const data = await resp.json();
     if (data.success && data.found > 0) {
-      console.log(`[LeakCheck Free] Found ${data.found} breaches for ${email.replace(/(.{3}).*(@.*)/, '$1***$2')}`);
+      // LeakCheck found breaches
       return {
         found: data.found,
         fields: data.fields || [],
@@ -167,7 +167,7 @@ export async function leakCheckPublic(email) {
     }
     return { found: 0, fields: [], sources: [] };
   } catch (e) {
-    console.warn('[LeakCheck Free] Error (likely CORS):', e.message);
+    if (import.meta.env.DEV) console.warn('[LeakCheck Free] Error:', e.message);
     return null;
   }
 }

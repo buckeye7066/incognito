@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -54,8 +55,8 @@ export default function DeletionCenter() {
   const createRequestMutation = useMutation({
     mutationFn: (data) => incognito.entities.DeletionRequest.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['deletionRequests']);
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
       setSelectedResult(null);
       setFormData({ removal_method: 'email_request', contact_email: '', notes: '' });
     }
@@ -64,14 +65,14 @@ export default function DeletionCenter() {
   const updateRequestMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.DeletionRequest.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['deletionRequests']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
     }
   });
 
   const deleteRequestMutation = useMutation({
     mutationFn: (id) => incognito.entities.DeletionRequest.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['deletionRequests']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
     }
   });
 
@@ -80,7 +81,7 @@ export default function DeletionCenter() {
   const deleteAllFailedRequests = async () => {
     const failedRequests = deletionRequests.filter(r => r.status === 'failed');
     if (failedRequests.length === 0) {
-      alert('No failed requests to delete');
+      notify('No failed requests to delete');
       return;
     }
     
@@ -91,9 +92,9 @@ export default function DeletionCenter() {
       for (const req of failedRequests) {
         await incognito.entities.DeletionRequest.delete(req.id);
       }
-      queryClient.invalidateQueries(['deletionRequests']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
     } catch (error) {
-      alert('Error deleting requests: ' + error.message);
+      notify.error('Error deleting requests: ' + error.message);
     } finally {
       setDeletingFailed(false);
     }
@@ -106,7 +107,7 @@ export default function DeletionCenter() {
   const handleCreateRequest = async () => {
     if (!selectedResult) return;
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -269,18 +270,18 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
 
   const checkDeletionResponses = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
     setCheckingResponses(true);
     try {
       const response = await incognito.functions.invoke('monitorDeletionResponses', { profileId: activeProfileId });
-      alert(`Found ${response.data.responsesDetected} new responses from data brokers!`);
-      queryClient.invalidateQueries(['deletionEmailResponses']);
-      queryClient.invalidateQueries(['deletionRequests']);
+      notify.success(`Found ${response.data.responsesDetected} new responses from data brokers!`);
+      queryClient.invalidateQueries({ queryKey: ['deletionEmailResponses'] });
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
     } catch (error) {
-      alert('Failed to check responses: ' + error.message);
+      notify.error('Failed to check responses: ' + error.message);
     } finally {
       setCheckingResponses(false);
     }
@@ -439,7 +440,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                       onClick={() => {
                         const emailTemplate = generateTemplate(selectedResult, 'email');
                         navigator.clipboard.writeText(emailTemplate);
-                        alert('✓ Email template copied!\n\nPaste into your email and fill in [Your Name], [Your Email], etc.');
+                        notify.success('Email template copied! Paste into your email and fill in [Your Name], [Your Email], etc.');
                       }}
                       className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                     >
@@ -452,7 +453,7 @@ IMPORTANT: This is a formal legal request. Please retain for your records.`;
                       onClick={() => {
                         const faxTemplate = generateTemplate(selectedResult, 'fax');
                         navigator.clipboard.writeText(faxTemplate);
-                        alert('✓ Fax template copied!\n\nPrint and fax, or paste into online fax service.\nFill in [Your Name], fax number, etc.');
+                        notify.success('Fax template copied! Print and fax, or paste into online fax service. Fill in [Your Name], fax number, etc.');
                       }}
                       className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                     >

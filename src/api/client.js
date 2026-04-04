@@ -47,9 +47,17 @@ const USER_KEY = 'incognito_user_identity';
 function getStableUserId() {
   let stored = localStorage.getItem(USER_KEY);
   if (stored) {
-    try { return JSON.parse(stored); } catch {}
+    try {
+      const parsed = JSON.parse(stored);
+      // Backfill role for existing users
+      if (!parsed.role) {
+        parsed.role = 'admin';
+        localStorage.setItem(USER_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
+    } catch {}
   }
-  const identity = { id: 'local_user', name: 'Local User', created: new Date().toISOString() };
+  const identity = { id: 'local_user', name: 'Local User', role: 'admin', created: new Date().toISOString() };
   localStorage.setItem(USER_KEY, JSON.stringify(identity));
   return identity;
 }

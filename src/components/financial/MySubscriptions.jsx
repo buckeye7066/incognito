@@ -124,7 +124,7 @@ export default function MySubscriptions({ profileId }) {
       created_at: new Date().toISOString(),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['subscriptions']);
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       setShowAdd(false);
       setForm({ service_name: '', service_url: '', amount: '', frequency: 'monthly', card_last4: '', category: 'other', notes: '' });
     },
@@ -132,12 +132,12 @@ export default function MySubscriptions({ profileId }) {
 
   const deleteSub = useMutation({
     mutationFn: (id) => incognito.entities.Subscription.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['subscriptions']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
   });
 
   const updateSub = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.Subscription.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries(['subscriptions']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
   });
 
   const addCommonService = (svc) => {
@@ -186,7 +186,7 @@ export default function MySubscriptions({ profileId }) {
       for (const sub of selected) {
         await incognito.entities.Subscription.update(sub.id, { status: 'cancelling' });
       }
-      queryClient.invalidateQueries(['subscriptions']);
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       setBatchMode(false);
       setBatchSelected(new Set());
     } finally {

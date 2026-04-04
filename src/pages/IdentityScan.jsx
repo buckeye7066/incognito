@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -223,7 +224,7 @@ export default function IdentityScan() {
 
   const runIdentityScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -304,15 +305,15 @@ export default function IdentityScan() {
       correlation: correlationData,
     });
 
-    queryClient.invalidateQueries(['scanResults']);
-    queryClient.invalidateQueries(['searchQueryFindings']);
-    queryClient.invalidateQueries(['notificationAlerts']);
+    queryClient.invalidateQueries({ queryKey: ['scanResults'] });
+    queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
+    queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
 
     if (warnings.length > 0) {
       const needsKeys = warnings.some(w => w.includes('API key'));
-      let msg = `Scan completed with ${warnings.length} issue(s):\n\n• ${warnings.join('\n• ')}`;
-      if (needsKeys) msg += '\n\nTip: Add your API keys in Settings → API Keys for full scan coverage.';
-      alert(msg);
+      let msg = `Scan completed with ${warnings.length} issue(s): ${warnings.join('; ')}`;
+      if (needsKeys) msg += ' — Tip: Add your API keys in Settings → API Keys for full scan coverage.';
+      notify.warn(msg);
     }
 
     setScanning(false);

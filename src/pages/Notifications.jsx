@@ -42,14 +42,14 @@ export default function Notifications() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.NotificationAlert.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['notificationAlerts']);
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => incognito.entities.NotificationAlert.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['notificationAlerts']);
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
     }
   });
 

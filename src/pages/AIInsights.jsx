@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -48,27 +49,27 @@ export default function AIInsights() {
   const createInsightMutation = useMutation({
     mutationFn: (data) => incognito.entities.AIInsight.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['aiInsights']);
+      queryClient.invalidateQueries({ queryKey: ['aiInsights'] });
     }
   });
 
   const createReportMutation = useMutation({
     mutationFn: (data) => incognito.entities.DigitalFootprintReport.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['digitalFootprintReports']);
+      queryClient.invalidateQueries({ queryKey: ['digitalFootprintReports'] });
     }
   });
 
   const createNotificationMutation = useMutation({
     mutationFn: (data) => incognito.entities.NotificationAlert.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['notificationAlerts']);
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
     }
   });
 
   const runAIAnalysis = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -441,7 +442,7 @@ Go beyond simple deletion. Include:
 
   const generateReport = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -605,7 +606,7 @@ Be specific, actionable, and professional.`,
       {latestReport && (
         <ReportPreview 
           report={latestReport}
-          onDownload={() => alert('PDF download feature coming soon!')}
+          onDownload={() => notify('PDF download feature coming soon!')}
         />
       )}
 

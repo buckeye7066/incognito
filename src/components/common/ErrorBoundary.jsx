@@ -13,8 +13,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // SECURITY: Do not log full error details that might contain PII
-    console.error('Application error occurred');
+    if (import.meta.env.DEV) console.error('Application error:', error);
   }
 
   handleReload = () => {

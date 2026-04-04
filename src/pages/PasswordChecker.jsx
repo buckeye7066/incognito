@@ -79,7 +79,7 @@ export default function PasswordChecker() {
       const match = text.split('\n').find(line => line.startsWith(suffix));
       const count = match ? parseInt(match.split(':')[1]) : 0;
 
-      const entry = { password: password.slice(0, 3) + '***', count, safe: count === 0, date: new Date().toISOString() };
+      const entry = { password: '••••••••', count, safe: count === 0, date: new Date().toISOString() };
       setResult({ count, hash, prefix, safe: count === 0 });
       const updated = [entry, ...history].slice(0, 10);
       setHistory(updated);

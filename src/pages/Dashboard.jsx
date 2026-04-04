@@ -16,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notify } from '@/lib/notify';
 
 const DATA_TYPE_ICONS = {
   email: Mail, phone: Phone, address: MapPin,
@@ -141,7 +142,7 @@ export default function Dashboard() {
   // Run comprehensive scan like Cloaked
   const runFullScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 

@@ -41,7 +41,7 @@ export default function CancellationTaskTracker({ profileId }) {
 
   const updateSub = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.Subscription.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries(['subscriptions']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['subscriptions'] }),
   });
 
   const monthlyTotal = activeSubs.reduce((sum, s) => {

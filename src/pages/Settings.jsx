@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database, Search, Mail, Phone, Globe, Wifi, ChevronDown, ChevronUp, Download, Upload, FileJson } from 'lucide-react';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notify } from '@/lib/notify';
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -58,7 +59,7 @@ export default function Settings() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     }
   });
 
@@ -113,8 +114,12 @@ export default function Settings() {
     try {
       const text = await file.text();
       const backup = JSON.parse(text);
-      if (!backup._meta || backup._meta.app !== 'incognito' || !backup.entities) {
+      if (!backup._meta || backup._meta.app !== 'incognito' || !backup.entities || typeof backup.entities !== 'object') {
         setImportResult({ ok: false, message: 'Invalid backup file — not an Incognito export.' });
+        return;
+      }
+      if (backup._meta.version && backup._meta.version > 1) {
+        setImportResult({ ok: false, message: 'Backup version is newer than this app supports. Please update Incognito first.' });
         return;
       }
       const mode = window.confirm(
@@ -170,7 +175,7 @@ export default function Settings() {
         incognito.entities.SocialMediaFinding.clear(),
       ]);
       queryClient.invalidateQueries();
-      alert('Scan data has been wiped. Your profiles and identifiers were preserved.');
+      notify.success('Scan data has been wiped. Your profiles and identifiers were preserved.');
     } finally {
       setWiping(false);
     }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ export default function BreachCheckButton({ personalData, profileId }) {
       );
 
       if (checkableData.length === 0) {
-        alert('No emails or usernames found to check. Add some to your vault first.');
+        notify.warn('No emails or usernames found to check. Add some to your vault first.');
         return;
       }
 
@@ -37,7 +38,7 @@ export default function BreachCheckButton({ personalData, profileId }) {
       setResults(response.data);
       setShowResults(true);
     } catch (error) {
-      alert('Failed to check breaches: ' + error.message);
+      notify.error('Failed to check breaches: ' + error.message);
     } finally {
       setChecking(false);
     }

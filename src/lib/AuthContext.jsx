@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
     } catch (error) {
-      console.error('Auth init failed:', error);
+      if (import.meta.env.DEV) console.error('Auth init failed:', error);
     } finally {
       setIsLoadingAuth(false);
     }

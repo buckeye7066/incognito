@@ -114,7 +114,7 @@ Return JSON.`,
         last_verified: new Date().toISOString(),
         verification_notes: verificationResult.reasoning,
       });
-      queryClient.invalidateQueries(['deletionRequests']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
 
     } catch (e) {
       setResults(prev => ({ ...prev, [request.id]: { status: 'inconclusive', reason: e.message } }));

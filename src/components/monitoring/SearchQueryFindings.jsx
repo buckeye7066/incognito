@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Globe, Loader2, Eye, CheckCircle, Trash2 } from 'lucide-react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -38,14 +39,14 @@ export default function SearchQueryFindings({ profileId }) {
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => incognito.entities.SearchQueryFinding.update(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['searchQueryFindings']);
+      queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => incognito.entities.SearchQueryFinding.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['searchQueryFindings']);
+      queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
     }
   });
 
@@ -80,13 +81,13 @@ export default function SearchQueryFindings({ profileId }) {
         : existingCount > 0
           ? `No new exposures. ${existingCount} already tracked.`
           : `Scan complete — ${d.total || 0} broker(s) checked.`;
-      alert(msg);
+      notify.success(msg);
     } catch (error) {
       const msg = error?.message || 'Unknown error';
       if (msg.includes('Failed to fetch') || msg.includes('API key')) {
-        alert(`Search scan could not complete: ${msg}\n\nTip: Check your API keys in Settings and try again.`);
+        notify.error(`Search scan could not complete: ${msg}. Tip: Check your API keys in Settings and try again.`);
       } else {
-        alert('Search detection failed: ' + msg);
+        notify.error('Search detection failed: ' + msg);
       }
     } finally {
       setDetecting(false);

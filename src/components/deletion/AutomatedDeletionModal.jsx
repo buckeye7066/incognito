@@ -11,6 +11,7 @@ import {
   CheckCircle, AlertTriangle, Send, Printer, Shield, Clock
 } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -52,7 +53,7 @@ export default function AutomatedDeletionModal({
         });
       }
     } catch (error) {
-      alert('Failed to generate deletion request: ' + error.message);
+      notify.error('Failed to generate deletion request: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export default function AutomatedDeletionModal({
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => incognito.entities.DeletionRequest.update(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['deletionRequests']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
     }
   });
 

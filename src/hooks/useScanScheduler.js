@@ -59,7 +59,7 @@ export function useScanScheduler() {
             phones: profileData.filter(p => p.data_type === 'phone').map(p => resolvePersonalDataValue(p)),
             addresses: profileData.filter(p => p.data_type === 'address').map(p => resolvePersonalDataValue(p)),
           });
-        } catch { /* non-critical */ }
+        } catch (e) { if (import.meta.env.DEV) console.warn('[ScanScheduler] detectSearchQueries:', e.message); }
       }
 
       queryClient.invalidateQueries({ queryKey: ['scanResults'] });
@@ -77,7 +77,7 @@ export function useScanScheduler() {
       queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
 
     } catch (e) {
-      console.warn('[ScanScheduler] Auto scan failed:', e.message);
+      if (import.meta.env.DEV) console.warn('[ScanScheduler] Auto scan failed:', e.message);
     } finally {
       runningRef.current = false;
     }
@@ -100,7 +100,7 @@ export function useScanScheduler() {
       setLastRun(LAST_BREACH_KEY);
 
     } catch (e) {
-      console.warn('[ScanScheduler] Auto breach check failed:', e.message);
+      if (import.meta.env.DEV) console.warn('[ScanScheduler] Auto breach check failed:', e.message);
     } finally {
       runningRef.current = false;
     }
@@ -116,7 +116,7 @@ export function useScanScheduler() {
         const freq = FREQUENCY_MS[preference.scan_frequency] || FREQUENCY_MS.weekly;
         const lastScan = getLastRun(LAST_SCAN_KEY);
         if (Date.now() - lastScan >= freq) {
-          console.log('[ScanScheduler] Auto scan due, running...');
+          // Auto scan is due
           runAutoScan();
         }
       }
@@ -126,7 +126,7 @@ export function useScanScheduler() {
         const freq = FREQUENCY_MS[preference.breach_check_frequency] || FREQUENCY_MS.weekly;
         const lastBreach = getLastRun(LAST_BREACH_KEY);
         if (Date.now() - lastBreach >= freq) {
-          console.log('[ScanScheduler] Auto breach check due, running...');
+          // Auto breach check is due
           runAutoBreachCheck();
         }
       }

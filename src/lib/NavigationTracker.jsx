@@ -15,7 +15,7 @@ export default function NavigationTracker() {
         window.parent?.postMessage({
             type: "app_changed_url",
             url: window.location.href
-        }, '*');
+        }, window.location.origin);
     }, [location]);
 
     // Log user activity when navigating to a page
@@ -40,8 +40,8 @@ export default function NavigationTracker() {
         }
 
         if (isAuthenticated && pageName) {
-            incognito.appLogs.logUserInApp(pageName).catch(() => {
-                // Silently fail - logging shouldn't break the app
+            incognito.appLogs.logUserInApp(pageName).catch((err) => {
+                if (import.meta.env.DEV) console.warn('[NavigationTracker] Log failed:', err.message);
             });
         }
     }, [location, isAuthenticated, Pages, mainPageKey]);

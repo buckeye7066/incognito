@@ -8,6 +8,7 @@ import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
 import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
 import PrivacyAssistant from '../components/dashboard/PrivacyAssistant';
 import ActionRecommendations from '../components/dashboard/ActionRecommendations';
+import OnboardingWizard from '../components/dashboard/OnboardingWizard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notify } from '@/lib/notify';
 
 const DATA_TYPE_ICONS = {
   email: Mail, phone: Phone, address: MapPin,
@@ -27,6 +29,9 @@ export default function Dashboard() {
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStatus, setScanStatus] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !localStorage.getItem('incognito_onboarding_complete')
+  );
 
   const { data: allPersonalData = [] } = useQuery({
     queryKey: ['personalData'],
@@ -72,11 +77,48 @@ export default function Dashboard() {
     const breachExposures = scanResults.filter(r => r.source_type === 'breach_database').length;
     const removalsInProgress = deletionRequests.filter(r => r.status === 'pending' || r.status === 'in_progress').length;
     const removalsCompleted = deletionRequests.filter(r => r.status === 'completed').length;
-    const highRisk = scanResults.filter(r => r.risk_score >= 70).length;
-    const criticalExposures = searchQueries.filter(q => q.risk_level === 'critical' || q.risk_level === 'high').length;
-    const riskScore = totalExposures === 0 ? 0 : Math.min(100, Math.round((highRisk * 15 + criticalExposures * 10 + totalExposures * 2)));
+
+    // Refined risk score — weighted by data sensitivity, remediation, and exposure type
+    let riskScore = 0;
+    if (totalExposures > 0) {
+      const SENSITIVE_TYPES = ['ssn', 'credit_card', 'bank_account', 'drivers_license', 'passport'];
+      const FINANCIAL_TYPES = ['credit_card', 'bank_account', 'Credit card numbers', 'Bank account numbers', 'SSN'];
+
+      // Breach severity (weighted by individual risk_score)
+      let breachRisk = 0;
+      for (const r of scanResults) {
+        const hasFinancial = (r.data_exposed || []).some(d => FINANCIAL_TYPES.some(ft => d.toLowerCase().includes(ft.toLowerCase())));
+        const hasSensitive = (r.data_exposed || []).some(d => SENSITIVE_TYPES.some(st => d.toLowerCase().includes(st.toLowerCase())));
+        const weight = hasFinancial ? 1.5 : hasSensitive ? 1.3 : 1.0;
+        breachRisk += (r.risk_score || 50) * weight;
+      }
+      // Normalize: avg breach risk, scaled to 0-50
+      const avgBreachRisk = scanResults.length > 0 ? breachRisk / scanResults.length : 0;
+      riskScore += Math.min(50, avgBreachRisk * 0.5);
+
+      // Data broker exposure (up to 30 points)
+      riskScore += Math.min(30, dataBrokerExposures * 3);
+
+      // Critical public exposures (up to 20 points)
+      const criticalExposures = searchQueries.filter(q => q.risk_level === 'critical' || q.risk_level === 'high').length;
+      riskScore += Math.min(20, criticalExposures * 5);
+
+      // Remediation bonus: reduce risk for completed deletions
+      const remediationRatio = totalExposures > 0 ? removalsCompleted / totalExposures : 0;
+      riskScore *= (1 - remediationRatio * 0.3); // Up to 30% reduction
+
+      // Monitoring bonus: reduce risk if user has monitoring enabled
+      const monitoredCount = personalData.filter(d => d.monitoring_enabled).length;
+      if (monitoredCount > 0 && personalData.length > 0) {
+        const monitoringCoverage = monitoredCount / personalData.length;
+        riskScore *= (1 - monitoringCoverage * 0.1); // Up to 10% reduction
+      }
+
+      riskScore = Math.min(100, Math.max(0, Math.round(riskScore)));
+    }
+
     return { totalExposures, dataBrokerExposures, breachExposures, removalsInProgress, removalsCompleted, riskScore };
-  }, [scanResults, searchQueries, deletionRequests]);
+  }, [scanResults, searchQueries, deletionRequests, personalData]);
 
   const { totalExposures, dataBrokerExposures, breachExposures, removalsInProgress, removalsCompleted, riskScore } = stats;
 
@@ -100,7 +142,7 @@ export default function Dashboard() {
   // Run comprehensive scan like Cloaked
   const runFullScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -169,6 +211,10 @@ export default function Dashboard() {
   };
 
   const risk = getRiskColor(riskScore);
+
+  if (showOnboarding && allProfiles.length === 0) {
+    return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
+  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">

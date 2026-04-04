@@ -1,1 +1,0 @@
-import{aW as t,r as a}from"./vendor-react-BE3qqhZv.js";import{c as e}from"./index-HZ7k98vm.js";import"./vendor-query-DfmgMnjC.js";import"./vendor-radix-BYaTaaoB.js";import"./vendor-recharts-W6tCOhqY.js";function c(){const r=t();return a.useEffect(()=>{r(e("Dashboard"),{replace:!0})},[r]),null}export{c as default};

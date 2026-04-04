@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -88,7 +89,7 @@ export default function BureauDisputeWorkflow({ profileId }) {
   const myEvidence = pf(evidence);
   const myTimeline = pf(timeline).sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
 
-  const inv = qk => queryClient.invalidateQueries([qk]);
+  const inv = qk => queryClient.invalidateQueries({ queryKey: [qk] });
   const invAll = () => {
     ['creditReports', 'creditTradelines', 'creditInquiries', 'creditCollections', 'creditDisputeItems', 'creditDisputeCases', 'creditDisputeEvidence', 'creditDisputeTimeline'].forEach(inv);
   };
@@ -132,9 +133,9 @@ export default function BureauDisputeWorkflow({ profileId }) {
 
       invAll();
       setImportText('');
-      alert(`Imported ${d.item_count || (d.tradelines?.length || 0) + (d.inquiries?.length || 0) + (d.collections?.length || 0)} items from ${importBureau}.`);
+      notify.success(`Imported ${d.item_count || (d.tradelines?.length || 0) + (d.inquiries?.length || 0) + (d.collections?.length || 0)} items from ${importBureau}.`);
     } catch (e) {
-      alert('Import failed: ' + (e.message || 'Unknown error'));
+      notify.error('Import failed: ' + (e.message || 'Unknown error'));
     } finally {
       setParsing(false);
     }
@@ -163,7 +164,7 @@ export default function BureauDisputeWorkflow({ profileId }) {
       }
       invAll();
     } catch (e) {
-      alert('Analysis failed: ' + (e.message || 'Unknown error'));
+      notify.error('Analysis failed: ' + (e.message || 'Unknown error'));
     } finally {
       setAnalyzing(false);
     }
@@ -176,7 +177,7 @@ export default function BureauDisputeWorkflow({ profileId }) {
       const result = await incognito.functions.invoke('generateBureauDisputeKit', { bureau, items });
       setKitData(result.data || result);
     } catch (e) {
-      alert('Failed to generate dispute kit: ' + (e.message || 'Unknown error'));
+      notify.error('Failed to generate dispute kit: ' + (e.message || 'Unknown error'));
     } finally {
       setGeneratingKit(null);
     }

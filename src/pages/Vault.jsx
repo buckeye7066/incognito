@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import BreachCheckButton from '../components/vault/BreachCheckButton';
+import { notify } from '@/lib/notify';
 
 const DATA_TYPES = [
   { value: 'full_name', label: 'Full Name', icon: '👤' },
@@ -84,7 +85,7 @@ export default function Vault() {
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.PersonalData.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
       setShowForm(false);
       setFormData({
         data_type: '',
@@ -99,7 +100,7 @@ export default function Vault() {
   const deleteMutation = useMutation({
     mutationFn: (id) => incognito.entities.PersonalData.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
     }
   });
 
@@ -107,17 +108,25 @@ export default function Vault() {
     mutationFn: ({ id, monitoring_enabled }) => 
       incognito.entities.PersonalData.update(id, { monitoring_enabled }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
     }
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!activeProfileId) {
-      alert('Please select or create a profile first');
+      notify.warn('Please select or create a profile first');
       return;
     }
-    createMutation.mutate({ ...formData, profile_id: activeProfileId });
+    if (!formData.data_type) {
+      notify.warn('Please select a data type');
+      return;
+    }
+    if (!formData.value || !formData.value.trim()) {
+      notify.warn('Please enter a value');
+      return;
+    }
+    createMutation.mutate({ ...formData, value: formData.value.trim(), profile_id: activeProfileId });
   };
 
   const groupedData = DATA_TYPES.reduce((acc, type) => {

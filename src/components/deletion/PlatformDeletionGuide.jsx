@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle, Brain } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 
 const PLATFORM_GUIDES = {
   'X (formerly Twitter)': {
@@ -111,7 +112,7 @@ export default function PlatformDeletionGuide({ platforms = [], profileId }) {
 
   const handleAIAutomation = async (guide) => {
     if (!profileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -208,7 +209,7 @@ URL to start from: ${guide.deletionUrl}`,
         }
       });
     } catch (error) {
-      alert('Failed to generate AI guide: ' + error.message);
+      notify.error('Failed to generate AI guide: ' + error.message);
     } finally {
       setAutomating(null);
     }
@@ -275,7 +276,7 @@ URL to start from: ${guide.deletionUrl}`,
                               variant="outline"
                               onClick={() => {
                                 navigator.clipboard.writeText(result.aiGuide.automation_script);
-                                alert('✓ Script copied! Follow the instructions below.');
+                                notify.success('Script copied! Follow the instructions below.');
                               }}
                               className="h-6 text-xs border-purple-500/50 text-purple-300"
                             >

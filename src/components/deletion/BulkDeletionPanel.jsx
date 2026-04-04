@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Loader2, Zap, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function BulkDeletionPanel({ scanResults, profileId }) {
@@ -35,7 +36,7 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
 
   const handleAutomatedDeletion = async () => {
     if (selectedResults.length === 0) {
-      alert('Please select at least one finding to remove');
+      notify.warn('Please select at least one finding to remove');
       return;
     }
 
@@ -67,11 +68,11 @@ export default function BulkDeletionPanel({ scanResults, profileId }) {
       }
 
       setResults({ requestsCreated, emailsSent: requestsCreated, details, skippedPlatforms: 0 });
-      queryClient.invalidateQueries(['deletionRequests']);
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['deletionRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
       clearSelection();
     } catch (error) {
-      alert('Failed to automate deletion requests: ' + error.message);
+      notify.error('Failed to automate deletion requests: ' + error.message);
     } finally {
       setProcessing(false);
     }

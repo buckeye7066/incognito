@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Brain, Loader2, MapPin, Clock, User, Globe, Scale, Briefcase } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import RiskBadge from '../shared/RiskBadge';
 
 export default function FindingDetailModal({ finding, open, onClose }) {
@@ -111,7 +112,7 @@ Provide:
 
       setLegalInfo(result);
     } catch (error) {
-      alert('Failed to retrieve legal information: ' + error.message);
+      notify.error('Failed to retrieve legal information: ' + error.message);
     } finally {
       setLoadingLegal(false);
     }
@@ -183,7 +184,7 @@ Write as if you're talking to a friend. No jargon. Be conversational but informa
 
       setAnalysis(result);
     } catch (error) {
-      alert('AI analysis failed: ' + error.message);
+      notify.error('AI analysis failed: ' + error.message);
     } finally {
       setAnalyzing(false);
     }

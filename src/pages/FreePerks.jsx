@@ -170,7 +170,7 @@ export default function FreePerks() {
     const current = JSON.parse(localStorage.getItem(key) || '[]');
     current.push({ ...perk, id: Date.now().toString() });
     localStorage.setItem(key, JSON.stringify(current));
-    queryClient.invalidateQueries(['savedPerks']);
+    queryClient.invalidateQueries({ queryKey: ['savedPerks'] });
     setShowAddCustom(false);
     setCustomForm({ company: '', perk: '', occasion: 'birthday', category: 'food', requirement: '', url: '', howTo: '' });
   };
@@ -179,7 +179,7 @@ export default function FreePerks() {
     const key = `incognito_perks_${activeProfileId || 'default'}`;
     const current = JSON.parse(localStorage.getItem(key) || '[]');
     localStorage.setItem(key, JSON.stringify(current.filter(p => p.id !== id)));
-    queryClient.invalidateQueries(['savedPerks']);
+    queryClient.invalidateQueries({ queryKey: ['savedPerks'] });
   };
 
   const toggleClaimed = (perkKey) => {
@@ -187,7 +187,7 @@ export default function FreePerks() {
     const current = JSON.parse(localStorage.getItem(key) || '[]');
     const next = current.includes(perkKey) ? current.filter(k => k !== perkKey) : [...current, perkKey];
     localStorage.setItem(key, JSON.stringify(next));
-    queryClient.invalidateQueries(['claimedPerks']);
+    queryClient.invalidateQueries({ queryKey: ['claimedPerks'] });
   };
 
   const getPerkKey = (p) => `${p.company}::${p.occasion}::${p.perk}`;

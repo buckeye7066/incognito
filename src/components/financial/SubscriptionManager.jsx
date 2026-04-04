@@ -50,8 +50,8 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
       return incognito.functions.invoke('closeCard', { cardToken });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['privacyCards']);
-      queryClient.invalidateQueries(['cardSubscriptions']);
+      queryClient.invalidateQueries({ queryKey: ['privacyCards'] });
+      queryClient.invalidateQueries({ queryKey: ['cardSubscriptions'] });
     },
   });
 
@@ -60,7 +60,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
       return incognito.functions.invoke('pauseCard', { cardToken });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['privacyCards']);
+      queryClient.invalidateQueries({ queryKey: ['privacyCards'] });
     },
   });
 
@@ -359,7 +359,7 @@ export default function SubscriptionManager({ profileId, onSwapCard }) {
                                         className="text-xs text-yellow-300 hover:bg-yellow-500/10 h-6 ml-auto"
                                         onClick={() => {
                                           incognito.functions.invoke('pauseCard', { cardToken: sub.card_token }).then(() => {
-                                            queryClient.invalidateQueries(['privacyCards']);
+                                            queryClient.invalidateQueries({ queryKey: ['privacyCards'] });
                                           });
                                         }}
                                       >

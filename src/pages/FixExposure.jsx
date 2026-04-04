@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState, useEffect } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -89,9 +90,9 @@ export default function FixExposure() {
 
       setFixStatus(result.data);
       refetchLogs();
-      queryClient.invalidateQueries(['notificationAlerts']);
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
     } catch (error) {
-      alert('Failed to process: ' + error.message);
+      notify.error('Failed to process: ' + error.message);
     } finally {
       setActionLoading(prev => ({ ...prev, [actionType]: false }));
     }
@@ -112,7 +113,7 @@ export default function FixExposure() {
         printWindow.document.close();
       }
     } catch (error) {
-      alert('Failed to generate packet: ' + error.message);
+      notify.error('Failed to generate packet: ' + error.message);
     } finally {
       setActionLoading(prev => ({ ...prev, evidence: false }));
     }
@@ -128,12 +129,12 @@ export default function FixExposure() {
       });
       
       if (result.data?.litigation?.length > 0) {
-        alert(`Found ${result.data.litigation.length} class action(s). Check Legal Support page for details.`);
+        notify.success(`Found ${result.data.litigation.length} class action(s). Check Legal Support page for details.`);
       } else {
-        alert('No active class actions found for this company.');
+        notify('No active class actions found for this company.');
       }
     } catch (error) {
-      alert('Failed to check: ' + error.message);
+      notify.error('Failed to check: ' + error.message);
     } finally {
       setActionLoading(prev => ({ ...prev, classAction: false }));
     }
@@ -147,12 +148,12 @@ export default function FixExposure() {
       });
       
       if (result.data?.attorneys?.length > 0) {
-        alert(`Found ${result.data.attorneys.length} attorney(s). Check Legal Support page for details.`);
+        notify.success(`Found ${result.data.attorneys.length} attorney(s). Check Legal Support page for details.`);
       } else {
-        alert('No attorneys found. Try the Legal Support page for more options.');
+        notify('No attorneys found. Try the Legal Support page for more options.');
       }
     } catch (error) {
-      alert('Failed to search: ' + error.message);
+      notify.error('Failed to search: ' + error.message);
     } finally {
       setActionLoading(prev => ({ ...prev, attorney: false }));
     }

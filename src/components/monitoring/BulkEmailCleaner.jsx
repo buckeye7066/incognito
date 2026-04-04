@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Trash2, Mail, Loader2, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
-
+import { notify } from '@/lib/notify';
 
 export default function BulkEmailCleaner() {
   const [loading, setLoading] = useState(false);
@@ -24,9 +24,9 @@ export default function BulkEmailCleaner() {
         { senderEmail: 'sales@promotions.com', senderName: 'Sales Promotions', count: 28, emails: [] }
       ];
       setSenderGroups(mockSenderGroups);
-      alert('Sample senders loaded. Connect your email account for real inbox scanning.');
+      notify('Sample senders loaded. Connect your email account for real inbox scanning.');
     } catch (error) {
-      alert('Failed to fetch emails: ' + error.message);
+      notify.error('Failed to fetch emails: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -49,9 +49,9 @@ export default function BulkEmailCleaner() {
 
       // Remove deleted sender from list
       setSenderGroups(prev => prev.filter(g => g.senderEmail !== senderGroup.senderEmail));
-      alert(`Successfully deleted ${senderGroup.count} emails. Connect your email for actual deletion.`);
+      notify.success(`Successfully deleted ${senderGroup.count} emails. Connect your email for actual deletion.`);
     } catch (error) {
-      alert('Failed to delete emails: ' + error.message);
+      notify.error('Failed to delete emails: ' + error.message);
     } finally {
       setDeleting(null);
     }

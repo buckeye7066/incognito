@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +47,7 @@ export default function MonitoringHub() {
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.MonitoredAccount.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['monitoredAccounts']);
+      queryClient.invalidateQueries({ queryKey: ['monitoredAccounts'] });
       setShowAddForm(false);
       setFormData({ account_type: 'gmail', account_identifier: '', check_frequency_hours: 6 });
     }
@@ -55,21 +56,21 @@ export default function MonitoringHub() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.MonitoredAccount.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['monitoredAccounts']);
+      queryClient.invalidateQueries({ queryKey: ['monitoredAccounts'] });
     }
   });
 
   const createCredentialMutation = useMutation({
     mutationFn: (data) => incognito.entities.DisposableCredential.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['disposableCredentials']);
+      queryClient.invalidateQueries({ queryKey: ['disposableCredentials'] });
     }
   });
 
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -88,7 +89,7 @@ export default function MonitoringHub() {
         oauth_connected: true
       });
 
-      alert(`✓ Account added! Use "Scan Email Spam" to check for spam in all your connected accounts.`);
+      notify.success('Account added! Use "Scan Email Spam" to check for spam in all your connected accounts.');
     }
 
     // Clear form but keep it open for adding more accounts
@@ -101,7 +102,7 @@ export default function MonitoringHub() {
 
   const runMonitoring = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -112,7 +113,7 @@ export default function MonitoringHub() {
       const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
 
       if (profileData.length === 0) {
-        alert('No personal data to monitor. Please add data to your profile first.');
+        notify.warn('No personal data to monitor. Please add data to your profile first.');
         setMonitoring(false);
         return;
       }
@@ -162,10 +163,10 @@ export default function MonitoringHub() {
         }
       }
 
-      alert(`Monitoring complete! Found ${totalSpam} spam incident(s) related to your profile data.`);
-      queryClient.invalidateQueries(['spamIncidents']);
+      notify.success(`Monitoring complete! Found ${totalSpam} spam incident(s) related to your profile data.`);
+      queryClient.invalidateQueries({ queryKey: ['spamIncidents'] });
     } catch (error) {
-      alert('Monitoring failed: ' + error.message);
+      notify.error('Monitoring failed: ' + error.message);
     } finally {
       setMonitoring(false);
     }
@@ -173,7 +174,7 @@ export default function MonitoringHub() {
 
   const runDarkWebScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -183,7 +184,7 @@ export default function MonitoringHub() {
       const profileData = allData.filter(d => d.profile_id === activeProfileId && d.monitoring_enabled);
 
       if (profileData.length === 0) {
-        alert('No personal data to monitor. Please add data to your profile first.');
+        notify.warn('No personal data to monitor. Please add data to your profile first.');
         setDarkWebScanning(false);
         return;
       }
@@ -238,10 +239,10 @@ export default function MonitoringHub() {
         }
       }
 
-      alert(`Dark web scan complete! Found ${findingsCount} exposure(s) of your profile data.`);
-      queryClient.invalidateQueries(['scanResults']);
+      notify.success(`Dark web scan complete! Found ${findingsCount} exposure(s) of your profile data.`);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     } catch (error) {
-      alert('Dark web scan failed: ' + error.message);
+      notify.error('Dark web scan failed: ' + error.message);
     } finally {
       setDarkWebScanning(false);
     }
@@ -249,18 +250,18 @@ export default function MonitoringHub() {
 
   const runSocialMediaScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
     setSocialMediaScanning(true);
     try {
       const response = await incognito.functions.invoke('monitorSocialMedia', { profileId: activeProfileId });
-      alert(response.data.message);
-      queryClient.invalidateQueries(['socialMediaMentions']);
-      queryClient.invalidateQueries(['socialMediaFindings']);
+      notify(response.data.message);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaMentions'] });
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
     } catch (error) {
-      alert('Social media scan failed: ' + error.message);
+      notify.error('Social media scan failed: ' + error.message);
     } finally {
       setSocialMediaScanning(false);
     }
@@ -275,7 +276,7 @@ export default function MonitoringHub() {
 
   const handleCreateCredential = async (credData) => {
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -578,7 +579,7 @@ export default function MonitoringHub() {
       {/* Quick Generate */}
       <QuickGenerateCard 
         profileId={activeProfileId}
-        onGenerated={() => queryClient.invalidateQueries(['disposableCredentials'])}
+        onGenerated={() => queryClient.invalidateQueries({ queryKey: ['disposableCredentials'] })}
       />
 
       {/* Bulk Email Cleaner */}

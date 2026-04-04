@@ -8,6 +8,8 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { ActiveProfileProvider } from '@/hooks/useActiveProfile';
+import { useScanScheduler } from '@/hooks/useScanScheduler';
+import AdminRoute from '@/lib/AdminRoute';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -25,6 +27,7 @@ const PageFallback = () => (
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth } = useAuth();
+  useScanScheduler();
 
   if (isLoadingAuth) {
     return <PageFallback />;
@@ -38,17 +41,20 @@ const AuthenticatedApp = () => {
             <MainPage />
           </LayoutWrapper>
         } />
-        {Object.entries(Pages).map(([path, Page]) => (
-          <Route
-            key={path}
-            path={`/${path}`}
-            element={
-              <LayoutWrapper currentPageName={path}>
-                <Page />
-              </LayoutWrapper>
-            }
-          />
-        ))}
+        {Object.entries(Pages).map(([path, Page]) => {
+          const isAdmin = ['SystemSelfCheck', 'AdminFunctionTester', 'FunctionReviewer'].includes(path);
+          return (
+            <Route
+              key={path}
+              path={`/${path}`}
+              element={
+                <LayoutWrapper currentPageName={path}>
+                  {isAdmin ? <AdminRoute><Page /></AdminRoute> : <Page />}
+                </LayoutWrapper>
+              }
+            />
+          );
+        })}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </Suspense>

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,17 +80,17 @@ export default function SettlementCenter({ profileId }) {
 
   const createCase = useMutation({
     mutationFn: (data) => incognito.entities.SettlementCase.create({ ...data, profile_id: profileId, status: 'tracked', created_date: new Date().toISOString() }),
-    onSuccess: () => { queryClient.invalidateQueries(['settlementCases']); setShowAddCase(null); setCaseForm({ case_name: '', company: '', category: 'data_breach', deadline: '', payout: '', no_proof: false, proof_required: '', eligibility: '', url: '', notes: '' }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['settlementCases'] }); setShowAddCase(null); setCaseForm({ case_name: '', company: '', category: 'data_breach', deadline: '', payout: '', no_proof: false, proof_required: '', eligibility: '', url: '', notes: '' }); },
   });
 
   const createClaim = useMutation({
     mutationFn: (data) => incognito.entities.SettlementClaim.create({ ...data, profile_id: profileId, status: 'preparing', created_date: new Date().toISOString() }),
-    onSuccess: () => { queryClient.invalidateQueries(['settlementClaims']); setShowClaimPrep(null); setClaimNotes(''); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['settlementClaims'] }); setShowClaimPrep(null); setClaimNotes(''); },
   });
 
   const deleteCase = useMutation({
     mutationFn: (id) => incognito.entities.SettlementCase.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['settlementCases']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settlementCases'] }),
   });
 
   const handleScan = async () => {
@@ -108,9 +109,9 @@ export default function SettlementCenter({ profileId }) {
           });
         }
       }
-      queryClient.invalidateQueries(['settlementCases']);
+      queryClient.invalidateQueries({ queryKey: ['settlementCases'] });
     } catch (e) {
-      alert('Settlement search failed: ' + (e.message || 'Unknown error'));
+      notify.error('Settlement search failed: ' + (e.message || 'Unknown error'));
     } finally {
       setScanning(false);
     }

@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -59,7 +60,7 @@ export default function SpamTracker() {
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.SpamIncident.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['spamIncidents']);
+      queryClient.invalidateQueries({ queryKey: ['spamIncidents'] });
       setShowForm(false);
       setFormData({
         incident_type: 'phone_call',
@@ -75,14 +76,14 @@ export default function SpamTracker() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.SpamIncident.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['spamIncidents']);
+      queryClient.invalidateQueries({ queryKey: ['spamIncidents'] });
     }
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!activeProfileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 

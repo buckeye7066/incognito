@@ -71,6 +71,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const SocialMediaHub = React.lazy(() => import('./pages/SocialMediaHub'));
 const SpamTracker = React.lazy(() => import('./pages/SpamTracker'));
 const ThreatIntelligence = React.lazy(() => import('./pages/ThreatIntelligence'));
+const SystemSelfCheck = React.lazy(() => import('./pages/SystemSelfCheck'));
 const Vault = React.lazy(() => import('./pages/Vault'));
 import __Layout from './Layout.jsx';
 
@@ -98,6 +99,7 @@ export const PAGES = {
     "Settings": Settings,
     "SocialMediaHub": SocialMediaHub,
     "SpamTracker": SpamTracker,
+    "SystemSelfCheck": SystemSelfCheck,
     "ThreatIntelligence": ThreatIntelligence,
     "Vault": Vault,
 }

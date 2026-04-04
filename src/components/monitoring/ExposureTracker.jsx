@@ -204,13 +204,13 @@ export default function ExposureTracker({ profileId }) {
   const handleMarkBlocked = (exposure) => {
     if (exposure.entity_type === 'scan_result') {
       incognito.entities.ScanResult.update(exposure.id, { status: 'removal_requested' });
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     } else if (exposure.entity_type === 'search_finding') {
       incognito.entities.SearchQueryFinding.update(exposure.id, { status: 'dismissed' });
-      queryClient.invalidateQueries(['searchQueryFindings']);
+      queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
     } else if (exposure.entity_type === 'social_finding') {
       incognito.entities.SocialMediaFinding.update(exposure.id, { status: 'reported' });
-      queryClient.invalidateQueries(['socialMediaFindings']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
     }
   };
 

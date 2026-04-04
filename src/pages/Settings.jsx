@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database, Search, Mail, Phone, Globe, Wifi, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loader2, Key, CheckCircle, CreditCard, Brain, Database, Search, Mail, Phone, Globe, Wifi, ChevronDown, ChevronUp, Download, Upload, FileJson } from 'lucide-react';
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notify } from '@/lib/notify';
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -58,9 +59,102 @@ export default function Settings() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     }
   });
+
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+
+  const EXPORT_ENTITIES = [
+    'Profile', 'PersonalData', 'ScanResult', 'SocialMediaFinding',
+    'SocialMediaProfile', 'SocialMediaMention', 'ExposureFixLog',
+    'FinancialAccount', 'SuspiciousActivity', 'UserPreferences',
+    'SpamIncident', 'NotificationAlert', 'MonitoredAccount',
+    'DisposableCredential', 'DeletionRequest', 'DeletionEmailResponse',
+    'AIInsight', 'DigitalFootprintReport', 'SearchQueryFinding',
+    'Subscription',
+    'SettlementCase', 'SettlementMatch', 'SettlementClaim',
+    'DebtIssue', 'CreditDispute',
+    'BrokerRemovalCampaign', 'BrokerRemovalTask',
+    'ActionRecommendation', 'RiskFactor', 'MerchantProfile',
+    'CreditReport', 'CreditTradeline', 'CreditInquiry', 'CreditCollection',
+    'CreditDisputeItem', 'CreditDisputeCase', 'CreditDisputeEvidence',
+    'BureauAccount', 'CreditDisputeTimeline',
+  ];
+
+  const exportAllData = async () => {
+    setExporting(true);
+    try {
+      const backup = { _meta: { version: 1, app: 'incognito', exported_at: new Date().toISOString() }, entities: {} };
+      for (const name of EXPORT_ENTITIES) {
+        backup.entities[name] = await incognito.entities[name].list();
+      }
+      backup.apiKeys = getApiKeys();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `incognito-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const importData = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      if (!backup._meta || backup._meta.app !== 'incognito' || !backup.entities || typeof backup.entities !== 'object') {
+        setImportResult({ ok: false, message: 'Invalid backup file — not an Incognito export.' });
+        return;
+      }
+      if (backup._meta.version && backup._meta.version > 1) {
+        setImportResult({ ok: false, message: 'Backup version is newer than this app supports. Please update Incognito first.' });
+        return;
+      }
+      const mode = window.confirm(
+        'How should data be imported?\n\nOK = Merge (add to existing data)\nCancel = Replace (clear existing data first)'
+      ) ? 'merge' : 'replace';
+
+      let imported = 0;
+      let skipped = 0;
+      for (const name of EXPORT_ENTITIES) {
+        const items = backup.entities[name];
+        if (!Array.isArray(items) || items.length === 0) continue;
+        if (mode === 'replace') {
+          await incognito.entities[name].clear();
+        }
+        const existing = mode === 'merge' ? await incognito.entities[name].list() : [];
+        const existingIds = new Set(existing.map(i => i.id));
+        for (const item of items) {
+          if (mode === 'merge' && existingIds.has(item.id)) { skipped++; continue; }
+          await incognito.entities[name].create(item);
+          imported++;
+        }
+      }
+      if (backup.apiKeys) {
+        setApiKeys(backup.apiKeys);
+        setApiKeysState(backup.apiKeys);
+      }
+      queryClient.invalidateQueries();
+      setImportResult({ ok: true, message: `Imported ${imported} records${skipped > 0 ? `, skipped ${skipped} duplicates` : ''}.` });
+    } catch (err) {
+      setImportResult({ ok: false, message: `Import failed: ${err.message}` });
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
 
   const [wiping, setWiping] = useState(false);
   const wipeAllData = async () => {
@@ -81,7 +175,7 @@ export default function Settings() {
         incognito.entities.SocialMediaFinding.clear(),
       ]);
       queryClient.invalidateQueries();
-      alert('Scan data has been wiped. Your profiles and identifiers were preserved.');
+      notify.success('Scan data has been wiped. Your profiles and identifiers were preserved.');
     } finally {
       setWiping(false);
     }
@@ -652,6 +746,59 @@ export default function Settings() {
               Device-Level
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Data Backup & Restore */}
+      <Card className="glass-card border-blue-500/30">
+        <CardHeader className="border-b border-blue-500/20">
+          <CardTitle className="text-white flex items-center gap-2">
+            <FileJson className="w-5 h-5 text-blue-400" />
+            Data Backup & Restore
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <p className="text-sm text-purple-300">
+            Your data lives in this browser only. Export regularly to avoid losing your profiles, scan results, and settings.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={exportAllData}
+              disabled={exporting}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            >
+              {exporting ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Exporting...</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" />Export All Data</>
+              )}
+            </Button>
+            <label>
+              <input type="file" accept=".json" onChange={importData} className="hidden" disabled={importing} />
+              <Button
+                variant="outline"
+                className="border-blue-500/50 text-blue-300 hover:bg-blue-500/10 cursor-pointer"
+                disabled={importing}
+                asChild
+              >
+                <span>
+                  {importing ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importing...</>
+                  ) : (
+                    <><Upload className="w-4 h-4 mr-2" />Import Backup</>
+                  )}
+                </span>
+              </Button>
+            </label>
+          </div>
+          {importResult && (
+            <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
+              importResult.ok ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
+            }`}>
+              {importResult.ok ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+              {importResult.message}
+            </div>
+          )}
         </CardContent>
       </Card>
 

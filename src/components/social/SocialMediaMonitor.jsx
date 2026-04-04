@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Loader2, MessageCircle, AlertTriangle, TrendingUp, Shield, ExternalLink } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 
@@ -30,7 +31,7 @@ export default function SocialMediaMonitor({ profileId }) {
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => incognito.entities.SocialMediaMention.update(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['socialMediaMentions']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaMentions'] });
     }
   });
 
@@ -38,13 +39,13 @@ export default function SocialMediaMonitor({ profileId }) {
     setMonitoring(true);
     try {
       const response = await incognito.functions.invoke('monitorSocialMedia', { profileId });
-      queryClient.invalidateQueries(['socialMediaMentions']);
-      queryClient.invalidateQueries(['socialMediaFindings']);
-      queryClient.invalidateQueries(['notificationAlerts']);
-      queryClient.invalidateQueries(['aiInsights']);
-      alert(`Scan complete: ${response.data?.total || 0} findings detected.`);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaMentions'] });
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
+      queryClient.invalidateQueries({ queryKey: ['aiInsights'] });
+      notify.success(`Scan complete: ${response.data?.total || 0} findings detected.`);
     } catch (error) {
-      alert('Monitoring failed: ' + error.message);
+      notify.error('Monitoring failed: ' + error.message);
     } finally {
       setMonitoring(false);
     }

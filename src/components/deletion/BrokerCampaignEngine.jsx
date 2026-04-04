@@ -88,14 +88,14 @@ export default function BrokerCampaignEngine({ profileId }) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['brokerCampaigns']);
-      queryClient.invalidateQueries(['brokerTasks']);
+      queryClient.invalidateQueries({ queryKey: ['brokerCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['brokerTasks'] });
     },
   });
 
   const updateTask = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.BrokerRemovalTask.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries(['brokerTasks']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brokerTasks'] }),
   });
 
   const copyText = (key, text) => {

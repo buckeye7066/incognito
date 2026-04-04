@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -74,22 +75,22 @@ export default function FinancialMonitor() {
 
   const createAccount = useMutation({
     mutationFn: (data) => incognito.entities.FinancialAccount.create({ ...data, profile_id: activeProfileId }),
-    onSuccess: () => { queryClient.invalidateQueries(['financialAccounts']); setShowAddAccount(false); setAccountForm({ account_type: 'checking', institution_name: '', last_four: '', nickname: '', alert_threshold: 500, monitoring_enabled: true }); }
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['financialAccounts'] }); setShowAddAccount(false); setAccountForm({ account_type: 'checking', institution_name: '', last_four: '', nickname: '', alert_threshold: 500, monitoring_enabled: true }); }
   });
 
   const deleteAccount = useMutation({
     mutationFn: (id) => incognito.entities.FinancialAccount.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['financialAccounts'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['financialAccounts'] })
   });
 
   const logActivity = useMutation({
     mutationFn: (data) => incognito.entities.SuspiciousActivity.create({ ...data, profile_id: activeProfileId, amount: data.amount ? parseFloat(data.amount) : undefined }),
-    onSuccess: () => { queryClient.invalidateQueries(['suspiciousActivities']); setShowLogActivity(false); }
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['suspiciousActivities'] }); setShowLogActivity(false); }
   });
 
   const updateActivity = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.SuspiciousActivity.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries(['suspiciousActivities'])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['suspiciousActivities'] })
   });
 
   const openActivities = activities.filter(a => a.status === 'new' || a.status === 'investigating');
@@ -103,10 +104,10 @@ export default function FinancialMonitor() {
           <p className="text-gray-400">Track cards, detect subscriptions, and control who has your payment info</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => activeProfileId ? setShowLogActivity(true) : alert('Please select a profile first.')} variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/10">
+          <Button onClick={() => activeProfileId ? setShowLogActivity(true) : notify.warn('Please select a profile first.')} variant="outline" className="border-red-500/50 text-red-300 hover:bg-red-500/10">
             <ShieldAlert className="w-4 h-4 mr-2" /> Log Suspicious Activity
           </Button>
-          <Button onClick={() => activeProfileId ? setShowAddAccount(true) : alert('Please select a profile first.')} className="bg-gradient-to-r from-red-600 to-purple-600">
+          <Button onClick={() => activeProfileId ? setShowAddAccount(true) : notify.warn('Please select a profile first.')} className="bg-gradient-to-r from-red-600 to-purple-600">
             <Plus className="w-4 h-4 mr-2" /> Add Account
           </Button>
         </div>

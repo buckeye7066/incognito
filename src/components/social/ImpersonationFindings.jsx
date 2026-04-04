@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ExternalLink, CheckCircle, XCircle, Clock, Flag, FileText, Scale, Loader2, Printer, Wand2 } from 'lucide-react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AutomatedDeletionModal from '../deletion/AutomatedDeletionModal';
 
@@ -40,7 +41,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
         [finding.id]: response.data
       }));
     } catch (error) {
-      alert('Failed to generate evidence packet: ' + error.message);
+      notify.error('Failed to generate evidence packet: ' + error.message);
     } finally {
       setGeneratingEvidence(null);
     }
@@ -73,7 +74,7 @@ export default function ImpersonationFindings({ findings, profileId }) {
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }) => incognito.entities.SocialMediaFinding.update(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['socialMediaFindings']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
     }
   });
 

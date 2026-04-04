@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
@@ -68,7 +69,7 @@ export default function LegalSupport() {
       }
       setClassActions(allResults);
     } catch (error) {
-      alert('Search failed: ' + error.message);
+      notify.error('Search failed: ' + error.message);
     } finally {
       setSearchingClassActions(false);
     }
@@ -80,7 +81,7 @@ export default function LegalSupport() {
       const result = await incognito.functions.invoke('findAttorneys', { exposureType: 'identity_theft' });
       setAttorneys(result.data?.attorneys || []);
     } catch (error) {
-      alert('Search failed: ' + error.message);
+      notify.error('Search failed: ' + error.message);
     } finally {
       setSearchingAttorneys(false);
     }
@@ -106,7 +107,7 @@ export default function LegalSupport() {
         printWindow.document.close();
       }
     } catch (error) {
-      alert('Failed to generate: ' + error.message);
+      notify.error('Failed to generate: ' + error.message);
     } finally {
       setGeneratingPacket(null);
     }

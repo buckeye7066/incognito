@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -242,10 +243,10 @@ Return structured JSON with all analysis.`;
         }
       });
 
-      queryClient.invalidateQueries(['aiInsights']);
+      queryClient.invalidateQueries({ queryKey: ['aiInsights'] });
 
     } catch (error) {
-      alert('Threat analysis failed: ' + error.message);
+      notify.error('Threat analysis failed: ' + error.message);
     } finally {
       setAnalyzing(false);
     }

@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -89,18 +90,18 @@ export default function Findings() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.ScanResult.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     }
   });
 
   const deleteScanMutation = useMutation({
     mutationFn: (id) => incognito.entities.ScanResult.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['scanResults']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['scanResults'] }),
   });
 
   const deleteInquiryMutation = useMutation({
     mutationFn: (id) => incognito.entities.SearchQueryFinding.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['searchQueryFindings']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] }),
   });
 
   const handleDelete = (finding) => {
@@ -237,9 +238,9 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
     } catch (error) {
       const msg = error?.message || 'Unknown error';
       if (msg.includes('API key') || msg.includes('Failed to fetch')) {
-        alert(`Legal analysis requires an OpenAI API key.\n\nGo to Settings → API Keys to add it.`);
+        notify.warn(`Legal analysis requires an OpenAI API key. Go to Settings → API Keys to add it.`);
       } else {
-        alert('Failed to retrieve legal information: ' + msg);
+        notify.error('Failed to retrieve legal information: ' + msg);
       }
     } finally {
       setLoadingLegal(null);
@@ -498,9 +499,9 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
     } catch (error) {
       const msg = error?.message || 'Unknown error';
       if (msg.includes('API key') || msg.includes('Failed to fetch')) {
-        alert(`AI analysis requires an OpenAI API key.\n\nGo to Settings → API Keys to add it.`);
+        notify.warn(`AI analysis requires an OpenAI API key. Go to Settings → API Keys to add it.`);
       } else {
-        alert('AI analysis failed: ' + msg);
+        notify.error('AI analysis failed: ' + msg);
       }
     } finally {
       setAnalyzingId(null);
@@ -1107,7 +1108,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                           onClick={() => {
                             const newStatus = result.status === 'reviewed' ? 'new' : 'reviewed';
                             incognito.entities.SearchQueryFinding.update(result.id, { status: newStatus });
-                            queryClient.invalidateQueries(['searchQueryFindings']);
+                            queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
                           }}
                           className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"
                         >
@@ -1118,7 +1119,7 @@ IMPORTANT: All attorney information must be REAL and VERIFIABLE. Search current 
                           size="sm"
                           onClick={() => {
                             incognito.entities.SearchQueryFinding.update(result.id, { status: 'dismissed' });
-                            queryClient.invalidateQueries(['searchQueryFindings']);
+                            queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
                           }}
                           disabled={result.status === 'dismissed'}
                           className="bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600"

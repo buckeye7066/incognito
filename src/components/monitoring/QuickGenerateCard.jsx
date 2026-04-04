@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { incognito } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
 
   const generateCard = async () => {
     if (!profileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -33,7 +34,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
       setGeneratedCard(response.data.card);
       if (onGenerated) onGenerated();
     } catch (error) {
-      alert('Failed to generate card: ' + error.message);
+      notify.error('Failed to generate card: ' + error.message);
     } finally {
       setGenerating(false);
     }
@@ -41,7 +42,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
 
   const generateEmail = async () => {
     if (!profileId) {
-      alert('Please select a profile first');
+      notify.warn('Please select a profile first');
       return;
     }
 
@@ -55,7 +56,7 @@ export default function QuickGenerateCard({ profileId, onGenerated }) {
       setGeneratedEmail(response.data.alias);
       if (onGenerated) onGenerated();
     } catch (error) {
-      alert('Failed to generate email alias: ' + error.message);
+      notify.error('Failed to generate email alias: ' + error.message);
     } finally {
       setGenerating(false);
     }

@@ -77,17 +77,17 @@ export default function CreditDebtCenter({ profileId }) {
 
   const createIssue = useMutation({
     mutationFn: (data) => incognito.entities.DebtIssue.create({ ...data, profile_id: profileId, amount: parseFloat(data.amount) || 0, created_date: new Date().toISOString() }),
-    onSuccess: () => { queryClient.invalidateQueries(['debtIssues']); setShowAddIssue(false); setIssueForm({ issue_type: 'collection', creditor: '', amount: '', account_number: '', original_creditor: '', date_opened: '', description: '', status: 'active' }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['debtIssues'] }); setShowAddIssue(false); setIssueForm({ issue_type: 'collection', creditor: '', amount: '', account_number: '', original_creditor: '', date_opened: '', description: '', status: 'active' }); },
   });
 
   const updateIssue = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.DebtIssue.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries(['debtIssues']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['debtIssues'] }),
   });
 
   const deleteIssue = useMutation({
     mutationFn: (id) => incognito.entities.DebtIssue.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['debtIssues']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['debtIssues'] }),
   });
 
   const handleGenerateLetter = async () => {

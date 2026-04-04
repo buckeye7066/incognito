@@ -44,7 +44,7 @@ export default function Profiles() {
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.Profile.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['profiles']);
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setShowModal(false);
       setEditingProfile(null);
     }
@@ -53,7 +53,7 @@ export default function Profiles() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => incognito.entities.Profile.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['profiles']);
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setShowModal(false);
       setEditingProfile(null);
     }
@@ -62,7 +62,7 @@ export default function Profiles() {
   const deleteMutation = useMutation({
     mutationFn: (id) => incognito.entities.Profile.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['profiles']);
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
     }
   });
 

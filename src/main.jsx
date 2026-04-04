@@ -11,6 +11,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', () => {
-    console.clear();
+    if (import.meta.env.DEV) console.clear();
   });
 }

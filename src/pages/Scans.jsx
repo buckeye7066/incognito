@@ -1,4 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
+import { notify } from '@/lib/notify';
 import React, { useState } from 'react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -47,7 +48,7 @@ export default function Scans() {
   const createResultMutation = useMutation({
     mutationFn: (data) => incognito.entities.ScanResult.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['scanResults']);
+      queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     }
   });
 
@@ -66,7 +67,7 @@ export default function Scans() {
 
   const runScan = async () => {
     if (!activeProfileId) {
-      alert('Please select a profile first from the sidebar.');
+      notify.warn('Please select a profile first from the sidebar.');
       return;
     }
     setScanning(true);
@@ -148,8 +149,8 @@ export default function Scans() {
       if (!warnings.includes(error?.message)) warnings.push(error?.message || 'Exposure scan failed');
     }
 
-    queryClient.invalidateQueries(['scanResults']);
-    queryClient.invalidateQueries(['searchQueryFindings']);
+    queryClient.invalidateQueries({ queryKey: ['scanResults'] });
+    queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
 
     setScanSummary({
       breaches: totalBreaches,
@@ -180,11 +181,11 @@ export default function Scans() {
           phones,
           addresses,
         });
-        queryClient.invalidateQueries(['searchQueryFindings']);
+        queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
         if (result.data?.skipped) {
-          alert(`Scan skipped: ${result.data.reason}\n\nAdd your OpenAI API key in Settings.`);
+          notify.warn(`Scan skipped: ${result.data.reason}. Add your OpenAI API key in Settings.`);
         } else {
-          alert(`People search scan complete: ${result.data?.total || 0} exposures found.\n\nView results in Findings.`);
+          notify.success(`People search scan complete: ${result.data?.total || 0} exposures found. View results in Findings.`);
         }
       } else if (category === 'data_brokers') {
         window.location.href = '/DataBrokerDirectory';
@@ -197,11 +198,11 @@ export default function Scans() {
           phones,
           addresses,
         });
-        queryClient.invalidateQueries(['scanResults']);
+        queryClient.invalidateQueries({ queryKey: ['scanResults'] });
         if (result.data?.findings) {
-          alert(`Public records scan complete: ${result.data.findings.length} findings.\n\nView results in Findings.`);
+          notify.success(`Public records scan complete: ${result.data.findings.length} findings. View results in Findings.`);
         } else {
-          alert(`Public records scan complete.\n\n${result.data?.scan_summary || 'Check Findings for results.'}`);
+          notify.success(`Public records scan complete. ${result.data?.scan_summary || 'Check Findings for results.'}`);
         }
       } else if (category === 'social_media') {
         const result = await incognito.functions.invoke('monitorSocialMedia', {
@@ -209,19 +210,19 @@ export default function Scans() {
           fullName,
           usernames,
         });
-        queryClient.invalidateQueries(['socialMediaFindings']);
+        queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
         if (result.data?.skipped) {
-          alert(`Scan skipped: ${result.data.reason}\n\nAdd your OpenAI API key in Settings.`);
+          notify.warn(`Scan skipped: ${result.data.reason}. Add your OpenAI API key in Settings.`);
         } else {
-          alert(`Social media scan complete: ${result.data?.total || 0} findings.\n\nView results in Findings.`);
+          notify.success(`Social media scan complete: ${result.data?.total || 0} findings. View results in Findings.`);
         }
       }
     } catch (error) {
       const msg = error?.message || 'Unknown error';
       if (msg.includes('API key') || msg.includes('Failed to fetch')) {
-        alert(`This scan requires an API key.\n\n${msg}\n\nGo to Settings → API Keys.`);
+        notify.error(`This scan requires an API key. ${msg}. Go to Settings → API Keys.`);
       } else {
-        alert('Scan failed: ' + msg);
+        notify.error('Scan failed: ' + msg);
       }
     } finally {
       setCategoryScan(null);

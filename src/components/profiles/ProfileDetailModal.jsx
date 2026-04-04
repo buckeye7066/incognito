@@ -16,6 +16,7 @@ import { Plus, Trash2, Eye, EyeOff, Shield, Users, Scan, Loader2, AlertTriangle,
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
+import { notify } from '@/lib/notify';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import ImpersonationFindings from '../social/ImpersonationFindings';
 
@@ -149,7 +150,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   const createMutation = useMutation({
     mutationFn: (data) => incognito.entities.PersonalData.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
       setShowAddForm(false);
       setFormData({
         data_type: '', value: '', label: '', monitoring_enabled: true, notes: '',
@@ -163,7 +164,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   const createSocialMutation = useMutation({
     mutationFn: (data) => incognito.entities.SocialMediaProfile.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['socialMediaProfiles']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaProfiles'] });
       setShowAddSocialForm(false);
       setSocialFormData({
         platform: '',
@@ -178,14 +179,14 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
   const deleteMutation = useMutation({
     mutationFn: (id) => incognito.entities.PersonalData.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
     }
   });
 
   const deleteSocialMutation = useMutation({
     mutationFn: (id) => incognito.entities.SocialMediaProfile.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['socialMediaProfiles']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaProfiles'] });
     }
   });
 
@@ -193,7 +194,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
     mutationFn: ({ id, monitoring_enabled }) => 
       incognito.entities.PersonalData.update(id, { monitoring_enabled }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['personalData']);
+      queryClient.invalidateQueries({ queryKey: ['personalData'] });
     }
   });
 
@@ -242,7 +243,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
 
     const monitoredData = profileData.filter(d => d.monitoring_enabled);
     if (monitoredData.length === 0) {
-      alert('No monitored data to scan. Please add and enable monitoring for at least one identifier.');
+      notify.warn('No monitored data to scan. Please add and enable monitoring for at least one identifier.');
       return;
     }
 
@@ -307,10 +308,10 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
       });
     } catch (_) { /* localStorage write — non-critical */ }
 
-    queryClient.invalidateQueries(['scanResults']);
-    queryClient.invalidateQueries(['searchQueryFindings']);
-    queryClient.invalidateQueries(['socialMediaFindings']);
-    queryClient.invalidateQueries(['profiles']);
+    queryClient.invalidateQueries({ queryKey: ['scanResults'] });
+    queryClient.invalidateQueries({ queryKey: ['searchQueryFindings'] });
+    queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
+    queryClient.invalidateQueries({ queryKey: ['profiles'] });
 
     let msg = `Scan complete! Found ${totalFound} exposure${totalFound !== 1 ? 's' : ''}.`;
     if (warnings.length > 0) {
@@ -323,7 +324,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
       }
     }
 
-    alert(msg);
+    notify.success(msg);
     setScanning(false);
   };
 
@@ -331,7 +332,7 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
     if (!profile?.id) return;
 
     if (socialProfiles.length === 0) {
-      alert('Please add your legitimate social media profiles first.');
+      notify.warn('Please add your legitimate social media profiles first.');
       return;
     }
 
@@ -341,12 +342,12 @@ export default function ProfileDetailModal({ open, onClose, profile, personalDat
         profileId: profile.id 
       });
 
-      queryClient.invalidateQueries(['socialMediaFindings']);
-      queryClient.invalidateQueries(['notificationAlerts']);
+      queryClient.invalidateQueries({ queryKey: ['socialMediaFindings'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationAlerts'] });
       
-      alert(`Scan complete: ${response.data?.total || 0} findings detected.`);
+      notify.success(`Scan complete: ${response.data?.total || 0} findings detected.`);
     } catch (error) {
-      alert('Impersonation check failed: ' + error.message);
+      notify.error('Impersonation check failed: ' + error.message);
     } finally {
       setCheckingImpersonation(false);
     }

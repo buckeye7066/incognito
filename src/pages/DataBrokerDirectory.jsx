@@ -59,12 +59,99 @@ const DATA_BROKERS = [
   { name: 'CourtRecords.org', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://www.courtrecords.org/ccpa.php', requires_id: false },
   { name: 'SpyFly', type: 'background_check', difficulty: 'easy', opt_out_url: 'https://www.spyfly.com/help-center/remove-information/', requires_id: false },
 
-  // Address/Phone
+  // Address/Phone Directories
   { name: 'Yellowpages', type: 'directory', difficulty: 'easy', opt_out_url: 'https://www.yellowpages.com/faq#op-how-can-i-have-a-listing-removed', requires_id: false },
   { name: 'Superpages', type: 'directory', difficulty: 'easy', opt_out_url: 'https://www.superpages.com/privacy-center', requires_id: false },
   { name: '411.com', type: 'directory', difficulty: 'medium', opt_out_url: 'https://411.com/privacy/request', requires_id: false },
   { name: 'Whitepages Premium', type: 'directory', difficulty: 'medium', opt_out_url: 'https://www.whitepages.com/suppression-requests', requires_id: false },
   { name: 'Localpeople', type: 'directory', difficulty: 'easy', opt_out_url: 'https://www.localpeople.com/optout', requires_id: false },
+
+  // Additional People Search Sites
+  { name: 'Nuwber', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://nuwber.com/removal/link', requires_id: false, notes: 'Email verification required' },
+  { name: 'That\'sThem', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://thatsthem.com/optout', requires_id: false, notes: 'Instant removal' },
+  { name: 'Clustrmaps', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://clustrmaps.com/bl/opt-out', requires_id: false },
+  { name: 'ClustrMaps People', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://people.clustrmaps.com/opt-out', requires_id: false },
+  { name: 'Cyber Background Checks', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.cyberbackgroundchecks.com/removal', requires_id: false },
+  { name: 'AdvancedPeopleFinder', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://www.advancedpeoplefinder.com/optout', requires_id: false },
+  { name: 'SearchPeopleFree', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.searchpeoplefree.com/opt-out', requires_id: false },
+  { name: 'SmartBackgroundChecks', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.smartbackgroundchecks.com/optout', requires_id: false },
+  { name: 'VoterRecords.com', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://voterrecords.com/privacy', requires_id: false, notes: 'Public voter data' },
+  { name: 'Xlek', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.xlek.com/optout', requires_id: false },
+  { name: 'IDCrawl', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.idcrawl.com/opt-out', requires_id: false },
+  { name: 'ClueLook', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.cluelook.com/optout', requires_id: false },
+  { name: 'FastBackgroundCheck', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.fastbackgroundcheck.com/opt-out', requires_id: false },
+  { name: 'OfficialUSA', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://www.officialusa.com/opt-out/', requires_id: false },
+  { name: 'NewEnglandFacts', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://newenglandfacts.com/opt-out/', requires_id: false },
+  { name: 'Neighbor.Report', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://neighbor.report/remove', requires_id: false },
+  { name: 'PublicDataDigger', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://publicdatadigger.com/optout', requires_id: false },
+  { name: 'SearchQuarry', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://www.searchquarry.com/opt-out', requires_id: false },
+  { name: 'Social Catfish', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://socialcatfish.com/opt-out/', requires_id: false },
+  { name: 'Cubib', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://cubib.com/optout.php', requires_id: false },
+  { name: 'FreePhoneTracer', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.freephonetracer.com/optout', requires_id: false },
+  { name: 'NumberGuru', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.numberguru.com/optout', requires_id: false },
+  { name: 'FindPeopleFirst', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://www.findpeoplefirst.com/optout', requires_id: false },
+  { name: 'USATrace', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://www.usatrace.com/optout/', requires_id: false },
+  { name: 'Pub360', type: 'people_search', difficulty: 'easy', opt_out_url: 'https://pub360.com/optout', requires_id: false },
+  { name: 'OldFriends.co', type: 'people_search', difficulty: 'medium', opt_out_url: 'https://www.oldfriends.co/optout', requires_id: false },
+
+  // Additional Data Brokers / Marketing
+  { name: 'Databroker.com', type: 'data_broker', difficulty: 'medium', opt_out_url: 'https://databroker.com/optout', requires_id: false },
+  { name: 'Lotame', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.lotame.com/about-lotame/privacy/', requires_id: false, notes: 'Ad tech data broker' },
+  { name: 'LiveRamp', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://liveramp.com/opt_out/', requires_id: false, notes: 'Major ad data connector' },
+  { name: 'Tapad', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.tapad.com/privacy-policy', requires_id: false },
+  { name: 'Quantcast', type: 'data_broker', difficulty: 'easy', opt_out_url: 'https://www.quantcast.com/opt-out/', requires_id: false, notes: 'Browser cookie opt-out' },
+  { name: 'Bombora', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://bombora.com/privacy/', requires_id: false, notes: 'B2B intent data' },
+  { name: 'Clearbit', type: 'data_broker', difficulty: 'medium', opt_out_url: 'https://clearbit.com/privacy', requires_id: false, notes: 'Business data enrichment' },
+  { name: 'ZoomInfo', type: 'data_broker', difficulty: 'medium', opt_out_url: 'https://www.zoominfo.com/about-zoominfo/privacy/opt-out', requires_id: false, notes: 'B2B contact data' },
+  { name: 'FullContact', type: 'data_broker', difficulty: 'medium', opt_out_url: 'https://www.fullcontact.com/privacy/', requires_id: false },
+  { name: 'TowerData', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.towerdata.com/privacy-policy', requires_id: false, notes: 'Email intelligence' },
+  { name: 'Gravy Analytics', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://gravyanalytics.com/privacy/', requires_id: false, notes: 'Location data' },
+  { name: 'Precisely', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.precisely.com/legal/privacy-policy', requires_id: false },
+  { name: 'Kochava', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.kochava.com/privacy/', requires_id: false, notes: 'Mobile ad data' },
+  { name: 'X-Mode Social', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://xmode.io/privacy-policy/', requires_id: false, notes: 'Location data broker' },
+  { name: 'Mobilewalla', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.mobilewalla.com/privacy-policy', requires_id: false },
+  { name: 'Foursquare', type: 'data_broker', difficulty: 'medium', opt_out_url: 'https://foursquare.com/privacy', requires_id: false, notes: 'Location data platform' },
+  { name: 'SafeGraph', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.safegraph.com/privacy-policy', requires_id: false, notes: 'Points-of-interest data' },
+  { name: 'Dun & Bradstreet', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.dnb.com/utility-pages/privacy-policy.html', requires_id: false, notes: 'Business data' },
+  { name: 'Merkle', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.merkle.com/privacy', requires_id: false },
+  { name: 'KBM Group', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.kbmg.com/privacy-policy/', requires_id: false },
+  { name: 'Verisk Marketing', type: 'data_broker', difficulty: 'hard', opt_out_url: 'https://www.verisk.com/privacy/', requires_id: false },
+
+  // Additional Background Check Sites
+  { name: 'Radaris Pro', type: 'background_check', difficulty: 'hard', opt_out_url: 'https://radaris.com/page/how-to-remove-information', requires_id: true },
+  { name: 'Instant People Finder', type: 'background_check', difficulty: 'easy', opt_out_url: 'https://www.instantpeoplefinder.com/optout', requires_id: false },
+  { name: 'GoLookUp', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://golookup.com/optout', requires_id: false },
+  { name: 'UnMask', type: 'background_check', difficulty: 'easy', opt_out_url: 'https://unmask.com/opt-out/', requires_id: false },
+  { name: 'Ussearch.com', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://www.ussearch.com/privacylock/', requires_id: false },
+  { name: 'Bumper', type: 'background_check', difficulty: 'easy', opt_out_url: 'https://bumper.com/optout/', requires_id: false, notes: 'Vehicle-focused' },
+  { name: 'TenantReports', type: 'background_check', difficulty: 'hard', opt_out_url: 'https://tenantreports.com/privacy/', requires_id: true, notes: 'Rental history' },
+  { name: 'Classmates.com', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://www.classmates.com/registration/optout', requires_id: false },
+  { name: 'Archives.com', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://www.archives.com/privacy', requires_id: false },
+  { name: 'Geni.com', type: 'background_check', difficulty: 'medium', opt_out_url: 'https://www.geni.com/privacy', requires_id: false, notes: 'Genealogy data' },
+
+  // Real Estate / Property
+  { name: 'Realtor.com', type: 'real_estate', difficulty: 'medium', opt_out_url: 'https://www.realtor.com/privacy/', requires_id: false, notes: 'Property ownership data' },
+  { name: 'Zillow', type: 'real_estate', difficulty: 'medium', opt_out_url: 'https://www.zillow.com/z/corp/privacy/', requires_id: false },
+  { name: 'Redfin', type: 'real_estate', difficulty: 'medium', opt_out_url: 'https://www.redfin.com/about/privacy-policy', requires_id: false },
+  { name: 'Trulia', type: 'real_estate', difficulty: 'medium', opt_out_url: 'https://www.trulia.com/about/privacy', requires_id: false },
+  { name: 'BlockShopper', type: 'real_estate', difficulty: 'hard', opt_out_url: 'https://blockshopper.com/about/privacy', requires_id: false, notes: 'Public home sale records' },
+  { name: 'HomeSnap', type: 'real_estate', difficulty: 'medium', opt_out_url: 'https://www.homesnap.com/privacy', requires_id: false },
+
+  // Social Media Data Aggregators
+  { name: 'Lullar', type: 'social_aggregator', difficulty: 'medium', opt_out_url: 'https://com.lullar.com/', requires_id: false, notes: 'Social media aggregator' },
+  { name: 'SocialSearcher', type: 'social_aggregator', difficulty: 'medium', opt_out_url: 'https://www.social-searcher.com/privacy/', requires_id: false },
+  { name: 'Pipl (Social)', type: 'social_aggregator', difficulty: 'hard', opt_out_url: 'https://pipl.com/personal-information-removal-request/', requires_id: true },
+  { name: 'Yasni', type: 'social_aggregator', difficulty: 'medium', opt_out_url: 'https://www.yasni.com/privacy', requires_id: false },
+  { name: 'WebMii', type: 'social_aggregator', difficulty: 'easy', opt_out_url: 'https://webmii.com/', requires_id: false },
+  { name: 'NameCheckr', type: 'social_aggregator', difficulty: 'easy', opt_out_url: 'https://www.namecheckr.com/', requires_id: false, notes: 'Username availability checker' },
+  { name: 'KnowEm', type: 'social_aggregator', difficulty: 'easy', opt_out_url: 'https://knowem.com/', requires_id: false },
+
+  // Government / Public Record Aggregators
+  { name: 'Unicourt', type: 'court_records', difficulty: 'hard', opt_out_url: 'https://unicourt.com/privacy-policy', requires_id: true, notes: 'Court records aggregator' },
+  { name: 'PACER', type: 'court_records', difficulty: 'hard', opt_out_url: 'https://pacer.uscourts.gov/pacer-policy', requires_id: true, notes: 'Federal court records' },
+  { name: 'CaseMine', type: 'court_records', difficulty: 'hard', opt_out_url: 'https://www.casemine.com/privacy-policy', requires_id: false },
+  { name: 'JudyRecords', type: 'court_records', difficulty: 'medium', opt_out_url: 'https://www.judyrecords.com/privacy', requires_id: false },
+  { name: 'BRBPublications', type: 'court_records', difficulty: 'hard', opt_out_url: 'https://www.brbpublications.com/privacy', requires_id: false },
 ];
 
 const DIFFICULTY_CONFIG = {
@@ -79,6 +166,9 @@ const TYPE_LABELS = {
   credit_bureau: 'Credit Bureau',
   background_check: 'Background Check',
   directory: 'Directory',
+  real_estate: 'Real Estate',
+  social_aggregator: 'Social Aggregator',
+  court_records: 'Court Records',
 };
 
 export default function DataBrokerDirectory() {

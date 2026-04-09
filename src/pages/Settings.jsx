@@ -386,6 +386,62 @@ export default function Settings() {
                 </div>
                 <a href="https://www.dehashed.com/register" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300">Register at dehashed.com →</a>
               </div>
+
+              {/* Twilio (Phone Aliases) */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-cyan-400" /> Twilio (Phone Aliases)
+                </Label>
+                <p className="text-xs text-gray-500">Required for phone number aliases. Get credentials at twilio.com/console</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="password" value={apiKeys.twilio_account_sid || ''}
+                    onChange={(e) => setApiKeysState(prev => ({ ...prev, twilio_account_sid: e.target.value }))}
+                    placeholder="Account SID" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                  <Input type="password" value={apiKeys.twilio_auth_token || ''}
+                    onChange={(e) => setApiKeysState(prev => ({ ...prev, twilio_auth_token: e.target.value }))}
+                    placeholder="Auth Token" className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                </div>
+                <Button size="sm" onClick={() => handleSaveKeys({
+                  twilio_account_sid: apiKeys.twilio_account_sid,
+                  twilio_auth_token: apiKeys.twilio_auth_token,
+                })} className="bg-blue-600 hover:bg-blue-700">Save Twilio</Button>
+              </div>
+
+              {/* Email Alias Provider */}
+              <div className="space-y-2 pt-4 border-t border-blue-500/20">
+                <Label className="text-white flex items-center gap-2">
+                  <Key className="w-4 h-4 text-yellow-400" /> Email Alias Provider
+                </Label>
+                <p className="text-xs text-gray-500">SimpleLogin or addy.io for real email forwarding aliases</p>
+                <Select value={apiKeys.email_alias_provider || 'simplelogin'}
+                  onValueChange={(v) => handleSaveKeys({ email_alias_provider: v })}>
+                  <SelectTrigger className="w-48 h-8 bg-slate-900/50 border-blue-500/30 text-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="simplelogin">SimpleLogin</SelectItem>
+                    <SelectItem value="addy">addy.io</SelectItem>
+                    <SelectItem value="local">Local Only (no forwarding)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(apiKeys.email_alias_provider === 'addy' || !apiKeys.email_alias_provider) && apiKeys.email_alias_provider !== 'local' && (
+                  <div className="flex gap-2">
+                    <Input type="password"
+                      value={apiKeys.email_alias_provider === 'addy' ? (apiKeys.addy_api_key || '') : (apiKeys.simplelogin_api_key || '')}
+                      onChange={(e) => setApiKeysState(prev => ({
+                        ...prev,
+                        [apiKeys.email_alias_provider === 'addy' ? 'addy_api_key' : 'simplelogin_api_key']: e.target.value
+                      }))}
+                      placeholder={`${apiKeys.email_alias_provider === 'addy' ? 'addy.io' : 'SimpleLogin'} API Key`}
+                      className="bg-slate-900/50 border-blue-500/30 text-white font-mono text-sm" />
+                    <Button size="sm" onClick={() => handleSaveKeys(
+                      apiKeys.email_alias_provider === 'addy'
+                        ? { addy_api_key: apiKeys.addy_api_key }
+                        : { simplelogin_api_key: apiKeys.simplelogin_api_key }
+                    )} className="bg-blue-600 hover:bg-blue-700 shrink-0">Save</Button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -397,6 +453,7 @@ export default function Settings() {
               { key: 'google_search_api_key', label: 'Google', color: 'text-blue-400' },
               { key: 'hunter_api_key', label: 'Hunter', color: 'text-cyan-400' },
               { key: 'privacy_com_api_key', label: 'Privacy', color: 'text-green-400' },
+              { key: 'twilio_account_sid', label: 'Twilio', color: 'text-cyan-400' },
               { key: 'numverify_api_key', label: 'NumVerify', color: 'text-green-400' },
               { key: 'leakcheck_api_key', label: 'LeakCheck', color: 'text-orange-400' },
               { key: 'virustotal_api_key', label: 'VirusTotal', color: 'text-blue-400' },

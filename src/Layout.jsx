@@ -2,34 +2,34 @@
  * =============================================================================
  * AI DIRECTIVE - READ THIS EVERY SESSION
  * =============================================================================
- * 
+ *
  * SYSTEM DIRECTIVE - MANDATORY COMPLIANCE
- * 
+ *
  * Before responding to ANY request:
- * 
- * 1. READ THE ACTUAL REQUEST - What did the user literally ask for? Do exactly 
+ *
+ * 1. READ THE ACTUAL REQUEST - What did the user literally ask for? Do exactly
  *    that. Nothing more, nothing less.
- * 
- * 2. NO EXCUSES - Don't explain why something can't be done. Find a way or ask 
+ *
+ * 2. NO EXCUSES - Don't explain why something can't be done. Find a way or ask
  *    a clarifying question.
- * 
- * 3. NO SUGGESTIONS INSTEAD OF ACTION - If asked to do X, do X. Don't suggest 
+ *
+ * 3. NO SUGGESTIONS INSTEAD OF ACTION - If asked to do X, do X. Don't suggest
  *    alternatives unless X is truly impossible.
- * 
- * 4. READ YOUR OWN CODE - Before claiming something works, trace through the 
+ *
+ * 4. READ YOUR OWN CODE - Before claiming something works, trace through the
  *    logic. Find bugs yourself.
- * 
- * 5. ONE RESPONSE, COMPLETE - Don't make the user ask twice. Get it done the 
+ *
+ * 5. ONE RESPONSE, COMPLETE - Don't make the user ask twice. Get it done the
  *    first time.
- * 
- * 6. NO FILLER - Skip the "Great question!" and "I'd be happy to help!" Just 
+ *
+ * 6. NO FILLER - Skip the "Great question!" and "I'd be happy to help!" Just
  *    do the work.
- * 
- * 7. VERIFY BEFORE RESPONDING - Did you actually do what was asked? Re-read 
+ *
+ * 7. VERIFY BEFORE RESPONDING - Did you actually do what was asked? Re-read
  *    the request before hitting send.
- * 
+ *
  * VIOLATION = FAILURE
- * 
+ *
  * =============================================================================
  */
 
@@ -38,7 +38,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { incognito } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard, Gift, HeartPulse } from 'lucide-react';
+import { Shield, Database, Scan, FileText, Trash2, Settings, Eye, Users, Brain, Smartphone, Radar, Activity, Lock, Bell, CreditCard, Gift, HeartPulse, Fingerprint, Key, Mail, Phone, Share2, Globe, ShieldAlert, Bot } from 'lucide-react';
 import ProfileSelector from './components/profiles/ProfileSelector';
 import ProfileModal from './components/profiles/ProfileModal';
 import NotificationBell from './components/notifications/NotificationBell';
@@ -47,24 +47,42 @@ import { useActiveProfile } from '@/hooks/useActiveProfile';
 import { useAuth } from '@/lib/AuthContext';
 
 const navigation = [
+  // Core
   { name: 'Dashboard', path: 'Dashboard', icon: Shield },
-  { name: 'Identity Scan', path: 'IdentityScan', icon: Scan },
+  // Cloaked Identity Suite
+  { name: 'Cloaked Identities', path: 'CloakedIdentities', icon: Fingerprint, section: 'Identity' },
+  { name: 'Password Manager', path: 'PasswordManager', icon: Key },
+  { name: 'Authenticator', path: 'TOTPAuthenticator', icon: Shield },
+  { name: 'Email Aliases', path: 'EmailAliases', icon: Mail },
+  { name: 'Phone Aliases', path: 'PhoneAliases', icon: Phone },
+  { name: 'Cloaked Pay', path: 'CloakedPay', icon: CreditCard },
+  { name: 'Identity Sharing', path: 'IdentitySharing', icon: Share2 },
+  // Privacy & Security
+  { name: 'VPN Manager', path: 'VPNManager', icon: Globe, section: 'Privacy' },
+  { name: 'Call Guard', path: 'CallGuard', icon: ShieldAlert },
+  { name: 'SSN Monitor', path: 'SSNMonitor', icon: Fingerprint },
+  { name: 'AI Defense', path: 'AIDefense', icon: Bot },
+  // Scanning & Monitoring
+  { name: 'Identity Scan', path: 'IdentityScan', icon: Scan, section: 'Monitor' },
   { name: 'Scans & Breaches', path: 'Scans', icon: Eye },
   { name: 'Findings', path: 'Findings', icon: Radar },
-  { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
-  { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
-  { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2 },
-  { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
-  { name: 'Vault', path: 'Vault', icon: Database },
-  { name: 'AI Insights', path: 'AIInsights', icon: Brain },
   { name: 'Threat Intel', path: 'ThreatIntelligence', icon: Radar },
   { name: 'Monitoring Hub', path: 'MonitoringHub', icon: Smartphone },
-  { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
   { name: 'Password Checker', path: 'PasswordChecker', icon: Lock },
+  // Protection & Cleanup
+  { name: 'Deletion Center', path: 'DeletionCenter', icon: Trash2, section: 'Protect' },
   { name: 'Broker Directory', path: 'DataBrokerDirectory', icon: Database },
-  { name: 'Free Perks', path: 'FreePerks', icon: Gift },
+  { name: 'Social Media', path: 'SocialMediaHub', icon: Users },
+  { name: 'Financial Monitor', path: 'FinancialMonitor', icon: CreditCard },
+  { name: 'Legal Support', path: 'LegalSupport', icon: FileText },
   { name: 'Identity Recovery', path: 'IdentityRecovery', icon: Activity },
-  { name: 'Notifications', path: 'Notifications', icon: Bell },
+  { name: 'Spam Tracker', path: 'SpamTracker', icon: Shield },
+  // Data & Intelligence
+  { name: 'Vault', path: 'Vault', icon: Database, section: 'Data' },
+  { name: 'AI Insights', path: 'AIInsights', icon: Brain },
+  { name: 'Free Perks', path: 'FreePerks', icon: Gift },
+  // System
+  { name: 'Notifications', path: 'Notifications', icon: Bell, section: 'System' },
   { name: 'Profiles', path: 'Profiles', icon: Users },
   { name: 'Settings', path: 'Settings', icon: Settings },
   { name: 'System Check', path: 'SystemSelfCheck', icon: HeartPulse, adminOnly: true },
@@ -133,23 +151,29 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
 
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navigation.filter(item => !item.adminOnly || currentUser?.role === 'admin').map((item) => {
+          <nav className="flex-1 p-4 space-y-0.5 overflow-y-auto">
+            {navigation.filter(item => !item.adminOnly || currentUser?.role === 'admin').map((item, idx) => {
               const Icon = item.icon;
               const isActive = currentPageName === item.path;
               return (
-                <Link
-                  key={item.name}
-                  to={createPageUrl(item.path)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-red-600 to-gray-700 text-white glow-border'
-                      : 'text-gray-300 hover:bg-red-900/30 hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
+                <React.Fragment key={item.name}>
+                  {item.section && (
+                    <div className={`text-[10px] font-bold uppercase tracking-wider text-gray-500 px-4 pt-4 pb-1 ${idx > 0 ? 'mt-2 border-t border-red-900/20' : ''}`}>
+                      {item.section}
+                    </div>
+                  )}
+                  <Link
+                    to={createPageUrl(item.path)}
+                    className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 text-sm ${
+                      isActive
+                        ? 'bg-gradient-to-r from-red-600 to-gray-700 text-white glow-border'
+                        : 'text-gray-300 hover:bg-red-900/30 hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                </React.Fragment>
               );
             })}
           </nav>

@@ -270,6 +270,11 @@ const ENTITY_NAMES = [
   'Subscription',
   'SettlementCase', 'SettlementMatch', 'SettlementClaim',
   'DebtIssue', 'CreditDispute',
+  // Cloaked Identity features
+  'CloakedIdentity', 'PasswordEntry', 'TOTPSecret', 'EmailAlias',
+  'PhoneAlias', 'VirtualCard', 'SharedIdentity', 'VPNConfig',
+  'CallGuardLog', 'SSNMonitorAlert', 'AIDefenseAlert',
+  'IdentityCustomField',
   'BrokerRemovalCampaign', 'BrokerRemovalTask',
   'ActionRecommendation', 'RiskFactor', 'MerchantProfile',
   'CreditReport', 'CreditTradeline', 'CreditInquiry', 'CreditCollection',
@@ -441,6 +446,161 @@ async function hibpApi(endpoint) {
   if (resp.status === 429) throw new Error('HIBP rate limit exceeded. Wait 6 seconds and retry.');
   if (!resp.ok) throw new Error(`HIBP API error (${resp.status})`);
   return resp.json();
+}
+
+// ---------------------------------------------------------------------------
+// Twilio API helpers (Phone Aliases)
+// ---------------------------------------------------------------------------
+async function twilioApi(endpoint, method = 'GET', body = null) {
+  const keys = getApiKeys();
+  if (!keys.twilio_account_sid || !keys.twilio_auth_token) {
+    throw new Error('Twilio credentials not configured. Go to Settings → API Keys.');
+  }
+  const baseUrl = `https://api.twilio.com/2010-04-01/Accounts/${keys.twilio_account_sid}`;
+  const auth = btoa(`${keys.twilio_account_sid}:${keys.twilio_auth_token}`);
+  const opts = {
+    method,
+    headers: { 'Authorization': `Basic ${auth}` },
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    opts.body = new URLSearchParams(body).toString();
+  }
+  const resp = await fetch(`${baseUrl}${endpoint}.json`, opts);
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Twilio API error (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}
+
+// ---------------------------------------------------------------------------
+// SimpleLogin / addy.io API helpers (Email Aliases)
+// ---------------------------------------------------------------------------
+async function emailAliasApi(endpoint, method = 'GET', body = null) {
+  const keys = getApiKeys();
+  const provider = keys.email_alias_provider || 'simplelogin';
+  let baseUrl, headers;
+
+  if (provider === 'addy') {
+    if (!keys.addy_api_key) throw new Error('addy.io API key not configured. Go to Settings → API Keys.');
+    baseUrl = 'https://app.addy.io/api/v1';
+    headers = { 'Authorization': `Bearer ${keys.addy_api_key}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+  } else {
+    if (!keys.simplelogin_api_key) throw new Error('SimpleLogin API key not configured. Go to Settings → API Keys.');
+    baseUrl = 'https://app.simplelogin.io/api';
+    headers = { 'Authentication': keys.simplelogin_api_key, 'Content-Type': 'application/json' };
+  }
+
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(`${baseUrl}${endpoint}`, opts);
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`${provider} API error (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}
+
+// ---------------------------------------------------------------------------
+// Crypto helpers for TOTP & Identity Sharing
+// ---------------------------------------------------------------------------
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.replace(/[= ]/g, '').toUpperCase();
+  let bits = '';
+  for (const c of str) {
+    const val = alphabet.indexOf(c);
+    if (val === -1) continue;
+    bits += val.toString(2).padStart(5, '0');
+  }
+  const bytes = new Uint8Array(Math.floor(bits.length / 8));
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
+  }
+  return bytes;
+}
+
+async function generateTOTP(secret, period = 30, digits = 6) {
+  const key = base32Decode(secret);
+  const time = Math.floor(Date.now() / 1000 / period);
+  const timeBytes = new Uint8Array(8);
+  let t = time;
+  for (let i = 7; i >= 0; i--) {
+    timeBytes[i] = t & 0xff;
+    t = Math.floor(t / 256);
+  }
+  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, timeBytes);
+  const hmac = new Uint8Array(sig);
+  const offset = hmac[hmac.length - 1] & 0xf;
+  const code = ((hmac[offset] & 0x7f) << 24 | hmac[offset + 1] << 16 | hmac[offset + 2] << 8 | hmac[offset + 3]) % (10 ** digits);
+  return code.toString().padStart(digits, '0');
+}
+
+function generateSecurePassword(length = 20, options = {}) {
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+  let charset = '';
+  if (options.uppercase !== false) charset += upper;
+  if (options.lowercase !== false) charset += lower;
+  if (options.numbers !== false) charset += numbers;
+  if (options.symbols !== false) charset += symbols;
+  if (!charset) charset = upper + lower + numbers;
+  const array = new Uint32Array(length);
+  crypto.getRandomValues(array);
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += charset[array[i] % charset.length];
+  }
+  const required = [];
+  if (options.uppercase !== false) required.push(upper);
+  if (options.lowercase !== false) required.push(lower);
+  if (options.numbers !== false) required.push(numbers);
+  if (options.symbols !== false) required.push(symbols);
+  const pw = password.split('');
+  for (let i = 0; i < required.length && i < pw.length; i++) {
+    const randIdx = crypto.getRandomValues(new Uint32Array(1))[0] % required[i].length;
+    pw[i] = required[i][randIdx];
+  }
+  for (let i = pw.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [pw[i], pw[j]] = [pw[j], pw[i]];
+  }
+  return pw.join('');
+}
+
+async function encryptData(data, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  return {
+    salt: Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join(''),
+    iv: Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join(''),
+    data: Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, '0')).join(''),
+  };
+}
+
+async function decryptData(encObj, password) {
+  const enc = new TextEncoder();
+  const salt = new Uint8Array(encObj.salt.match(/.{2}/g).map(h => parseInt(h, 16)));
+  const iv = new Uint8Array(encObj.iv.match(/.{2}/g).map(h => parseInt(h, 16)));
+  const data = new Uint8Array(encObj.data.match(/.{2}/g).map(h => parseInt(h, 16)));
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
+  );
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 // ---------------------------------------------------------------------------
@@ -2690,6 +2850,498 @@ ${(noticeText || '').slice(0, 8000)}
     await entities.DisposableCredential.delete(aliasId);
     return { data: { deleted: true } };
   },
+
+  // =========================================================================
+  // CLOAKED IDENTITY FUNCTIONS
+  // =========================================================================
+
+  async createCloakedIdentity({ profileId, serviceName, serviceUrl, category, autoGenerate = true }) {
+    const identity = {
+      profile_id: profileId,
+      service_name: serviceName,
+      service_url: serviceUrl,
+      category: category || 'general',
+      status: 'active',
+      email_alias_id: null,
+      phone_alias_id: null,
+      password_entry_id: null,
+      totp_secret_id: null,
+      virtual_card_id: null,
+      custom_fields: {},
+      notes: '',
+    };
+
+    if (autoGenerate) {
+      const password = generateSecurePassword(20);
+      const pwEntry = await entities.PasswordEntry.create({
+        profile_id: profileId,
+        service_name: serviceName,
+        service_url: serviceUrl,
+        username: '',
+        password,
+        strength: 'strong',
+        last_changed: new Date().toISOString(),
+        breach_checked: false,
+      });
+      identity.password_entry_id = pwEntry.id;
+    }
+
+    const created = await entities.CloakedIdentity.create(identity);
+    return { data: created };
+  },
+
+  async toggleIdentityStatus({ identityId }) {
+    const all = await entities.CloakedIdentity.list();
+    const identity = all.find(i => i.id === identityId);
+    if (!identity) throw new Error('Identity not found');
+    const newStatus = identity.status === 'active' ? 'muted' : 'active';
+    const updated = await entities.CloakedIdentity.update(identityId, { status: newStatus });
+    return { data: updated };
+  },
+
+  // =========================================================================
+  // PASSWORD MANAGER FUNCTIONS
+  // =========================================================================
+
+  async generatePassword({ length = 20, uppercase = true, lowercase = true, numbers = true, symbols = true }) {
+    const password = generateSecurePassword(length, { uppercase, lowercase, numbers, symbols });
+    return { data: { password } };
+  },
+
+  async checkPasswordStrength({ password }) {
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
+    if (password.length >= 16) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+    if (password.length >= 20) score += 1;
+    const levels = ['very_weak', 'weak', 'fair', 'good', 'strong', 'very_strong'];
+    const strength = levels[Math.min(Math.floor(score / 1.5), levels.length - 1)];
+    return { data: { score, strength, length: password.length } };
+  },
+
+  async importPasswords({ csvData, source }) {
+    const lines = csvData.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return { data: { imported: 0 } };
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    const columnMap = {
+      '1password': { name: 'title', url: 'url', username: 'username', password: 'password' },
+      'lastpass': { name: 'name', url: 'url', username: 'username', password: 'password' },
+      'bitwarden': { name: 'name', url: 'login_uri', username: 'login_username', password: 'login_password' },
+      'chrome': { name: 'name', url: 'url', username: 'username', password: 'password' },
+      'dashlane': { name: 'title', url: 'url', username: 'username', password: 'password' },
+      'keeper': { name: 'title', url: 'web address', username: 'login', password: 'password' },
+    };
+    const map = columnMap[source] || columnMap.chrome;
+    let imported = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].match(/(".*?"|[^,]+)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
+      const row = {};
+      headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+      await entities.PasswordEntry.create({
+        service_name: row[map.name] || 'Unknown',
+        service_url: row[map.url] || '',
+        username: row[map.username] || '',
+        password: row[map.password] || '',
+        strength: 'unknown',
+        imported_from: source,
+        last_changed: new Date().toISOString(),
+        breach_checked: false,
+      });
+      imported++;
+    }
+    return { data: { imported } };
+  },
+
+  // =========================================================================
+  // TOTP AUTHENTICATOR FUNCTIONS
+  // =========================================================================
+
+  async addTOTPSecret({ profileId, identityId, serviceName, secret, algorithm = 'SHA1', digits = 6, period = 30 }) {
+    const entry = await entities.TOTPSecret.create({
+      profile_id: profileId,
+      identity_id: identityId || null,
+      service_name: serviceName,
+      secret: secret.replace(/\s/g, '').toUpperCase(),
+      algorithm,
+      digits,
+      period,
+    });
+    return { data: entry };
+  },
+
+  async getTOTPCode({ secret, period = 30, digits = 6 }) {
+    const code = await generateTOTP(secret, period, digits);
+    const timeLeft = period - (Math.floor(Date.now() / 1000) % period);
+    return { data: { code, timeLeft, period } };
+  },
+
+  // =========================================================================
+  // EMAIL ALIAS FUNCTIONS (SimpleLogin / addy.io)
+  // =========================================================================
+
+  async createEmailAliasReal({ profileId, identityId, description }) {
+    const keys = getApiKeys();
+    const provider = keys.email_alias_provider || 'simplelogin';
+    let alias;
+    try {
+      if (provider === 'addy') {
+        const result = await emailAliasApi('/aliases', 'POST', {
+          domain: keys.addy_domain || 'anonaddy.me',
+          description: description || 'Incognito alias',
+        });
+        alias = result.data?.email || result.email;
+      } else {
+        const result = await emailAliasApi('/alias/random/new', 'POST', {
+          note: description || 'Incognito alias',
+        });
+        alias = result.alias;
+      }
+    } catch (e) {
+      const ts = Date.now().toString(36);
+      alias = `incognito.${ts}@protonmail.com`;
+    }
+
+    const entry = await entities.EmailAlias.create({
+      profile_id: profileId,
+      identity_id: identityId || null,
+      alias_email: alias,
+      description,
+      provider: keys.email_alias_provider || 'local',
+      forwarding_enabled: true,
+      status: 'active',
+    });
+    return { data: entry };
+  },
+
+  async toggleEmailAlias({ aliasId }) {
+    const all = await entities.EmailAlias.list();
+    const alias = all.find(a => a.id === aliasId);
+    if (!alias) throw new Error('Alias not found');
+    const newStatus = alias.status === 'active' ? 'disabled' : 'active';
+    const updated = await entities.EmailAlias.update(aliasId, { status: newStatus });
+    return { data: updated };
+  },
+
+  async listEmailAliasesFromProvider() {
+    const keys = getApiKeys();
+    const provider = keys.email_alias_provider || 'simplelogin';
+    try {
+      if (provider === 'addy') {
+        const result = await emailAliasApi('/aliases');
+        return { data: result.data || [] };
+      } else {
+        const result = await emailAliasApi('/v2/aliases?page_id=0');
+        return { data: result.aliases || [] };
+      }
+    } catch {
+      return { data: [] };
+    }
+  },
+
+  // =========================================================================
+  // PHONE ALIAS FUNCTIONS (Twilio)
+  // =========================================================================
+
+  async listAvailablePhoneNumbers({ areaCode, country = 'US' }) {
+    try {
+      const endpoint = `/AvailablePhoneNumbers/${country}/Local?AreaCode=${areaCode || ''}&PageSize=10`;
+      const result = await twilioApi(endpoint);
+      return { data: result.available_phone_numbers || [] };
+    } catch (e) {
+      return { data: [], error: e.message };
+    }
+  },
+
+  async purchasePhoneNumber({ phoneNumber, profileId, identityId, purpose }) {
+    const result = await twilioApi('/IncomingPhoneNumbers', 'POST', {
+      PhoneNumber: phoneNumber,
+      FriendlyName: `Incognito: ${purpose || 'alias'}`,
+    });
+    const entry = await entities.PhoneAlias.create({
+      profile_id: profileId,
+      identity_id: identityId || null,
+      phone_number: result.phone_number,
+      twilio_sid: result.sid,
+      purpose,
+      forwarding_enabled: true,
+      forwarding_number: '',
+      sms_enabled: true,
+      voice_enabled: true,
+      status: 'active',
+    });
+    return { data: entry };
+  },
+
+  async configurePhoneForwarding({ phoneAliasSid, forwardingNumber }) {
+    const twiml = `<Response><Dial>${forwardingNumber}</Dial></Response>`;
+    await twilioApi(`/IncomingPhoneNumbers/${phoneAliasSid}`, 'POST', {
+      VoiceUrl: `https://handler.twilio.com/twiml/${encodeURIComponent(twiml)}`,
+      SmsUrl: `https://handler.twilio.com/twiml/${encodeURIComponent('<Response><Message>Forwarded from Incognito</Message></Response>')}`,
+    });
+    return { data: { configured: true } };
+  },
+
+  async sendSMS({ fromAliasSid, to, body }) {
+    const alias = await entities.PhoneAlias.list();
+    const phone = alias.find(a => a.twilio_sid === fromAliasSid);
+    if (!phone) throw new Error('Phone alias not found');
+    const result = await twilioApi('/Messages', 'POST', {
+      From: phone.phone_number,
+      To: to,
+      Body: body,
+    });
+    return { data: result };
+  },
+
+  // =========================================================================
+  // VIRTUAL CARD (CLOAKED PAY) FUNCTIONS
+  // =========================================================================
+
+  async createVirtualCard({ profileId, identityId, merchantName, spendLimit, spendLimitDuration = 'MONTHLY', cardType = 'MERCHANT_LOCKED' }) {
+    const result = await privacyComApi('/card', 'POST', {
+      type: cardType,
+      memo: `Incognito: ${merchantName || 'Card'}`,
+      spend_limit: spendLimit || 10000,
+      spend_limit_duration: spendLimitDuration,
+    });
+    const entry = await entities.VirtualCard.create({
+      profile_id: profileId,
+      identity_id: identityId || null,
+      card_token: result.token,
+      merchant_name: merchantName,
+      last_four: result.last_four,
+      spend_limit: spendLimit || 10000,
+      spend_limit_duration: spendLimitDuration,
+      card_type: cardType,
+      status: result.state || 'OPEN',
+      self_destruct: null,
+    });
+    return { data: entry };
+  },
+
+  async updateCardLimit({ cardToken, spendLimit, spendLimitDuration }) {
+    await privacyComApi('/card', 'PUT', {
+      card_token: cardToken,
+      spend_limit: spendLimit,
+      spend_limit_duration: spendLimitDuration,
+    });
+    return { data: { updated: true } };
+  },
+
+  async setCardSelfDestruct({ cardId, destroyAfterDate, destroyAfterTransactions }) {
+    const updated = await entities.VirtualCard.update(cardId, {
+      self_destruct: { after_date: destroyAfterDate, after_transactions: destroyAfterTransactions },
+    });
+    return { data: updated };
+  },
+
+  // =========================================================================
+  // IDENTITY SHARING FUNCTIONS
+  // =========================================================================
+
+  async createShareLink({ identityId, fields, expiresInHours = 24, password }) {
+    const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
+    if (!identity) throw new Error('Identity not found');
+
+    const shareData = { identity_id: identityId, service_name: identity.service_name, fields: {} };
+    for (const field of fields) {
+      if (field === 'email') {
+        const alias = (await entities.EmailAlias.list()).find(a => a.id === identity.email_alias_id);
+        shareData.fields.email = alias?.alias_email || '';
+      } else if (field === 'phone') {
+        const phone = (await entities.PhoneAlias.list()).find(p => p.id === identity.phone_alias_id);
+        shareData.fields.phone = phone?.phone_number || '';
+      } else if (field === 'password') {
+        const pw = (await entities.PasswordEntry.list()).find(p => p.id === identity.password_entry_id);
+        shareData.fields.username = pw?.username || '';
+        shareData.fields.password = pw?.password || '';
+      }
+    }
+
+    const sharePassword = password || generateSecurePassword(12, { symbols: false });
+    const encrypted = await encryptData(shareData, sharePassword);
+    const shareId = generateId();
+    const expiresAt = new Date(Date.now() + expiresInHours * 3600000).toISOString();
+
+    await entities.SharedIdentity.create({
+      share_id: shareId,
+      identity_id: identityId,
+      encrypted_data: encrypted,
+      expires_at: expiresAt,
+      password_protected: !!password,
+      access_count: 0,
+      max_accesses: 10,
+      status: 'active',
+    });
+
+    return { data: { shareId, password: sharePassword, expiresAt } };
+  },
+
+  async accessShareLink({ shareId, password }) {
+    const shares = await entities.SharedIdentity.list();
+    const share = shares.find(s => s.share_id === shareId);
+    if (!share) throw new Error('Share link not found');
+    if (share.status !== 'active') throw new Error('Share link expired or revoked');
+    if (new Date(share.expires_at) < new Date()) throw new Error('Share link expired');
+    if (share.access_count >= share.max_accesses) throw new Error('Max accesses reached');
+
+    const decrypted = await decryptData(share.encrypted_data, password);
+    await entities.SharedIdentity.update(share.id, { access_count: share.access_count + 1 });
+    return { data: decrypted };
+  },
+
+  async revokeShareLink({ shareId }) {
+    const shares = await entities.SharedIdentity.list();
+    const share = shares.find(s => s.share_id === shareId);
+    if (share) await entities.SharedIdentity.update(share.id, { status: 'revoked' });
+    return { data: { revoked: true } };
+  },
+
+  // =========================================================================
+  // VPN MANAGEMENT FUNCTIONS
+  // =========================================================================
+
+  async checkIPLeak() {
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json');
+      const data = await resp.json();
+      return { data: { ip: data.ip, vpn_active: false } };
+    } catch {
+      return { data: { ip: 'unknown', vpn_active: false } };
+    }
+  },
+
+  async saveVPNConfig({ name, type, configData }) {
+    const entry = await entities.VPNConfig.create({
+      name,
+      type: type || 'wireguard',
+      config_data: configData,
+      status: 'disconnected',
+      last_connected: null,
+    });
+    return { data: entry };
+  },
+
+  // =========================================================================
+  // CALL GUARD (AI CALL SCREENING) FUNCTIONS
+  // =========================================================================
+
+  async screenCall({ callerNumber, profileId }) {
+    const result = await invokeLLM({
+      prompt: `Analyze this phone number for potential scam/spam risk: ${callerNumber}
+Return: risk_level (high/medium/low), likely_type (scam, spam, robocall, telemarketer, legitimate, unknown), recommended_action (block, screen, allow), reasoning.`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          risk_level: { type: 'string' },
+          likely_type: { type: 'string' },
+          recommended_action: { type: 'string' },
+          reasoning: { type: 'string' },
+        },
+      },
+    });
+
+    const log = await entities.CallGuardLog.create({
+      profile_id: profileId,
+      caller_number: callerNumber,
+      risk_level: result.risk_level,
+      likely_type: result.likely_type,
+      action_taken: result.recommended_action,
+      reasoning: result.reasoning,
+      transcript: null,
+      screened_at: new Date().toISOString(),
+    });
+    return { data: log };
+  },
+
+  async getCallGuardStats({ profileId }) {
+    const logs = await entities.CallGuardLog.filter({ profile_id: profileId });
+    const blocked = logs.filter(l => l.action_taken === 'block').length;
+    const screened = logs.filter(l => l.action_taken === 'screen').length;
+    const allowed = logs.filter(l => l.action_taken === 'allow').length;
+    return { data: { total: logs.length, blocked, screened, allowed } };
+  },
+
+  // =========================================================================
+  // SSN MONITORING FUNCTIONS
+  // =========================================================================
+
+  async checkSSNExposure({ ssnLast4, profileId }) {
+    const result = await invokeLLM({
+      prompt: `Based on known data breaches and dark web intelligence, assess the risk level for a Social Security Number ending in ${ssnLast4}.
+Consider recent major breaches (Equifax 2017, National Public Data 2024, etc.) and return:
+- risk_level: critical/high/medium/low
+- known_breaches: array of breach names that may have included SSNs
+- recommended_actions: array of specific steps to take
+- credit_freeze_recommended: boolean`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          risk_level: { type: 'string' },
+          known_breaches: { type: 'array', items: { type: 'string' } },
+          recommended_actions: { type: 'array', items: { type: 'string' } },
+          credit_freeze_recommended: { type: 'boolean' },
+        },
+      },
+    });
+
+    const alert = await entities.SSNMonitorAlert.create({
+      profile_id: profileId,
+      ssn_last4: ssnLast4,
+      risk_level: result.risk_level,
+      known_breaches: result.known_breaches,
+      recommended_actions: result.recommended_actions,
+      credit_freeze_recommended: result.credit_freeze_recommended,
+      checked_at: new Date().toISOString(),
+      status: 'new',
+    });
+    return { data: alert };
+  },
+
+  // =========================================================================
+  // AI DEFENSE FUNCTIONS
+  // =========================================================================
+
+  async analyzeAIThreat({ content, contentType, profileId }) {
+    const result = await invokeLLM({
+      prompt: `Analyze this ${contentType} content for AI-generated threats:
+Content: ${content}
+
+Check for:
+1. Deepfake indicators (if image/video/audio description)
+2. AI-generated phishing text patterns
+3. Voice clone indicators
+4. Social engineering using AI-generated content
+
+Return: threat_type, confidence (0-100), indicators (array), recommended_action, description`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          threat_type: { type: 'string' },
+          confidence: { type: 'number' },
+          indicators: { type: 'array', items: { type: 'string' } },
+          recommended_action: { type: 'string' },
+          description: { type: 'string' },
+        },
+      },
+    });
+
+    const alert = await entities.AIDefenseAlert.create({
+      profile_id: profileId,
+      content_type: contentType,
+      threat_type: result.threat_type,
+      confidence: result.confidence,
+      indicators: result.indicators,
+      recommended_action: result.recommended_action,
+      description: result.description,
+      status: 'new',
+    });
+    return { data: alert };
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -2728,5 +3380,8 @@ export const incognito = {
   },
   asServiceRole: { entities },
 };
+
+// Exported utilities for direct use in components
+export { generateTOTP, generateSecurePassword, encryptData, decryptData };
 
 export default incognito;

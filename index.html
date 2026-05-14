@@ -4,6 +4,43 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/incognito.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Defense-in-depth Content Security Policy (in addition to the HTTP
+      headers shipped via /public/_headers and vercel.json).
+
+      Allowed third-party API origins are explicitly enumerated in the
+      `connect-src` directive. The shipping host MUST also send a CSP
+      response header — meta CSP is enforced by browsers but does not
+      protect against pre-parse attacks. See public/_headers and
+      vercel.json for the canonical headers.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      font-src 'self' data:;
+      connect-src 'self'
+        https://api.openai.com
+        https://haveibeenpwned.com
+        https://api.pwnedpasswords.com
+        https://leakcheck.io
+        https://api.hunter.io
+        https://apilayer.net
+        https://www.googleapis.com
+        https://api.privacy.com
+        https://sandbox.privacy.com
+        https://api.twilio.com
+        https://app.simplelogin.io
+        https://app.addy.io
+        https://api.ipify.org;
+      frame-ancestors 'none';
+      base-uri 'self';
+      form-action 'self';
+      object-src 'none';
+    " />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
     <title>Incognito - Privacy Guardian</title>
   </head>
   <body>

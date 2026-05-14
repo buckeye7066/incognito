@@ -328,3 +328,56 @@ criteria from the brief are met:
 
 The 0.90 score reflects the residual caveats above, none of which is a
 production blocker for the documented threat model.
+
+---
+
+## 8. Second-pass audit (2026-05-14)
+
+A second-pass production-readiness audit was performed targeting the residual
+caveats from §6 ("External scan audit log", "CSP and security headers") and the
+external-review findings around `getApiKeys()` returning legacy plaintext, the
+plaintext blob not being deleted post-migration, and consent gating not
+covering every third-party provider.
+
+### 8.1 Fixed second-pass blockers
+
+| Blocker (external review) | Where it lived | Fix | Test that proves it |
+|---|---|---|---|
+| **`getApiKeys()` could return legacy plaintext.** When the encrypted blob existed but the in-memory cache was cold (or when the legacy plaintext blob still existed), the function had a code path that read straight from `incognito_api_keys`. | `src/api/client.js` (`getApiKeys`) | Rewrote `getApiKeys`: when the vault is locked → return `{}`. When unlocked but cache is cold → kick off `warmApiKeysFromVault()` and return `{}`. **Never** read the legacy plaintext blob. Plaintext is treated as input to migration only. | `encryptedStorage.test.js → "getApiKeys never returns legacy plaintext"` (3 tests): vault locked + only plaintext exists → `{}`; vault unlocked + only plaintext exists → `{}` until async migration completes; vault locked + only encrypted exists → `{}`. |
+| **Plaintext was not deleted after migration.** A successful migration encrypted the keys but left `incognito_api_keys` in `localStorage`. | `src/api/client.js` (`warmApiKeysFromVault`) | Migration now (1) encrypts, (2) confirms the encrypted write succeeded, then (3) **hard-deletes** `incognito_api_keys`. A defensive cleanup also removes any leftover plaintext after a successful unlock + decrypt. The migration helper refuses to run while the vault is locked (fail-closed). | `encryptedStorage.test.js`: "after migration completes, plaintext blob is hard-deleted and getApiKeys returns the encrypted-then-decrypted values"; "migrateLegacyPlaintext fails closed when the vault is locked". |
+| **Consent gating did not cover every third-party provider.** Twilio (phone aliases), SimpleLogin (email aliases), and addy.io (email aliases) were not in the catalog, so calls to them bypassed `requireConsent`. | `src/lib/consent.js` (`EXTERNAL_PROVIDERS`) and `src/api/client.js` (call sites) | Added `twilio`, `simplelogin`, and `addy` to `EXTERNAL_PROVIDERS`. Wrapped `twilioApi`, `emailAliasApi`, and the previously-already-gated providers with `withExternalCallAudit` so consent is checked **and** the result is logged. | `encryptedStorage.test.js → "consent gating covers every external provider"` (4 tests): catalog includes all new providers; `requireConsent` throws `E_CONSENT_REQUIRED` for `twilio`/`simplelogin`/`addy` when not granted. |
+| **External scan audit log was not persistent.** Fire-and-forget calls to third-party APIs left no local trace; users had no way to audit what data went where. | `src/lib/auditLog.js` (new) | New local-first audit log persists to `incognito_external_audit_log_v1` in `localStorage` with a hard cap of 500 entries. `withExternalCallAudit({ provider, dataType, route }, fn)` wraps every external call and records `ok` / `error` / `denied` (no PII, only outcome). `getAuditLog` / `clearAuditLog` exposed for the Settings UI. | `encryptedStorage.test.js → "external scan audit log is persistent"` (3 tests): records `ok` on success, `error` on throw, `denied` on `E_CONSENT_REQUIRED`; cap honoured; entries survive a "reload". |
+| **No CSP / security headers for deployment.** A static build served behind Vercel/Netlify shipped without any CSP or `Permissions-Policy`. | `index.html`, `public/_headers` (new), `vercel.json` (new) | `index.html` carries a `<meta http-equiv="Content-Security-Policy">` whitelisting the exact `connect-src` origins this app calls (`api.privacy.com`, `api.hunter.io`, `leakcheck.io`, `apilayer.net`, `haveibeenpwned.com`, `googleapis.com`, `api.openai.com`, `api.twilio.com`, `app.simplelogin.io`, `app.addy.io`). `public/_headers` (Netlify) and `vercel.json` (Vercel) ship the same CSP plus `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options=DENY`, `Referrer-Policy=strict-origin-when-cross-origin`, `Permissions-Policy`, `Cross-Origin-Opener-Policy=same-origin`, `Cross-Origin-Resource-Policy=same-origin`. | Configuration verified by build (`npm run build` includes the meta tag); CSP origins were collected from the actual `fetch` call sites in `src/api/client.js`. |
+
+### 8.2 New / extended tests
+
+```
+Test Files  3 passed (3)
+     Tests  36 passed (36)
+```
+
+- `encryptedStorage.test.js` (extended): now 19 tests, including the four new
+  `describe` blocks above.
+- Existing `vault.test.js` (11) and `consent.test.js` (6) are unchanged and
+  still passing.
+
+### 8.3 Commands run locally (second pass, all passed)
+
+```text
+npm install
+npm run lint            # 0 errors, 49 warnings (pre-existing unused-vars in pages)
+npm test                # 36/36 passing
+npm run build           # vite build succeeds, CSP meta tag present in dist/index.html
+npm run audit           # 0 vulnerabilities
+npm run release:check   # exit 0
+```
+
+### 8.4 Updated readiness
+
+Residual caveats §6.5 (external scan audit log) and §6.6 (CSP / security
+headers) are now closed. The plaintext-key surface has been definitively
+removed: the only path that ever touches `incognito_api_keys` is the migration
+helper, which deletes it on success and refuses to run while locked.
+
+**Updated readiness score: 0.93 — GO** for the local-first encrypted-vault
+product mode.

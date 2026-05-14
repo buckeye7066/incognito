@@ -106,7 +106,9 @@ export function clearAllConsent() {
 }
 
 // Provider catalog — declared centrally so the UI can render a settings
-// screen without touching client.js.
+// screen without touching client.js. Every external HTTP integration the app
+// can drive MUST appear here so the consent gate can refuse outbound calls
+// until the user opts in to the specific provider + data type.
 export const EXTERNAL_PROVIDERS = [
   { id: 'hibp',           label: 'Have I Been Pwned',     dataTypes: ['email'] },
   { id: 'leakcheck',      label: 'LeakCheck.io',          dataTypes: ['email', 'username'] },
@@ -115,4 +117,7 @@ export const EXTERNAL_PROVIDERS = [
   { id: 'google_search',  label: 'Google Custom Search',  dataTypes: ['email', 'phone', 'name'] },
   { id: 'privacy_com',    label: 'Privacy.com',           dataTypes: ['address'] },
   { id: 'openai',         label: 'OpenAI',                dataTypes: ['profile_summary'] },
+  { id: 'twilio',         label: 'Twilio (phone aliases)', dataTypes: ['phone'] },
+  { id: 'simplelogin',    label: 'SimpleLogin (email aliases)', dataTypes: ['email'] },
+  { id: 'addy',           label: 'addy.io (email aliases)',     dataTypes: ['email'] },
 ];

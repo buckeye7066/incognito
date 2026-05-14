@@ -1,0 +1,15 @@
+/*
+  # Defense-in-depth security headers. Mirrors index.html meta tags for hosts
+  # that ignore meta CSP (and to cover the document load itself, which meta
+  # tags cannot influence).
+  #
+  # Compatible with Netlify (`_headers`) and most static hosts that read this
+  # file. Vercel users: the same headers live in `vercel.json`.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://haveibeenpwned.com https://api.pwnedpasswords.com https://leakcheck.io https://api.hunter.io https://apilayer.net https://www.googleapis.com https://api.privacy.com https://sandbox.privacy.com https://api.twilio.com https://app.simplelogin.io https://app.addy.io https://api.ipify.org; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin

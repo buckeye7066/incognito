@@ -1,6 +1,7 @@
 import { matchBreaches, estimateBrokerExposure, fetchLiveBreachList, leakCheckPublic } from './breachDatabase.js';
 import vault, { VaultStore } from '@/lib/vault';
 import { requireConsent, isProviderAllowed } from '@/lib/consent';
+import { withExternalCallAudit } from '@/lib/auditLog';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -48,58 +49,65 @@ export function resolvePersonalDataValue(item) {
 /**
  * Read API keys.
  *
- * Vault-aware behavior:
- *   - If an encrypted API key blob exists at SETTINGS_KEY_ENCRYPTED:
- *       - vault unlocked → returns decrypted keys (memo-cached until lock).
- *       - vault locked   → returns `{}` (do not leak ciphertext).
- *   - If the legacy plaintext SETTINGS_KEY exists, it is returned but ALSO
- *     migrated into the encrypted blob the next time the vault is unlocked.
+ * Strict guarantees (post second-pass hardening):
+ *   - NEVER returns legacy plaintext keys. If only the legacy plaintext blob
+ *     exists, callers get `{}` until the user unlocks the vault and the
+ *     migration runs (which encrypts and then hard-deletes the plaintext).
+ *   - Vault locked → always `{}` (no plaintext, no ciphertext echoed back).
+ *   - Vault unlocked + cache warm → returns the decrypted keys.
+ *   - Vault unlocked + cache cold → kicks off async warming and returns `{}`
+ *     for this call. Callers that need keys-on-demand should call
+ *     `unlockApiKeys()` (which awaits warming) first.
  *
- * Synchronous: returns from the memo cache when the vault is unlocked. Pages
- * that mutate api keys go through `setApiKeys` which is async-safe.
+ * Pages that mutate api keys go through `setApiKeys` which is async-safe.
  */
 export function getApiKeys() {
-  if (_apiKeysCache && vault.isUnlocked()) return { ..._apiKeysCache };
+  if (!vault.isUnlocked()) return {};
+  if (_apiKeysCache) return { ..._apiKeysCache };
+
   let encryptedRaw = null;
-  let plainRaw = null;
   try { encryptedRaw = localStorage.getItem(SETTINGS_KEY_ENCRYPTED); } catch {}
-  try { plainRaw = localStorage.getItem(SETTINGS_KEY); } catch {}
 
   if (encryptedRaw) {
-    if (!vault.isUnlocked()) return {};
-    try {
-      const payload = JSON.parse(encryptedRaw);
-      // Synchronous read by deriving from the in-memory cache. We populate the
-      // cache the first time the vault unlocks via warmApiKeysFromVault().
-      if (_apiKeysCache) return { ..._apiKeysCache };
-      // First call after unlock — fall through to plaintext (none) and let the
-      // caller's next async tick warm the cache.
-      void warmApiKeysFromVault().catch(() => {});
-      return {};
-    } catch {
-      return {};
-    }
+    // Cache is cold — warm asynchronously and return empty for this call.
+    // Synchronous decryption is impossible (WebCrypto is async).
+    void warmApiKeysFromVault().catch(() => {});
+    return {};
   }
 
-  if (plainRaw) {
-    try { return JSON.parse(plainRaw) || {}; } catch { return {}; }
+  // No encrypted blob yet. If legacy plaintext exists, the caller has not
+  // run migration yet — refuse to expose plaintext. Migration happens via
+  // warmApiKeysFromVault() / migrateLegacyPlaintext() which both require
+  // an unlocked vault.
+  if (legacyPlaintextApiKeysExist()) {
+    void warmApiKeysFromVault().catch(() => {});
+    return {};
   }
+
   return {};
 }
 
 async function warmApiKeysFromVault() {
   if (!vault.isUnlocked()) return;
+
   let encryptedRaw = null;
   try { encryptedRaw = localStorage.getItem(SETTINGS_KEY_ENCRYPTED); } catch {}
+
   if (!encryptedRaw) {
-    // Migrate legacy plaintext on first unlock.
+    // Migrate legacy plaintext on first unlock. The plaintext blob is
+    // re-encrypted under the vault and then HARD-DELETED from localStorage.
     let plainRaw = null;
     try { plainRaw = localStorage.getItem(SETTINGS_KEY); } catch {}
     if (plainRaw) {
       try {
         const parsed = JSON.parse(plainRaw) || {};
         await persistApiKeysEncrypted(parsed);
-        try { localStorage.removeItem(SETTINGS_KEY); } catch {}
+        // Best-effort: confirm encrypted write before deleting plaintext.
+        let confirmed = null;
+        try { confirmed = localStorage.getItem(SETTINGS_KEY_ENCRYPTED); } catch {}
+        if (confirmed) {
+          try { localStorage.removeItem(SETTINGS_KEY); } catch {}
+        }
         _apiKeysCache = parsed;
       } catch {
         _apiKeysCache = {};
@@ -113,6 +121,11 @@ async function warmApiKeysFromVault() {
     const payload = JSON.parse(encryptedRaw);
     const decrypted = await vault.decrypt(payload);
     _apiKeysCache = JSON.parse(decrypted);
+    // Defensive: if a leftover plaintext blob still exists for any reason,
+    // delete it now that we have a confirmed-good encrypted copy.
+    if (legacyPlaintextApiKeysExist()) {
+      try { localStorage.removeItem(SETTINGS_KEY); } catch {}
+    }
   } catch {
     _apiKeysCache = {};
   }
@@ -624,75 +637,72 @@ export function getSensitiveEntityNames() {
 // LLM Integration (OpenAI-compatible)
 // ---------------------------------------------------------------------------
 async function invokeLLM({ prompt, response_json_schema, add_context_from_internet }) {
-  // Outbound-PII guard: explicit user consent is required.
-  requireConsent('openai', 'profile_summary');
-  const keys = getApiKeys();
-  if (!keys.openai_api_key) {
-    throw new Error('OpenAI API key not configured. Go to Settings → API Keys to add it.');
-  }
-
-  const messages = [{ role: 'user', content: prompt }];
-  const body = {
-    model: keys.openai_model || 'gpt-4o-mini',
-    messages,
-    temperature: 0.3,
-  };
-
-  if (response_json_schema) {
-    body.response_format = { type: 'json_object' };
-    messages[0].content += '\n\nRespond ONLY with valid JSON matching this schema: ' + JSON.stringify(response_json_schema);
-  }
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${keys.openai_api_key}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`OpenAI API error (${resp.status}): ${err}`);
-  }
-
-  const data = await resp.json();
-  const content = data.choices?.[0]?.message?.content || '';
-
-  if (response_json_schema) {
-    try { return JSON.parse(content); } catch {
-      console.warn('[invokeLLM] Failed to parse JSON response, returning empty object');
-      return {};
+  return withExternalCallAudit({ provider: 'openai', dataType: 'profile_summary', action: 'chat' }, async () => {
+    requireConsent('openai', 'profile_summary');
+    const keys = getApiKeys();
+    if (!keys.openai_api_key) {
+      throw new Error('OpenAI API key not configured. Go to Settings → API Keys to add it.');
     }
-  }
-  return content;
+    const messages = [{ role: 'user', content: prompt }];
+    const body = {
+      model: keys.openai_model || 'gpt-4o-mini',
+      messages,
+      temperature: 0.3,
+    };
+    if (response_json_schema) {
+      body.response_format = { type: 'json_object' };
+      messages[0].content += '\n\nRespond ONLY with valid JSON matching this schema: ' + JSON.stringify(response_json_schema);
+    }
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${keys.openai_api_key}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`OpenAI API error (${resp.status}): ${err}`);
+    }
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    if (response_json_schema) {
+      try { return JSON.parse(content); } catch {
+        console.warn('[invokeLLM] Failed to parse JSON response, returning empty object');
+        return {};
+      }
+    }
+    return content;
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Privacy.com API helpers
 // ---------------------------------------------------------------------------
 async function privacyComApi(endpoint, method = 'GET', body = null) {
-  requireConsent('privacy_com', 'address');
-  const keys = getApiKeys();
-  if (!keys.privacy_com_api_key) {
-    throw new Error('Privacy.com API key not configured. Go to Settings → API Keys.');
-  }
-  const baseUrl = keys.privacy_com_sandbox ? 'https://sandbox.privacy.com/v1' : 'https://api.privacy.com/v1';
-  const opts = {
-    method,
-    headers: {
-      'Authorization': `api-key ${keys.privacy_com_api_key}`,
-      'Content-Type': 'application/json',
-    },
-  };
-  if (body) opts.body = JSON.stringify(body);
-  const resp = await fetch(`${baseUrl}${endpoint}`, opts);
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Privacy.com API error (${resp.status}): ${text}`);
-  }
-  return resp.json();
+  return withExternalCallAudit({ provider: 'privacy_com', dataType: 'address', action: endpoint }, async () => {
+    requireConsent('privacy_com', 'address');
+    const keys = getApiKeys();
+    if (!keys.privacy_com_api_key) {
+      throw new Error('Privacy.com API key not configured. Go to Settings → API Keys.');
+    }
+    const baseUrl = keys.privacy_com_sandbox ? 'https://sandbox.privacy.com/v1' : 'https://api.privacy.com/v1';
+    const opts = {
+      method,
+      headers: {
+        'Authorization': `api-key ${keys.privacy_com_api_key}`,
+        'Content-Type': 'application/json',
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const resp = await fetch(`${baseUrl}${endpoint}`, opts);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Privacy.com API error (${resp.status}): ${text}`);
+    }
+    return resp.json();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -700,21 +710,23 @@ async function privacyComApi(endpoint, method = 'GET', body = null) {
 // ---------------------------------------------------------------------------
 async function googleSearch(query) {
   if (!isProviderAllowed('google_search')) return null;
-  const keys = getApiKeys();
-  if (!keys.google_search_api_key || !keys.google_search_cx) return null;
-  const url = `https://www.googleapis.com/customsearch/v1?key=${keys.google_search_api_key}&cx=${keys.google_search_cx}&q=${encodeURIComponent(query)}&num=10`;
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    console.warn(`[Google Search] API error (${resp.status})`);
-    return null;
-  }
-  const data = await resp.json();
-  return (data.items || []).map(item => ({
-    title: item.title,
-    url: item.link,
-    snippet: item.snippet,
-    displayLink: item.displayLink,
-  }));
+  return withExternalCallAudit({ provider: 'google_search', dataType: 'search_query', action: 'cse' }, async () => {
+    const keys = getApiKeys();
+    if (!keys.google_search_api_key || !keys.google_search_cx) return null;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${keys.google_search_api_key}&cx=${keys.google_search_cx}&q=${encodeURIComponent(query)}&num=10`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.warn(`[Google Search] API error (${resp.status})`);
+      return null;
+    }
+    const data = await resp.json();
+    return (data.items || []).map(item => ({
+      title: item.title,
+      url: item.link,
+      snippet: item.snippet,
+      displayLink: item.displayLink,
+    }));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -722,22 +734,26 @@ async function googleSearch(query) {
 // ---------------------------------------------------------------------------
 async function hunterVerifyEmail(email) {
   if (!isProviderAllowed('hunter', 'email')) return null;
-  const keys = getApiKeys();
-  if (!keys.hunter_api_key) return null;
-  const resp = await fetch(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${keys.hunter_api_key}`);
-  if (!resp.ok) return null;
-  const { data } = await resp.json();
-  return data;
+  return withExternalCallAudit({ provider: 'hunter', dataType: 'email', action: 'verify' }, async () => {
+    const keys = getApiKeys();
+    if (!keys.hunter_api_key) return null;
+    const resp = await fetch(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${keys.hunter_api_key}`);
+    if (!resp.ok) return null;
+    const { data } = await resp.json();
+    return data;
+  });
 }
 
 async function hunterDomainSearch(domain) {
   if (!isProviderAllowed('hunter', 'domain')) return null;
-  const keys = getApiKeys();
-  if (!keys.hunter_api_key) return null;
-  const resp = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${keys.hunter_api_key}`);
-  if (!resp.ok) return null;
-  const { data } = await resp.json();
-  return data;
+  return withExternalCallAudit({ provider: 'hunter', dataType: 'domain', action: 'domain_search' }, async () => {
+    const keys = getApiKeys();
+    if (!keys.hunter_api_key) return null;
+    const resp = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${keys.hunter_api_key}`);
+    if (!resp.ok) return null;
+    const { data } = await resp.json();
+    return data;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -745,14 +761,16 @@ async function hunterDomainSearch(domain) {
 // ---------------------------------------------------------------------------
 async function leakCheckLookup(value, type = 'email') {
   if (!isProviderAllowed('leakcheck', type)) return null;
-  const keys = getApiKeys();
-  if (!keys.leakcheck_api_key) return null;
-  const resp = await fetch(`https://leakcheck.io/api/public?check=${encodeURIComponent(value)}`, {
-    headers: { 'X-API-Key': keys.leakcheck_api_key },
+  return withExternalCallAudit({ provider: 'leakcheck', dataType: type, action: 'lookup' }, async () => {
+    const keys = getApiKeys();
+    if (!keys.leakcheck_api_key) return null;
+    const resp = await fetch(`https://leakcheck.io/api/public?check=${encodeURIComponent(value)}`, {
+      headers: { 'X-API-Key': keys.leakcheck_api_key },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.success ? (data.result || []) : null;
   });
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  return data.success ? (data.result || []) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -760,58 +778,66 @@ async function leakCheckLookup(value, type = 'email') {
 // ---------------------------------------------------------------------------
 async function numVerifyLookup(phone) {
   if (!isProviderAllowed('numverify', 'phone')) return null;
-  const keys = getApiKeys();
-  if (!keys.numverify_api_key) return null;
-  const cleaned = phone.replace(/\D/g, '');
-  const resp = await fetch(`https://apilayer.net/api/validate?access_key=${keys.numverify_api_key}&number=${cleaned}&format=1`);
-  if (!resp.ok) return null;
-  return resp.json();
+  return withExternalCallAudit({ provider: 'numverify', dataType: 'phone', action: 'validate' }, async () => {
+    const keys = getApiKeys();
+    if (!keys.numverify_api_key) return null;
+    const cleaned = phone.replace(/\D/g, '');
+    // Use HTTPS — apilayer supports both but http would be plaintext PII
+    const resp = await fetch(`https://apilayer.net/api/validate?access_key=${keys.numverify_api_key}&number=${cleaned}&format=1`);
+    if (!resp.ok) return null;
+    return resp.json();
+  });
 }
 
 // ---------------------------------------------------------------------------
 // HIBP API helpers
 // ---------------------------------------------------------------------------
 async function hibpApi(endpoint) {
-  requireConsent('hibp', 'email');
-  const keys = getApiKeys();
-  if (!keys.hibp_api_key) {
-    throw new Error('HIBP API key not configured. Go to Settings → API Keys.');
-  }
-  const resp = await fetch(`https://haveibeenpwned.com/api/v3${endpoint}`, {
-    headers: {
-      'hibp-api-key': keys.hibp_api_key,
-    },
+  return withExternalCallAudit({ provider: 'hibp', dataType: 'email', action: endpoint }, async () => {
+    requireConsent('hibp', 'email');
+    const keys = getApiKeys();
+    if (!keys.hibp_api_key) {
+      throw new Error('HIBP API key not configured. Go to Settings → API Keys.');
+    }
+    const resp = await fetch(`https://haveibeenpwned.com/api/v3${endpoint}`, {
+      headers: {
+        'hibp-api-key': keys.hibp_api_key,
+      },
+    });
+    if (resp.status === 404) return [];
+    if (resp.status === 429) throw new Error('HIBP rate limit exceeded. Wait 6 seconds and retry.');
+    if (!resp.ok) throw new Error(`HIBP API error (${resp.status})`);
+    return resp.json();
   });
-  if (resp.status === 404) return [];
-  if (resp.status === 429) throw new Error('HIBP rate limit exceeded. Wait 6 seconds and retry.');
-  if (!resp.ok) throw new Error(`HIBP API error (${resp.status})`);
-  return resp.json();
 }
 
 // ---------------------------------------------------------------------------
 // Twilio API helpers (Phone Aliases)
 // ---------------------------------------------------------------------------
 async function twilioApi(endpoint, method = 'GET', body = null) {
-  const keys = getApiKeys();
-  if (!keys.twilio_account_sid || !keys.twilio_auth_token) {
-    throw new Error('Twilio credentials not configured. Go to Settings → API Keys.');
-  }
-  const baseUrl = `https://api.twilio.com/2010-04-01/Accounts/${keys.twilio_account_sid}`;
-  const auth = btoa(`${keys.twilio_account_sid}:${keys.twilio_auth_token}`);
-  const opts = {
-    method,
-    headers: { 'Authorization': `Basic ${auth}` },
-  };
-  if (body) {
-    opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    opts.body = new URLSearchParams(body).toString();
-  }
-  const resp = await fetch(`${baseUrl}${endpoint}.json`, opts);
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Twilio API error (${resp.status}): ${text}`);
-  }
-  return resp.json();
+  return withExternalCallAudit({ provider: 'twilio', dataType: 'phone', action: endpoint }, async () => {
+    requireConsent('twilio', 'phone');
+    const keys = getApiKeys();
+    if (!keys.twilio_account_sid || !keys.twilio_auth_token) {
+      throw new Error('Twilio credentials not configured. Go to Settings → API Keys.');
+    }
+    const baseUrl = `https://api.twilio.com/2010-04-01/Accounts/${keys.twilio_account_sid}`;
+    const auth = btoa(`${keys.twilio_account_sid}:${keys.twilio_auth_token}`);
+    const opts = {
+      method,
+      headers: { 'Authorization': `Basic ${auth}` },
+    };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      opts.body = new URLSearchParams(body).toString();
+    }
+    const resp = await fetch(`${baseUrl}${endpoint}.json`, opts);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Twilio API error (${resp.status}): ${text}`);
+    }
+    return resp.json();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -820,26 +846,28 @@ async function twilioApi(endpoint, method = 'GET', body = null) {
 async function emailAliasApi(endpoint, method = 'GET', body = null) {
   const keys = getApiKeys();
   const provider = keys.email_alias_provider || 'simplelogin';
-  let baseUrl, headers;
-
-  if (provider === 'addy') {
-    if (!keys.addy_api_key) throw new Error('addy.io API key not configured. Go to Settings → API Keys.');
-    baseUrl = 'https://app.addy.io/api/v1';
-    headers = { 'Authorization': `Bearer ${keys.addy_api_key}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
-  } else {
-    if (!keys.simplelogin_api_key) throw new Error('SimpleLogin API key not configured. Go to Settings → API Keys.');
-    baseUrl = 'https://app.simplelogin.io/api';
-    headers = { 'Authentication': keys.simplelogin_api_key, 'Content-Type': 'application/json' };
-  }
-
-  const opts = { method, headers };
-  if (body) opts.body = JSON.stringify(body);
-  const resp = await fetch(`${baseUrl}${endpoint}`, opts);
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`${provider} API error (${resp.status}): ${text}`);
-  }
-  return resp.json();
+  return withExternalCallAudit({ provider, dataType: 'email', action: endpoint }, async () => {
+    let baseUrl, headers;
+    if (provider === 'addy') {
+      requireConsent('addy', 'email');
+      if (!keys.addy_api_key) throw new Error('addy.io API key not configured. Go to Settings → API Keys.');
+      baseUrl = 'https://app.addy.io/api/v1';
+      headers = { 'Authorization': `Bearer ${keys.addy_api_key}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    } else {
+      requireConsent('simplelogin', 'email');
+      if (!keys.simplelogin_api_key) throw new Error('SimpleLogin API key not configured. Go to Settings → API Keys.');
+      baseUrl = 'https://app.simplelogin.io/api';
+      headers = { 'Authentication': keys.simplelogin_api_key, 'Content-Type': 'application/json' };
+    }
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const resp = await fetch(`${baseUrl}${endpoint}`, opts);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`${provider} API error (${resp.status}): ${text}`);
+    }
+    return resp.json();
+  });
 }
 
 // ---------------------------------------------------------------------------

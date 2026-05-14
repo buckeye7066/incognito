@@ -1,18 +1,16 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { incognito, generateSecurePassword } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { Lock, Plus, Copy, Eye, EyeOff, Search, RefreshCw, Upload, Shield, AlertTriangle, CheckCircle, Trash2, ExternalLink, Key } from 'lucide-react';
+import { Lock, Plus, Copy, Eye, EyeOff, Search, RefreshCw, Upload, Shield, AlertTriangle, Trash2, ExternalLink, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STRENGTH_COLORS = {

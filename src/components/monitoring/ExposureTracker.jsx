@@ -1,16 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  Shield, Eye, EyeOff, ShieldOff, ShieldCheck, AlertTriangle,
+  Shield, Eye, ShieldOff, ShieldCheck, AlertTriangle,
   ChevronDown, ChevronUp, ExternalLink, Copy, CheckCircle,
-  Loader2, Mail, Ban, Globe, Database, Users, Bot,
+  Loader2, Mail, Ban, Globe, Users,
   Fingerprint, AtSign, Phone, MapPin, CreditCard, FileText,
-  Lock, Send, Wand2,
+  Lock, Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

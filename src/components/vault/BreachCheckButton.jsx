@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { incognito } from '@/api/client';

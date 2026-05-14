@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CreditCard, ArrowRightLeft, Loader2, CheckCircle, Copy,
-  Bot, ExternalLink, ShieldCheck, AlertTriangle, Trash2
+  Bot, ShieldCheck, AlertTriangle, Trash2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 

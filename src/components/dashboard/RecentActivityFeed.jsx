@@ -1,8 +1,6 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Activity, AlertTriangle, CheckCircle, Shield, Trash2, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';

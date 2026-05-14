@@ -1,15 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  Rocket, Loader2, CheckCircle, Clock, AlertTriangle, ExternalLink,
-  Play, RotateCw, Eye, EyeOff, Copy, Mail, Globe, ChevronDown,
-  ChevronUp, Bot, Download, Shield, ShieldCheck, Trash2,
+  Rocket, Loader2, CheckCircle, Clock, AlertTriangle, ExternalLink, RotateCw, Copy, Mail, Globe, ChevronDown,
+  ChevronUp, Download, ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

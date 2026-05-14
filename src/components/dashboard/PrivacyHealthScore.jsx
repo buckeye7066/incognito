@@ -1,5 +1,4 @@
-import React from 'react';
-import { Shield, CheckCircle, XCircle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';

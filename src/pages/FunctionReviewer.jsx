@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Code, ChevronLeft, ChevronRight, Search, Copy, Check, 
-  FileCode, FolderTree, Lock, Loader2, AlertCircle,
+  FileCode, FolderTree, Loader2, AlertCircle,
   ChevronDown, ChevronUp
 } from 'lucide-react';
 

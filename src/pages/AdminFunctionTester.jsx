@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { PlayCircle, Loader2, CheckCircle, XCircle, AlertTriangle, Copy, Download, Lock } from 'lucide-react';
+import { PlayCircle, Loader2, CheckCircle, XCircle, Copy, Download, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function AdminFunctionTester() {
@@ -57,15 +56,15 @@ export default function AdminFunctionTester() {
     URL.revokeObjectURL(url);
   };
 
-  // Admin check
-  if (user && user.role !== 'admin') {
+  // Defense-in-depth fallback for the developer-mode gate (AdminRoute).
+  if (typeof window !== 'undefined' && localStorage.getItem('incognito_developer_mode') !== 'true') {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="glass-card border-red-500/30 max-w-md">
           <CardContent className="p-8 text-center">
             <Lock className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Admin Access Required</h2>
-            <p className="text-gray-400">This page is restricted to administrators only.</p>
+            <h2 className="text-2xl font-bold text-white mb-2">Developer Mode Required</h2>
+            <p className="text-gray-400">Enable Developer Mode in Settings → Advanced to access this page.</p>
           </CardContent>
         </Card>
       </div>

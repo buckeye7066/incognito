@@ -1,21 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Gift, Cake, GraduationCap, Baby, Heart, Star, PartyPopper,
-  Search, ExternalLink, Copy, CheckCircle, Plus, Trash2,
-  Calendar, MapPin, Tag, Clock, Info, Sparkles, Trophy,
+  Search, ExternalLink, Copy, CheckCircle, Plus, Trash2, Info, Sparkles, Trophy,
   Users, AlertTriangle,
 } from 'lucide-react';
-import { incognito } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const OCCASIONS = [
   { id: 'birthday', label: 'Birthday', icon: Cake, color: 'from-pink-600 to-rose-500', badge: 'bg-pink-500/20 text-pink-300' },

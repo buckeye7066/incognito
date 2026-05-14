@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DollarSign, Plus, Loader2, FileText, Copy, CheckCircle, AlertTriangle,
   Trash2, Scale, Shield, TrendingDown, TrendingUp, Calculator,
-  ChevronDown, ChevronUp, Download, Landmark,
+  ChevronDown, ChevronUp, Landmark,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

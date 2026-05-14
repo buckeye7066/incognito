@@ -1,5 +1,4 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import React from 'react';
 import { Users, Shield, AlertTriangle } from 'lucide-react';
 import SocialMediaMonitor from '../components/social/SocialMediaMonitor';
 import ImpersonationFindings from '../components/social/ImpersonationFindings';

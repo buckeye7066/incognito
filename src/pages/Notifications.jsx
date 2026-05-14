@@ -1,11 +1,11 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, AlertTriangle, CheckCircle, Trash2, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

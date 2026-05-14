@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, Plus, User } from 'lucide-react';

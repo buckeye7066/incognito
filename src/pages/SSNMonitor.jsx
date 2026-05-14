@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertTriangle, Shield, ShieldAlert, Search, Clock, CheckCircle, ExternalLink, Lock, FileText, Fingerprint, CreditCard, Trash2 } from 'lucide-react';
+import { AlertTriangle, Shield, ShieldAlert, Search, Clock, CheckCircle, ExternalLink, Lock, Fingerprint, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CREDIT_BUREAUS = [

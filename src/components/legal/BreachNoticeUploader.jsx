@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { incognito } from '@/api/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Upload, FileText, Loader2, AlertTriangle, CheckCircle, Scale,
+  Upload, FileText, Loader2, AlertTriangle, Scale,
   ExternalLink, Clock, Shield, ChevronDown, ChevronUp, Clipboard, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

@@ -1,8 +1,6 @@
-import React from 'react';
 import { incognito } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
@@ -10,7 +8,7 @@ import {
   Zap, Shield, AlertTriangle, DollarSign, Gavel, Rocket,
   CreditCard, Users, Mail, Sparkles, Scale, ChevronRight,
 } from 'lucide-react';
-import { generateActionRecommendations, calculateRiskScore } from '@/lib/actionEngine';
+import { generateActionRecommendations } from '@/lib/actionEngine';
 
 const ICON_MAP = {
   shield: Shield, alert: AlertTriangle, dollar: DollarSign, gavel: Gavel,

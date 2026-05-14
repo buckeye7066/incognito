@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Plus, Trash2, Shield, Wifi, WifiOff, MapPin, Server, Lock, AlertTriangle, CheckCircle, RefreshCw, Activity } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Globe, Plus, Trash2, Shield, WifiOff, MapPin, Server, AlertTriangle, CheckCircle, RefreshCw, Activity } from 'lucide-react';
 
 const VPN_PROVIDERS = [
   { name: 'WireGuard', type: 'wireguard', description: 'Modern, fast, minimal attack surface' },

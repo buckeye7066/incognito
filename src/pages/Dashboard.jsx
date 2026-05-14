@@ -1,5 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Eye, Trash2, AlertTriangle, ArrowRight, Loader2, CheckCircle, XCircle, Database, Phone, Mail, MapPin, User, CreditCard, FileText, Gavel, Rocket, DollarSign } from 'lucide-react';

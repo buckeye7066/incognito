@@ -1,10 +1,26 @@
-import { matchBreaches, estimateBrokerExposure, DATA_BROKERS, fetchLiveBreachList, leakCheckPublic } from './breachDatabase.js';
+import { matchBreaches, estimateBrokerExposure, fetchLiveBreachList, leakCheckPublic } from './breachDatabase.js';
+import vault, { VaultStore } from '@/lib/vault';
+import { requireConsent, isProviderAllowed } from '@/lib/consent';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
+const SETTINGS_KEY_ENCRYPTED = 'incognito_api_keys_enc_v1';
 
 function generateId() {
   return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+// In-memory cache of decrypted API keys. Cleared whenever the vault locks.
+let _apiKeysCache = null;
+try {
+  vault.on('lock', () => {
+    _apiKeysCache = null;
+  });
+  vault.on('destroyed', () => {
+    _apiKeysCache = null;
+  });
+} catch {
+  // vault listeners are best-effort
 }
 
 export function resolvePersonalDataValue(item) {
@@ -29,37 +45,185 @@ export function resolvePersonalDataValue(item) {
   return v;
 }
 
+/**
+ * Read API keys.
+ *
+ * Vault-aware behavior:
+ *   - If an encrypted API key blob exists at SETTINGS_KEY_ENCRYPTED:
+ *       - vault unlocked → returns decrypted keys (memo-cached until lock).
+ *       - vault locked   → returns `{}` (do not leak ciphertext).
+ *   - If the legacy plaintext SETTINGS_KEY exists, it is returned but ALSO
+ *     migrated into the encrypted blob the next time the vault is unlocked.
+ *
+ * Synchronous: returns from the memo cache when the vault is unlocked. Pages
+ * that mutate api keys go through `setApiKeys` which is async-safe.
+ */
 export function getApiKeys() {
-  try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-  } catch { return {}; }
+  if (_apiKeysCache && vault.isUnlocked()) return { ..._apiKeysCache };
+  let encryptedRaw = null;
+  let plainRaw = null;
+  try { encryptedRaw = localStorage.getItem(SETTINGS_KEY_ENCRYPTED); } catch {}
+  try { plainRaw = localStorage.getItem(SETTINGS_KEY); } catch {}
+
+  if (encryptedRaw) {
+    if (!vault.isUnlocked()) return {};
+    try {
+      const payload = JSON.parse(encryptedRaw);
+      // Synchronous read by deriving from the in-memory cache. We populate the
+      // cache the first time the vault unlocks via warmApiKeysFromVault().
+      if (_apiKeysCache) return { ..._apiKeysCache };
+      // First call after unlock — fall through to plaintext (none) and let the
+      // caller's next async tick warm the cache.
+      void warmApiKeysFromVault().catch(() => {});
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  if (plainRaw) {
+    try { return JSON.parse(plainRaw) || {}; } catch { return {}; }
+  }
+  return {};
 }
 
-export function setApiKeys(keys) {
-  const current = getApiKeys();
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...keys }));
+async function warmApiKeysFromVault() {
+  if (!vault.isUnlocked()) return;
+  let encryptedRaw = null;
+  try { encryptedRaw = localStorage.getItem(SETTINGS_KEY_ENCRYPTED); } catch {}
+  if (!encryptedRaw) {
+    // Migrate legacy plaintext on first unlock.
+    let plainRaw = null;
+    try { plainRaw = localStorage.getItem(SETTINGS_KEY); } catch {}
+    if (plainRaw) {
+      try {
+        const parsed = JSON.parse(plainRaw) || {};
+        await persistApiKeysEncrypted(parsed);
+        try { localStorage.removeItem(SETTINGS_KEY); } catch {}
+        _apiKeysCache = parsed;
+      } catch {
+        _apiKeysCache = {};
+      }
+    } else {
+      _apiKeysCache = {};
+    }
+    return;
+  }
+  try {
+    const payload = JSON.parse(encryptedRaw);
+    const decrypted = await vault.decrypt(payload);
+    _apiKeysCache = JSON.parse(decrypted);
+  } catch {
+    _apiKeysCache = {};
+  }
 }
+
+async function persistApiKeysEncrypted(keys) {
+  if (!vault.isUnlocked()) {
+    throw new Error('Vault must be unlocked to persist encrypted API keys');
+  }
+  const payload = await vault.encrypt(JSON.stringify(keys));
+  try {
+    localStorage.setItem(SETTINGS_KEY_ENCRYPTED, JSON.stringify(payload));
+  } catch (e) {
+    console.error('[apiKeys] persist failed', e);
+  }
+}
+
+export async function unlockApiKeys(masterPassword) {
+  if (!vault.isInitialized()) {
+    await vault.init(masterPassword);
+  } else {
+    await vault.unlock(masterPassword);
+  }
+  await warmApiKeysFromVault();
+  return true;
+}
+
+export function lockApiKeys() {
+  vault.lock();
+  _apiKeysCache = null;
+}
+
+/**
+ * Set or merge API keys.
+ *
+ * If the vault is unlocked, persists encrypted-at-rest. Otherwise, refuses
+ * to write — silent plaintext fallback was the original bug.
+ */
+export async function setApiKeys(keys) {
+  if (!keys || typeof keys !== 'object') throw new Error('keys must be an object');
+  if (!vault.isUnlocked()) {
+    throw new Error('Vault must be unlocked to set API keys');
+  }
+  const current = _apiKeysCache || {};
+  const next = { ...current, ...keys };
+  await persistApiKeysEncrypted(next);
+  _apiKeysCache = next;
+  return true;
+}
+
+/** Returns true iff API keys are stored encrypted-at-rest. */
+export function apiKeysAreEncrypted() {
+  try { return Boolean(localStorage.getItem(SETTINGS_KEY_ENCRYPTED)); }
+  catch { return false; }
+}
+
+/** Used by the UI to surface migration status / call-to-action. */
+export function legacyPlaintextApiKeysExist() {
+  try { return Boolean(localStorage.getItem(SETTINGS_KEY)); }
+  catch { return false; }
+}
+
+// Re-export vault helpers so consumers don't import from two places.
+export { vault, VaultStore };
 
 const CRITICAL_ENTITIES = ['Profile', 'PersonalData', 'UserPreferences'];
 
 // ── Stable user identity ──
+//
+// Local-first identity. There is no "admin" role on the client — it carries no
+// security weight in a local-only app and cannot enforce authorization.
+//
+// Pages that need elevated access (developer/diagnostic tooling) check the
+// separate `developerMode` flag, which the user must explicitly enable from
+// Settings → Advanced. See docs/THREAT_MODEL.md.
 const USER_KEY = 'incognito_user_identity';
+const DEVELOPER_MODE_KEY = 'incognito_developer_mode';
+
 function getStableUserId() {
   let stored = localStorage.getItem(USER_KEY);
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      // Backfill role for existing users
+      // Migrate any pre-existing record that was stamped with the legacy default
+      // `role: 'admin'`. The role is now informational only.
+      if (parsed.role === 'admin') {
+        parsed.role = 'user';
+        try { localStorage.setItem(USER_KEY, JSON.stringify(parsed)); } catch {}
+      }
       if (!parsed.role) {
-        parsed.role = 'admin';
-        localStorage.setItem(USER_KEY, JSON.stringify(parsed));
+        parsed.role = 'user';
+        try { localStorage.setItem(USER_KEY, JSON.stringify(parsed)); } catch {}
       }
       return parsed;
     } catch {}
   }
-  const identity = { id: 'local_user', name: 'Local User', role: 'admin', created: new Date().toISOString() };
-  localStorage.setItem(USER_KEY, JSON.stringify(identity));
+  const identity = { id: 'local_user', name: 'Local User', role: 'user', created: new Date().toISOString() };
+  try { localStorage.setItem(USER_KEY, JSON.stringify(identity)); } catch {}
   return identity;
+}
+
+export function isDeveloperModeEnabled() {
+  try { return localStorage.getItem(DEVELOPER_MODE_KEY) === 'true'; }
+  catch { return false; }
+}
+
+export function setDeveloperMode(enabled) {
+  try {
+    if (enabled) localStorage.setItem(DEVELOPER_MODE_KEY, 'true');
+    else localStorage.removeItem(DEVELOPER_MODE_KEY);
+  } catch {}
 }
 
 // ── IndexedDB helper for critical entity persistence ──
@@ -119,10 +283,94 @@ async function idbWrite(key, data) {
 // IDB ready promise — awaited by critical entity list() to guarantee recovery finishes first
 const _idbRecoveryPromises = {};
 
+// Entities that contain raw secrets/PII whose values must be encrypted at rest.
+// The listed fields are encrypted with the vault key on save and decrypted on
+// read. When the vault is locked, sensitive entity reads return placeholders
+// (no plaintext) and writes are rejected. Adding a new sensitive entity is a
+// one-line change here.
+const SENSITIVE_ENTITY_FIELDS = {
+  PasswordEntry: ['password', 'totp_secret', 'recovery_codes', 'notes'],
+  TOTPSecret: ['secret', 'recovery_codes'],
+  EmailAlias: ['actual_email'],
+  PhoneAlias: ['actual_phone'],
+  VirtualCard: ['card_number', 'cvv', 'pin', 'billing_address'],
+  FinancialAccount: ['account_number', 'routing_number', 'login_password'],
+  PersonalData: ['value'],
+  CloakedIdentity: ['ssn', 'passport', 'dl_number', 'tax_id', 'medical_id', 'notes'],
+  SharedIdentity: [], // already encrypted at the API level
+  IdentityCustomField: ['value'],
+  MonitoredAccount: ['account_password', 'recovery_email'],
+  DisposableCredential: ['email_address', 'phone_number', 'masked_card_number'],
+};
+
+function isSensitiveEntity(name) {
+  return Object.prototype.hasOwnProperty.call(SENSITIVE_ENTITY_FIELDS, name);
+}
+
+function isVaultCiphertext(value) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof value.iv === 'string' &&
+      typeof value.ct === 'string' &&
+      value.v === 1,
+  );
+}
+
+async function encryptSensitiveFields(entityName, item) {
+  const fields = SENSITIVE_ENTITY_FIELDS[entityName];
+  if (!fields || fields.length === 0) return item;
+  if (!vault.isUnlocked()) {
+    throw new Error(
+      `Vault must be unlocked to write ${entityName} records. ` +
+      `Call vault.unlock(masterPassword) first.`,
+    );
+  }
+  const out = { ...item };
+  for (const field of fields) {
+    const v = out[field];
+    if (v == null) continue;
+    if (isVaultCiphertext(v)) continue; // already encrypted
+    const plaintext = typeof v === 'string' ? v : JSON.stringify(v);
+    out[field] = await vault.encrypt(plaintext);
+  }
+  return out;
+}
+
+async function decryptSensitiveFields(entityName, item) {
+  const fields = SENSITIVE_ENTITY_FIELDS[entityName];
+  if (!fields || fields.length === 0) return item;
+  if (!item || typeof item !== 'object') return item;
+  if (!vault.isUnlocked()) {
+    // Locked: redact sensitive fields. Do NOT leak ciphertext.
+    const safe = { ...item };
+    for (const field of fields) {
+      if (safe[field] != null) safe[field] = null;
+    }
+    safe.__locked = true;
+    return safe;
+  }
+  const out = { ...item };
+  for (const field of fields) {
+    const v = out[field];
+    if (v == null) continue;
+    if (!isVaultCiphertext(v)) continue; // legacy plaintext
+    try {
+      const plaintext = await vault.decrypt(v);
+      try { out[field] = JSON.parse(plaintext); }
+      catch { out[field] = plaintext; }
+    } catch {
+      out[field] = null;
+    }
+  }
+  return out;
+}
+
 function createEntityStore(entityName) {
   const storageKey = STORAGE_PREFIX + entityName;
   const backupKey = storageKey + '_bak';
   const isCritical = CRITICAL_ENTITIES.includes(entityName);
+  const sensitive = isSensitiveEntity(entityName);
   let _cache = null; // in-memory write-through cache
 
   function readStorage(key) {
@@ -181,8 +429,19 @@ function createEntityStore(entityName) {
     })();
   }
 
+  async function decryptList(items) {
+    if (!sensitive) return items;
+    const out = [];
+    for (const item of items) {
+      out.push(await decryptSensitiveFields(entityName, item));
+    }
+    return out;
+  }
+
   return {
     _storageKey: storageKey,
+    _isSensitive: sensitive,
+    _sensitiveFields: sensitive ? [...SENSITIVE_ENTITY_FIELDS[entityName]] : [],
 
     async list(sortField, limit) {
       if (isCritical && _idbRecoveryPromises[entityName]) {
@@ -215,25 +474,28 @@ function createEntityStore(entityName) {
       if (typeof limit === 'number' && limit > 0) {
         items = items.slice(0, limit);
       }
-      return items;
+      return decryptList(items);
     },
 
     async create(data) {
       const items = getAll();
       const now = new Date().toISOString();
-      const newItem = { id: generateId(), ...data, created_date: now, updated_date: now };
-      items.push(newItem);
+      const baseItem = { id: generateId(), ...data, created_date: now, updated_date: now };
+      const stored = sensitive ? await encryptSensitiveFields(entityName, baseItem) : baseItem;
+      items.push(stored);
       saveAll(items);
-      return newItem;
+      return sensitive ? await decryptSensitiveFields(entityName, stored) : stored;
     },
 
     async update(id, data) {
       const items = getAll();
       const idx = items.findIndex((item) => item.id === id);
       if (idx === -1) return null;
-      items[idx] = { ...items[idx], ...data, id, updated_date: new Date().toISOString() };
+      const merged = { ...items[idx], ...data, id, updated_date: new Date().toISOString() };
+      const stored = sensitive ? await encryptSensitiveFields(entityName, merged) : merged;
+      items[idx] = stored;
       saveAll(items);
-      return items[idx];
+      return sensitive ? await decryptSensitiveFields(entityName, stored) : stored;
     },
 
     async delete(id) {
@@ -250,12 +512,48 @@ function createEntityStore(entityName) {
 
     async filter(criteria) {
       const items = getAll();
-      return items.filter(item => {
+      // Filter on plaintext-only fields. Filtering on a sensitive field is
+      // intentionally unsupported because those values are encrypted at rest.
+      const matched = items.filter(item => {
         for (const [key, value] of Object.entries(criteria)) {
+          if (sensitive && SENSITIVE_ENTITY_FIELDS[entityName].includes(key)) {
+            // Refuse to filter on encrypted fields — would require decrypting
+            // the entire collection, which leaks data and is slow.
+            return false;
+          }
           if (item[key] !== value) return false;
         }
         return true;
       });
+      return decryptList(matched);
+    },
+
+    /** Internal: returns raw stored items WITHOUT decryption. Used for migration. */
+    _rawAll() {
+      return getAll().slice();
+    },
+
+    /**
+     * One-shot migration: encrypt any legacy plaintext sensitive fields using
+     * the currently unlocked vault. Returns { migrated, total }.
+     */
+    async migratePlaintext() {
+      if (!sensitive) return { migrated: 0, total: 0 };
+      if (!vault.isUnlocked()) {
+        throw new Error('Vault must be unlocked to migrate plaintext records');
+      }
+      const items = getAll();
+      let migrated = 0;
+      const next = [];
+      for (const item of items) {
+        const before = JSON.stringify(item);
+        const enc = await encryptSensitiveFields(entityName, item);
+        const after = JSON.stringify(enc);
+        if (after !== before) migrated += 1;
+        next.push(enc);
+      }
+      if (migrated > 0) saveAll(next);
+      return { migrated, total: items.length };
     },
   };
 }
@@ -287,12 +585,47 @@ for (const name of ENTITY_NAMES) {
   entities[name] = createEntityStore(name);
 }
 
+/**
+ * Migrate legacy plaintext sensitive records into the encrypted form using
+ * the unlocked vault. Safe to call multiple times — already-encrypted
+ * records are skipped. Should be called once after the user unlocks the
+ * vault for the first time after upgrading.
+ */
+export async function migrateLegacyPlaintext() {
+  if (!vault.isUnlocked()) {
+    throw new Error('Vault must be unlocked to migrate plaintext records');
+  }
+  const summary = { entities: {}, total: 0 };
+  for (const name of Object.keys(SENSITIVE_ENTITY_FIELDS)) {
+    const store = entities[name];
+    if (!store?.migratePlaintext) continue;
+    try {
+      const result = await store.migratePlaintext();
+      summary.entities[name] = result;
+      summary.total += result.migrated;
+    } catch (err) {
+      summary.entities[name] = { error: String(err?.message || err) };
+    }
+  }
+  if (legacyPlaintextApiKeysExist()) {
+    try { await warmApiKeysFromVault(); } catch {}
+  }
+  return summary;
+}
+
+/** List of entities subject to vault encryption. Useful for UI status. */
+export function getSensitiveEntityNames() {
+  return Object.keys(SENSITIVE_ENTITY_FIELDS);
+}
+
 // No cache invalidation needed — entity stores always read fresh from localStorage
 
 // ---------------------------------------------------------------------------
 // LLM Integration (OpenAI-compatible)
 // ---------------------------------------------------------------------------
 async function invokeLLM({ prompt, response_json_schema, add_context_from_internet }) {
+  // Outbound-PII guard: explicit user consent is required.
+  requireConsent('openai', 'profile_summary');
   const keys = getApiKeys();
   if (!keys.openai_api_key) {
     throw new Error('OpenAI API key not configured. Go to Settings → API Keys to add it.');
@@ -340,6 +673,7 @@ async function invokeLLM({ prompt, response_json_schema, add_context_from_intern
 // Privacy.com API helpers
 // ---------------------------------------------------------------------------
 async function privacyComApi(endpoint, method = 'GET', body = null) {
+  requireConsent('privacy_com', 'address');
   const keys = getApiKeys();
   if (!keys.privacy_com_api_key) {
     throw new Error('Privacy.com API key not configured. Go to Settings → API Keys.');
@@ -365,6 +699,7 @@ async function privacyComApi(endpoint, method = 'GET', body = null) {
 // Google Custom Search API
 // ---------------------------------------------------------------------------
 async function googleSearch(query) {
+  if (!isProviderAllowed('google_search')) return null;
   const keys = getApiKeys();
   if (!keys.google_search_api_key || !keys.google_search_cx) return null;
   const url = `https://www.googleapis.com/customsearch/v1?key=${keys.google_search_api_key}&cx=${keys.google_search_cx}&q=${encodeURIComponent(query)}&num=10`;
@@ -386,6 +721,7 @@ async function googleSearch(query) {
 // Hunter.io API
 // ---------------------------------------------------------------------------
 async function hunterVerifyEmail(email) {
+  if (!isProviderAllowed('hunter', 'email')) return null;
   const keys = getApiKeys();
   if (!keys.hunter_api_key) return null;
   const resp = await fetch(`https://api.hunter.io/v2/email-verifier?email=${encodeURIComponent(email)}&api_key=${keys.hunter_api_key}`);
@@ -395,6 +731,7 @@ async function hunterVerifyEmail(email) {
 }
 
 async function hunterDomainSearch(domain) {
+  if (!isProviderAllowed('hunter', 'domain')) return null;
   const keys = getApiKeys();
   if (!keys.hunter_api_key) return null;
   const resp = await fetch(`https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${keys.hunter_api_key}`);
@@ -407,6 +744,7 @@ async function hunterDomainSearch(domain) {
 // LeakCheck.io API
 // ---------------------------------------------------------------------------
 async function leakCheckLookup(value, type = 'email') {
+  if (!isProviderAllowed('leakcheck', type)) return null;
   const keys = getApiKeys();
   if (!keys.leakcheck_api_key) return null;
   const resp = await fetch(`https://leakcheck.io/api/public?check=${encodeURIComponent(value)}`, {
@@ -421,10 +759,11 @@ async function leakCheckLookup(value, type = 'email') {
 // NumVerify API
 // ---------------------------------------------------------------------------
 async function numVerifyLookup(phone) {
+  if (!isProviderAllowed('numverify', 'phone')) return null;
   const keys = getApiKeys();
   if (!keys.numverify_api_key) return null;
   const cleaned = phone.replace(/\D/g, '');
-  const resp = await fetch(`http://apilayer.net/api/validate?access_key=${keys.numverify_api_key}&number=${cleaned}&format=1`);
+  const resp = await fetch(`https://apilayer.net/api/validate?access_key=${keys.numverify_api_key}&number=${cleaned}&format=1`);
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -433,6 +772,7 @@ async function numVerifyLookup(phone) {
 // HIBP API helpers
 // ---------------------------------------------------------------------------
 async function hibpApi(endpoint) {
+  requireConsent('hibp', 'email');
   const keys = getApiKeys();
   if (!keys.hibp_api_key) {
     throw new Error('HIBP API key not configured. Go to Settings → API Keys.');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Scissors, CheckCircle, Clock, AlertTriangle, XCircle, RotateCw,
-  ChevronDown, ChevronUp, ExternalLink, Phone, Mail, Shield,
+  ChevronDown, ChevronUp, Phone, Mail, Shield,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle, Brain } from 'lucide-react';
+import { ExternalLink, AlertCircle, Zap, Loader2, CheckCircle } from 'lucide-react';
 import { incognito } from '@/api/client';
 import { notify } from '@/lib/notify';
 

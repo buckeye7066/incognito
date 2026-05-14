@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ExternalLink, CheckCircle, Clock, AlertTriangle, Filter, Database, Bot } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, CheckCircle, Database, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';

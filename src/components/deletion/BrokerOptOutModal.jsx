@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import {
-  Loader2, Mail, Globe, Phone, FileText, Copy, ExternalLink,
-  CheckCircle, AlertTriangle, Send, Printer, Shield, Clock,
+  Loader2, Mail, Globe, Copy, ExternalLink,
+  CheckCircle, AlertTriangle, Send, Printer, Clock,
   Bot, ChevronRight, Lightbulb, ArrowRight,
 } from 'lucide-react';
 import { incognito } from '@/api/client';

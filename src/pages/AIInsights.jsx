@@ -1,15 +1,15 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import { notify } from '@/lib/notify';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import InsightCard from '../components/ai/InsightCard';
 import ReportPreview from '../components/ai/ReportPreview';
-import { Brain, Sparkles, FileText, Loader2, AlertTriangle, TrendingUp, RefreshCw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Brain, Sparkles, FileText, Loader2, AlertTriangle, TrendingUp } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 
 export default function AIInsights() {
   const queryClient = useQueryClient();

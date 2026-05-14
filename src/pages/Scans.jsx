@@ -1,6 +1,6 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import { notify } from '@/lib/notify';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito, resolvePersonalDataValue } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';

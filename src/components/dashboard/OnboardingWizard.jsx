@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Shield, User, Mail, Phone, MapPin, ArrowRight, CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { Shield, User, Mail, Phone, ArrowRight, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 

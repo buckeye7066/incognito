@@ -1,11 +1,10 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import { notify } from '@/lib/notify';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
   Shield, Brain, AlertTriangle, TrendingUp, RefreshCw, Loader2,

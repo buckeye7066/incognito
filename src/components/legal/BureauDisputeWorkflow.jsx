@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { incognito } from '@/api/client';
 import { notify } from '@/lib/notify';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import {
   FileText, Upload, Loader2, CheckCircle, AlertTriangle, Copy,
   ChevronDown, ChevronUp, Bot, Download, Shield, Scale, Clock,
-  Eye, Trash2, Plus, ExternalLink, Mail, Printer, Paperclip,
-  ArrowRight, BarChart3, Gavel, Search, RefreshCw, Calendar,
+  Eye, Plus, ExternalLink, Mail, Printer, Paperclip, BarChart3, Gavel, Search, Calendar,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

@@ -1,5 +1,5 @@
 import { useActiveProfile } from '@/hooks/useActiveProfile';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';

@@ -33,7 +33,7 @@
  * =============================================================================
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
 import { incognito } from '@/api/client';
@@ -45,6 +45,7 @@ import NotificationBell from './components/notifications/NotificationBell';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { useActiveProfile } from '@/hooks/useActiveProfile';
 import { useAuth } from '@/lib/AuthContext';
+import { isDeveloperModeEnabled } from '@/api/client';
 
 const navigation = [
   // Core
@@ -152,7 +153,7 @@ export default function Layout({ children, currentPageName }) {
           </div>
 
           <nav className="flex-1 p-4 space-y-0.5 overflow-y-auto">
-            {navigation.filter(item => !item.adminOnly || currentUser?.role === 'admin').map((item, idx) => {
+            {navigation.filter(item => !item.adminOnly || isDeveloperModeEnabled()).map((item, idx) => {
               const Icon = item.icon;
               const isActive = currentPageName === item.path;
               return (

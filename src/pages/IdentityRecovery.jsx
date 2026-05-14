@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Shield, CheckCircle, Circle, ChevronDown, ChevronRight, Phone, ExternalLink, AlertTriangle, FileText, CreditCard, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, Circle, ChevronDown, ChevronRight, Phone, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

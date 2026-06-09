@@ -3,6 +3,8 @@ import vault, { VaultStore } from '@/lib/vault';
 import { requireConsent, isProviderAllowed } from '@/lib/consent';
 import { withExternalCallAudit } from '@/lib/auditLog';
 import { redactForLLM } from '@/lib/aiRedaction';
+import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
+import { checkPasswordPwned } from '@/lib/passwordBreach';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -1200,19 +1202,11 @@ const localFunctions = {
   },
 
   async checkPasswordBreach({ password }) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    const prefix = hashHex.slice(0, 5);
-    const suffix = hashHex.slice(5);
-
-    const resp = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-    const text = await resp.text();
-    const match = text.split('\n').find(line => line.startsWith(suffix));
-    const count = match ? parseInt(match.split(':')[1]) : 0;
-    return { data: { compromised: count > 0, count, hash_prefix: prefix } };
+    // Delegate to the tested k-anonymity helper (adds Add-Padding header so the
+    // response size can't reveal the prefix, and matches the suffix exactly).
+    // Only the 5-char SHA-1 prefix leaves the device — never the password.
+    const { pwned, count } = await checkPasswordPwned(password);
+    return { data: { compromised: pwned, count } };
   },
 
   async listCards() {
@@ -3323,36 +3317,34 @@ ${(noticeText || '').slice(0, 8000)}
   },
 
   async importPasswords({ csvData, source }) {
-    const lines = csvData.split('\n').filter(l => l.trim());
-    if (lines.length < 2) return { data: { imported: 0 } };
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-    const columnMap = {
-      '1password': { name: 'title', url: 'url', username: 'username', password: 'password' },
-      'lastpass': { name: 'name', url: 'url', username: 'username', password: 'password' },
-      'bitwarden': { name: 'name', url: 'login_uri', username: 'login_username', password: 'login_password' },
-      'chrome': { name: 'name', url: 'url', username: 'username', password: 'password' },
-      'dashlane': { name: 'title', url: 'url', username: 'username', password: 'password' },
-      'keeper': { name: 'title', url: 'web address', username: 'login', password: 'password' },
-    };
-    const map = columnMap[source] || columnMap.chrome;
+    // Robust parse (handles quoted fields/embedded commas, auto-detects format)
+    // + duplicate detection against the existing vault. See lib/passwordImport.
+    const { entries, format, skipped } = parsePasswordCsv(csvData);
+    if (entries.length === 0) {
+      return { data: { imported: 0, duplicates: 0, skipped, format } };
+    }
+    const existing = await entities.PasswordEntry.list();
+    const { fresh, duplicates } = findDuplicates(
+      entries,
+      existing.map((e) => ({ url: e.service_url, username: e.username })),
+    );
     let imported = 0;
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].match(/(".*?"|[^,]+)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
-      const row = {};
-      headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+    for (const e of fresh) {
       await entities.PasswordEntry.create({
-        service_name: row[map.name] || 'Unknown',
-        service_url: row[map.url] || '',
-        username: row[map.username] || '',
-        password: row[map.password] || '',
+        service_name: e.site || 'Unknown',
+        service_url: e.url || '',
+        username: e.username || '',
+        password: e.password || '',
+        notes: e.notes || '',
+        totp_secret: e.totp_secret || undefined,
         strength: 'unknown',
-        imported_from: source,
+        imported_from: source || format,
         last_changed: new Date().toISOString(),
         breach_checked: false,
       });
       imported++;
     }
-    return { data: { imported } };
+    return { data: { imported, duplicates: duplicates.length, skipped, format } };
   },
 
   // =========================================================================

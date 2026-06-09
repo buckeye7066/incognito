@@ -212,4 +212,25 @@ describe('family entities encryption + redaction', () => {
     const list = await client.default.entities.Household.list();
     expect(list).toHaveLength(1);
   });
+
+  it('importPasswords parses robustly, encrypts, and dedupes on re-import', async () => {
+    await vault.init('correct horse battery staple');
+    const csv = `folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+,,login,GitHub,,,0,https://github.com,me@example.com,s3cret,
+,,login,Bank,,,0,https://bank.example.com,user1,p@ss,
+`;
+    const first = await client.default.functions.invoke('importPasswords', { csvData: csv, source: 'bitwarden' });
+    expect(first.data.imported).toBe(2);
+
+    // Passwords are encrypted at rest, decrypted on list.
+    const raw = JSON.stringify(JSON.parse(localStorage.getItem('incognito_entity_PasswordEntry')));
+    expect(raw).not.toContain('s3cret');
+    const list = await client.default.entities.PasswordEntry.list();
+    expect(list.find((p) => p.service_name === 'GitHub').password).toBe('s3cret');
+
+    // Re-import the same file → everything is a duplicate, nothing re-created.
+    const second = await client.default.functions.invoke('importPasswords', { csvData: csv, source: 'bitwarden' });
+    expect(second.data.imported).toBe(0);
+    expect(second.data.duplicates).toBe(2);
+  });
 });

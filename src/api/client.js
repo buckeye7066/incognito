@@ -2,7 +2,7 @@ import { matchBreaches, estimateBrokerExposure, fetchLiveBreachList, leakCheckPu
 import vault, { VaultStore } from '@/lib/vault';
 import { requireConsent, isProviderAllowed } from '@/lib/consent';
 import { withExternalCallAudit } from '@/lib/auditLog';
-import { redactForLLM } from '@/lib/aiRedaction';
+import { redactForLLM, assertSafeForLLM } from '@/lib/aiRedaction';
 import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
 import { checkPasswordPwned } from '@/lib/passwordBreach';
 
@@ -332,6 +332,13 @@ const SENSITIVE_ENTITY_FIELDS = {
   SharedVaultItem: ['payload'],
   // Alias inbox message bodies / subjects can contain anything.
   IdentityMessage: ['subject', 'body'],
+  // A thread's subject + last-message preview are derived from message content.
+  IdentityMessageThread: ['subject', 'snippet'],
+  // TODO(security): SB-2 — TrustedContact/BlockedContact phone numbers are
+  // intentionally NOT encrypted here because Call Guard must equality-match an
+  // incoming number against the lists (can't match on per-record-IV ciphertext).
+  // Replace the raw number with an HMAC blind index (phone_bi) and encrypt the
+  // displayable number. See docs/SECURITY_BACKLOG.md and ENTITY_ENCRYPTION_DECISIONS.md.
   // Recovery/legal packets and incident notes can contain full PII.
   IdentityTheftIncident: ['notes', 'details'],
   RecoveryPacket: ['content'],
@@ -667,16 +674,44 @@ export function getSensitiveEntityNames() {
 // ---------------------------------------------------------------------------
 // LLM Integration (OpenAI-compatible)
 // ---------------------------------------------------------------------------
-async function invokeLLM({ prompt, response_json_schema, add_context_from_internet }) {
+/**
+ * Best-effort gather of child/dependent display names so the redactor can strip
+ * them from prompts ("redact child/dependent names where detectable"). Display
+ * names are non-sensitive metadata (readable even when the vault is locked);
+ * failures here must never block an LLM call, so we swallow errors.
+ */
+async function childDependentNames() {
+  try {
+    const members = await entities.HouseholdMember.list();
+    return (members || [])
+      .filter((m) => m && (m.role === 'child' || m.role === 'dependent'))
+      .map((m) => m.display_name)
+      .filter((n) => typeof n === 'string' && n.trim().length >= 2);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Invoke the LLM provider.
+ *
+ * Privacy: by default the prompt is redacted of SSN/card/DOB/email/phone/
+ * address AND child/dependent names. Feature-specific exceptions are opt-in
+ * ONLY via `allow` (e.g. caller-risk screening passes `allow: ['phone']`).
+ * `assertSafeForLLM` runs immediately before the network call as a hard gate.
+ */
+async function invokeLLM({ prompt, response_json_schema, add_context_from_internet, allow = [] }) {
   return withExternalCallAudit({ provider: 'openai', dataType: 'profile_summary', action: 'chat' }, async () => {
     requireConsent('openai', 'profile_summary');
     const keys = getApiKeys();
     if (!keys.openai_api_key) {
       throw new Error('OpenAI API key not configured. Go to Settings → API Keys to add it.');
     }
-    // Defense in depth: scrub rule-6-forbidden data (SSN/card/DOB) from every
-    // outbound prompt, even if a caller forgot to. See src/lib/aiRedaction.js.
-    const messages = [{ role: 'user', content: redactForLLM(prompt) }];
+    // Defense in depth: redact restricted PII (SSN/card/DOB/email/phone/address)
+    // and child/dependent names from every prompt, minus an explicit allowlist.
+    const names = await childDependentNames();
+    const redactionOpts = { allow, names };
+    const messages = [{ role: 'user', content: redactForLLM(prompt, redactionOpts) }];
     const body = {
       model: keys.openai_model || 'gpt-4o-mini',
       messages,
@@ -686,6 +721,9 @@ async function invokeLLM({ prompt, response_json_schema, add_context_from_intern
       body.response_format = { type: 'json_object' };
       messages[0].content += '\n\nRespond ONLY with valid JSON matching this schema: ' + JSON.stringify(response_json_schema);
     }
+    // Hard gate immediately before the provider call: refuse if any non-allowed
+    // restricted data survived redaction.
+    assertSafeForLLM(messages[0].content, redactionOpts);
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -3623,6 +3661,9 @@ ${(noticeText || '').slice(0, 8000)}
 
   async screenCall({ callerNumber, profileId }) {
     const result = await invokeLLM({
+      // Caller-risk screening legitimately needs the phone number — opt into the
+      // 'phone' exception explicitly (everything else stays redacted).
+      allow: ['phone'],
       prompt: `Analyze this phone number for potential scam/spam risk: ${callerNumber}
 Return: risk_level (high/medium/low), likely_type (scam, spam, robocall, telemarketer, legitimate, unknown), recommended_action (block, screen, allow), reasoning.`,
       response_json_schema: {

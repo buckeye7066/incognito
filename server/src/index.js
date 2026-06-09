@@ -11,12 +11,24 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { verifyTwilioSignature, smsToEvent, voiceScreeningTwiml } from './twilioWebhook.js';
 import { verifyEmailWebhook, emailToEvent } from './emailWebhook.js';
+import { makeEncryptor, STORE_MODES } from './storage.js';
 
 const PORT = process.env.PORT || 8787;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 const SHARED_SECRET = process.env.WEBHOOK_SHARED_SECRET || '';
 const APP_ORIGIN = process.env.APP_ORIGIN || '*';
+
+// Message-body storage policy. Default 'metadata' = bodies are NEVER persisted.
+const STORE_MODE = STORE_MODES.includes(process.env.STORE_MESSAGE_BODIES)
+  ? process.env.STORE_MESSAGE_BODIES : 'metadata';
+const encryptBody = makeEncryptor(process.env.MESSAGE_ENCRYPTION_KEY);
+// If 'encrypted' was requested but no key is usable, fall back to metadata-only
+// rather than silently storing plaintext.
+const STORE_OPTS = {
+  mode: STORE_MODE === 'encrypted' && !encryptBody ? 'metadata' : STORE_MODE,
+  encrypt: encryptBody,
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE = path.join(__dirname, '..', 'events.json');
@@ -57,7 +69,7 @@ const server = http.createServer((req, res) => {
         params, signature: req.headers['x-twilio-signature'],
       });
       if (!ok) return send(res, 403, 'bad signature');
-      appendEvent(smsToEvent(params));
+      appendEvent(smsToEvent(params, STORE_OPTS));
       return send(res, 200, '<Response/>', { 'Content-Type': 'text/xml' });
     }
 
@@ -76,7 +88,7 @@ const server = http.createServer((req, res) => {
       if (!verifyEmailWebhook(req.headers['x-incognito-secret'], SHARED_SECRET)) {
         return send(res, 403, 'forbidden');
       }
-      appendEvent(emailToEvent(parseForm(body)));
+      appendEvent(emailToEvent(parseForm(body), STORE_OPTS));
       return send(res, 200, JSON.stringify({ ok: true }), { 'Content-Type': 'application/json' });
     }
 

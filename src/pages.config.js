@@ -64,6 +64,7 @@ const FixExposure = React.lazy(() => import('./pages/FixExposure'));
 const FreePerks = React.lazy(() => import('./pages/FreePerks'));
 const FunctionReviewer = React.lazy(() => import('./pages/FunctionReviewer'));
 const Home = React.lazy(() => import('./pages/Home'));
+const Household = React.lazy(() => import('./pages/Household'));
 const IdentityRecovery = React.lazy(() => import('./pages/IdentityRecovery'));
 const IdentityScan = React.lazy(() => import('./pages/IdentityScan'));
 const IdentitySharing = React.lazy(() => import('./pages/IdentitySharing'));
@@ -104,6 +105,7 @@ export const PAGES = {
     "FreePerks": FreePerks,
     "FunctionReviewer": FunctionReviewer,
     "Home": Home,
+    "Household": Household,
     "IdentityRecovery": IdentityRecovery,
     "IdentityScan": IdentityScan,
     "IdentitySharing": IdentitySharing,

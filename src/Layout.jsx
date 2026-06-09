@@ -50,6 +50,8 @@ import { isDeveloperModeEnabled } from '@/api/client';
 const navigation = [
   // Core
   { name: 'Dashboard', path: 'Dashboard', icon: Shield },
+  // Family
+  { name: 'Household', path: 'Household', icon: Users, section: 'Family' },
   // Cloaked Identity Suite
   { name: 'Cloaked Identities', path: 'CloakedIdentities', icon: Fingerprint, section: 'Identity' },
   { name: 'Password Manager', path: 'PasswordManager', icon: Key },

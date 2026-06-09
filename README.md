@@ -7,6 +7,21 @@ is **no** Incognito‑hosted backend and no multi‑tenant API: all data
 stays on your machine unless you explicitly consent to sending it to
 third‑party services for scans.
 
+## Private family build
+
+Incognito is built for **one private household** (owner, spouse, children/
+dependents) — not a public SaaS. There is no billing, no public signup, no
+multi‑tenant backend, and no marketing or insurance claims. The goal is honest
+Cloaked‑style parity on top of the local‑first encrypted vault, where every
+feature clearly states whether it is local‑only, provider‑backed, optional‑
+backend, native‑bridge, browser‑extension, manual, or demo/mock.
+
+Start here:
+- [docs/FAMILY_PRIVATE_BUILD_AUDIT.md](docs/FAMILY_PRIVATE_BUILD_AUDIT.md) — what exists / is partial / is missing, per feature.
+- [docs/FAMILY_PRIVATE_IMPLEMENTATION_PLAN.md](docs/FAMILY_PRIVATE_IMPLEMENTATION_PLAN.md) — the build order.
+- [docs/FEATURE_CAPABILITIES.md](docs/FEATURE_CAPABILITIES.md) — the capability/status vocabulary.
+- [docs/PROVIDER_SETUP.md](docs/PROVIDER_SETUP.md) · [docs/OPTIONAL_BACKEND.md](docs/OPTIONAL_BACKEND.md) · [docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md) · [docs/FAMILY_OPERATIONS.md](docs/FAMILY_OPERATIONS.md)
+
 ## What this project does
 
 Incognito encrypts sensitive records—passwords, TOTP secrets, SSNs,

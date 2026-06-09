@@ -16,7 +16,15 @@ multi-tenant API.
 - **Trust boundary:** the user's device. Any attacker who controls the device
   while the vault is unlocked has full access. We do not promise protection
   against malware running on the same machine.
-- **Multi-user model:** none. The "user" is whoever holds the master password.
+- **Multi-user model:** none cryptographically. The "user" is whoever holds the
+  master password. The private-family build (see
+  `docs/FAMILY_PRIVATE_BUILD_AUDIT.md`) adds **household members and roles**
+  (owner/spouse/adult/child/dependent/emergency_contact), but these are
+  **grouping and workflow only** — every member's secrets are protected by the
+  **same** vault key. A "child" role is *not* a technical barrier against
+  reading an "owner" secret on an unlocked device. Per-member key separation is
+  a future, explicitly-scoped change; until it ships, the UI must not imply
+  otherwise.
 - **Offline:** all primary features work offline. External scans (HIBP,
   LeakCheck, Hunter, Privacy.com, Google Custom Search, OpenAI, NumVerify) are
   optional and require explicit per-provider, per-data-type consent.
@@ -46,6 +54,12 @@ Mode** used solely to gate diagnostic UI (see `src/lib/AdminRoute.jsx`).
 | Scan results, audit log | Medium | Plaintext (no raw secrets) |
 | Third-party API keys | High | Encrypted-at-rest |
 | External-scan consent ledger | Low | Plaintext |
+| Household member DOB / SSN / notes (`HouseholdMember`) | High | Encrypted-at-rest |
+| Task payloads (`PrivacyTask.encrypted_payload`) | High | Encrypted-at-rest |
+| Evidence screenshots / notes (`EvidenceItem`) | High | Encrypted-at-rest |
+| Shared item payload (`SharedVaultItem.payload`) | High | Encrypted-at-rest |
+| Alias message subject/body (`IdentityMessage`) | High | Encrypted-at-rest |
+| Recovery packet content / incident notes | High | Encrypted-at-rest |
 
 ---
 

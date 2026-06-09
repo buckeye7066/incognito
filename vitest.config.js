@@ -12,9 +12,14 @@ export default defineConfig({
     globals: false,
     include: ['src/__tests__/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     setupFiles: ['./src/__tests__/setup.js'],
+    // The first dynamic import of the API/provider tree (~3.7k-line client.js)
+    // pays a one-time Vite transform + a best-effort breach-list prefetch. Give
+    // cold imports room so CI isn't flaky on transform cost (not logic).
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       reporter: ['text', 'lcov'],
-      include: ['src/lib/**', 'src/api/**'],
+      include: ['src/lib/**', 'src/api/**', 'src/providers/**'],
     },
   },
 });

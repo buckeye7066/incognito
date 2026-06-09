@@ -314,6 +314,24 @@ const SENSITIVE_ENTITY_FIELDS = {
   IdentityCustomField: ['value'],
   MonitoredAccount: ['account_password', 'recovery_email'],
   DisposableCredential: ['email_address', 'phone_number', 'masked_card_number'],
+  // ── Private-family build ──
+  // Children's/dependents' DOB + SSN are high-value; private notes too.
+  HouseholdMember: ['date_of_birth', 'ssn', 'notes'],
+  // Opaque encrypted blob for tasks that carry sensitive input (e.g. the
+  // address used to file a broker opt-out). Plaintext task metadata
+  // (title/status/provider) stays queryable; the payload does not.
+  PrivacyTask: ['encrypted_payload'],
+  // Captured evidence may embed PII in a screenshot or free-text note.
+  // `redacted_text` is intentionally NOT here — its whole purpose is to be the
+  // safe, already-redacted summary that is allowed to be shown when locked.
+  EvidenceItem: ['screenshot_data_url', 'notes'],
+  // A shared vault item's payload is the secret being shared.
+  SharedVaultItem: ['payload'],
+  // Alias inbox message bodies / subjects can contain anything.
+  IdentityMessage: ['subject', 'body'],
+  // Recovery/legal packets and incident notes can contain full PII.
+  IdentityTheftIncident: ['notes', 'details'],
+  RecoveryPacket: ['content'],
 };
 
 function isSensitiveEntity(name) {
@@ -591,6 +609,16 @@ const ENTITY_NAMES = [
   'CreditReport', 'CreditTradeline', 'CreditInquiry', 'CreditCollection',
   'CreditDisputeItem', 'CreditDisputeCase', 'CreditDisputeEvidence',
   'BureauAccount', 'CreditDisputeTimeline',
+  // ── Private-family build (FAMILY_PRIVATE_BUILD) ──
+  // Household model, durable task queue, evidence store, and the entities the
+  // family-focused passes build on. See docs/FAMILY_PRIVATE_BUILD_AUDIT.md.
+  'Household', 'HouseholdMember', 'EmergencyAccessGrant', 'SharedVaultItem',
+  'PrivacyTask', 'EvidenceItem', 'DataBroker',
+  'IdentityMessageThread', 'IdentityMessage',
+  'TrustedContact', 'BlockedContact', 'CallGuardRule',
+  'VirtualCardTransaction', 'DarkWebAlert',
+  'IdentityTheftIncident', 'RecoveryChecklistItem', 'RecoveryPacket',
+  'ProviderConnection', 'CapabilityStatusRecord',
 ];
 
 const entities = {};

@@ -2,6 +2,7 @@ import { matchBreaches, estimateBrokerExposure, fetchLiveBreachList, leakCheckPu
 import vault, { VaultStore } from '@/lib/vault';
 import { requireConsent, isProviderAllowed } from '@/lib/consent';
 import { withExternalCallAudit } from '@/lib/auditLog';
+import { redactForLLM } from '@/lib/aiRedaction';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -671,7 +672,9 @@ async function invokeLLM({ prompt, response_json_schema, add_context_from_intern
     if (!keys.openai_api_key) {
       throw new Error('OpenAI API key not configured. Go to Settings → API Keys to add it.');
     }
-    const messages = [{ role: 'user', content: prompt }];
+    // Defense in depth: scrub rule-6-forbidden data (SSN/card/DOB) from every
+    // outbound prompt, even if a caller forgot to. See src/lib/aiRedaction.js.
+    const messages = [{ role: 'user', content: redactForLLM(prompt) }];
     const body = {
       model: keys.openai_model || 'gpt-4o-mini',
       messages,

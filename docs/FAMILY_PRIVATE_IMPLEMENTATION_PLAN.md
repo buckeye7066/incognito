@@ -7,6 +7,26 @@ RBAC, no marketing/insurance claims, no fabricated provider results.
 
 Each pass is independently shippable and must end green on `npm run release:check`.
 
+## Progress (live)
+
+- ✅ **Pass 1** — foundation: provider registry, capability/status model, task
+  queue + evidence + household entities (encrypted), bridge contracts, docs.
+- ✅ **Pass 2** — capability surfacing: `useCapabilities` hook + `CapabilityBadge`.
+- ✅ **Pass 3** — household: `lib/household.js` + Household page (member CRUD,
+  per-member score, emergency-access workflow) wired into nav.
+- 🟡 **Pass 7** — logic done (`passwordImport`, `otpauth`, `passwordBreach`
+  k-anonymity, all tested); UI wiring into PasswordManager/TOTP pages remains.
+- 🟡 **Pass 10** — `lib/brokerRemoval.js` state machine done; campaign UI remains.
+- 🟡 **Pass 13** — `lib/vpnConfig.js` (parse + truthful state + leak) done; UI remains.
+- 🟡 **Pass 15** — `lib/aiRedaction.js` done AND wired into the live `invokeLLM`
+  path (SSN/card/DOB scrubbed from every prompt); approval-queue UI remains.
+- 🟡 **Pass 6** — optional backend skeleton (`server/`) done (Twilio/email webhook
+  verification, scheduler, events store), OFF by default; provider wiring remains.
+- ⏳ **Passes 4, 5, 8, 9, 11, 12, 14, 16** — UI build-out on top of the above
+  foundation; not yet started.
+
+Total tests: 97 green. `release:check` green.
+
 ## Pass 1 — Foundation ✅ (this commit)
 - Audit + plan + capabilities + provider-setup docs.
 - Capability/status model (`src/providers/capabilities.js`).

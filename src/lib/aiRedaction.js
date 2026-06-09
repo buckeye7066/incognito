@@ -39,6 +39,24 @@ export function containsRestricted(text) {
   return redactText(text).found.length > 0;
 }
 
+// Types that rule 6 forbids sending to an LLM and that we can detect by pattern.
+// Phone/email are intentionally excluded: they are not rule-6-forbidden, and
+// some flows (e.g. caller-risk screening) legitimately include a phone number.
+const LLM_FORBIDDEN = new Set(['ssn', 'card', 'dob']);
+
+/**
+ * Default redaction applied to EVERY outbound LLM prompt (defense in depth).
+ * Masks the rule-6-forbidden patterns in place so an accidental SSN/card/DOB
+ * in a prompt is scrubbed rather than transmitted. Returns the redacted string.
+ */
+export function redactForLLM(text) {
+  let out = String(text ?? '');
+  for (const { type, re, tag } of PATTERNS) {
+    if (LLM_FORBIDDEN.has(type)) out = out.replace(re, tag);
+  }
+  return out;
+}
+
 /**
  * Hard gate. Throws E_RESTRICTED_DATA if the payload (stringified) still
  * contains restricted data after the caller's own redaction. Call this

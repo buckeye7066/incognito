@@ -7,6 +7,7 @@
  * https://www.twilio.com/docs/usage/webhooks/webhooks-security
  */
 import crypto from 'node:crypto';
+import { bodyFields } from './storage.js';
 
 export function verifyTwilioSignature({ authToken, url, params, signature }) {
   if (!authToken || !signature) return false;
@@ -20,15 +21,20 @@ export function verifyTwilioSignature({ authToken, url, params, signature }) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-/** Normalize an inbound SMS into a stored event (no PII beyond what Twilio sent). */
-export function smsToEvent(params) {
+/**
+ * Normalize an inbound SMS into a stored event. The message BODY is handled per
+ * the storage policy (default: metadata only — the body is NOT persisted).
+ * @param {object} params Twilio POST params
+ * @param {{ mode?: string, encrypt?: Function }} [storeOpts]
+ */
+export function smsToEvent(params, storeOpts = {}) {
   return {
     type: 'sms_inbound',
     from: params.From || '',
     to: params.To || '',
-    body: params.Body || '',
     sid: params.MessageSid || '',
     received_at: new Date().toISOString(),
+    ...bodyFields(params.Body, storeOpts),
   };
 }
 

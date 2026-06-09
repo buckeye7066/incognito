@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { verifyTwilioSignature, smsToEvent, voiceScreeningTwiml } from '../../server/src/twilioWebhook.js';
 import { verifyEmailWebhook, emailToEvent } from '../../server/src/emailWebhook.js';
 import { dueMonitors } from '../../server/src/scheduler.js';
+import { makeEncryptor, bodyFields } from '../../server/src/storage.js';
 import { redactForLLM } from '@/lib/aiRedaction';
 
 describe('optional backend: Twilio signature verification', () => {
@@ -24,13 +25,48 @@ describe('optional backend: Twilio signature verification', () => {
     expect(verifyTwilioSignature({ authToken, url, params: { ...params, Body: 'evil' }, signature: sig })).toBe(false);
   });
 
-  it('normalizes an SMS to a minimal event', () => {
-    const e = smsToEvent({ From: '+1', To: '+2', Body: 'hi', MessageSid: 'SM1' });
-    expect(e).toMatchObject({ type: 'sms_inbound', from: '+1', to: '+2', body: 'hi', sid: 'SM1' });
-  });
-
   it('voice screening TwiML escapes content', () => {
     expect(voiceScreeningTwiml({ message: 'a<b' })).toContain('a&lt;b');
+  });
+});
+
+describe('optional backend: message-body storage policy', () => {
+  const secretBody = 'meet me at 123 Main Street, code 4321';
+
+  it('DEFAULT (metadata) never persists the SMS body', () => {
+    const e = smsToEvent({ From: '+1', To: '+2', Body: secretBody, MessageSid: 'SM1' });
+    expect(e.body).toBeUndefined();
+    expect(e.body_enc).toBeUndefined();
+    expect(e.body_len).toBe(secretBody.length);
+    expect(JSON.stringify(e)).not.toContain('123 Main Street');
+    // envelope metadata is still present
+    expect(e).toMatchObject({ type: 'sms_inbound', from: '+1', sid: 'SM1' });
+  });
+
+  it('DEFAULT never persists the email body', () => {
+    const e = emailToEvent({ alias: 'a@x.io', from: 'b@y.io', subject: 'hi', body: secretBody });
+    expect(e.body).toBeUndefined();
+    expect(JSON.stringify(e)).not.toContain('123 Main Street');
+  });
+
+  it('encrypted mode stores an opaque blob, not plaintext', () => {
+    const encrypt = makeEncryptor('a'.repeat(64));
+    const e = smsToEvent({ Body: secretBody }, { mode: 'encrypted', encrypt });
+    expect(e.body).toBeUndefined();
+    expect(e.body_enc).toMatchObject({ alg: 'aes-256-gcm', iv: expect.any(String), ct: expect.any(String) });
+    expect(JSON.stringify(e)).not.toContain('123 Main Street');
+  });
+
+  it('encrypted mode without a key falls back to metadata (never plaintext)', () => {
+    const fields = bodyFields(secretBody, { mode: 'encrypted', encrypt: null });
+    expect(fields.body).toBeUndefined();
+    expect(fields.body_enc).toBeUndefined();
+    expect(fields.body_len).toBe(secretBody.length);
+  });
+
+  it('plaintext mode is explicit opt-in only', () => {
+    const e = smsToEvent({ Body: secretBody }, { mode: 'plaintext' });
+    expect(e.body).toBe(secretBody);
   });
 });
 
@@ -57,12 +93,32 @@ describe('optional backend: email webhook + scheduler', () => {
 });
 
 describe('live LLM path redaction (redactForLLM)', () => {
-  it('strips SSN/card/DOB but leaves phone (call screening needs it)', () => {
-    const out = redactForLLM('ssn 123-45-6789, card 4111 1111 1111 1111, dob 01/02/1990, call 555-123-4567');
+  const sample = 'ssn 123-45-6789, card 4111 1111 1111 1111, dob 01/02/1990, a@b.com, 555-123-4567, 123 Main Street';
+
+  it('by DEFAULT redacts SSN/card/DOB/email/phone/address', () => {
+    const out = redactForLLM(sample);
     expect(out).toContain('[SSN]');
     expect(out).toContain('[CARD]');
     expect(out).toContain('[DOB]');
-    expect(out).toContain('555-123-4567'); // phone NOT redacted by the forbidden-subset
+    expect(out).toContain('[EMAIL]');
+    expect(out).toContain('[PHONE]');
+    expect(out).toContain('[ADDRESS]');
     expect(out).not.toContain('123-45-6789');
+    expect(out).not.toContain('a@b.com');
+    expect(out).not.toContain('555-123-4567');
+    expect(out).not.toContain('123 Main Street');
+  });
+
+  it('allowlist exception preserves only the allowed type', () => {
+    const out = redactForLLM(sample, { allow: ['phone'] });
+    expect(out).toContain('555-123-4567'); // explicitly allowed
+    expect(out).toContain('[SSN]');        // everything else still redacted
+    expect(out).toContain('[EMAIL]');
+  });
+
+  it('redacts supplied child/dependent names', () => {
+    const out = redactForLLM('call Timmy at home', { names: ['Timmy'] });
+    expect(out).toContain('[NAME]');
+    expect(out).not.toContain('Timmy');
   });
 });

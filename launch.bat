@@ -1,6 +1,6 @@
 @echo off
 title Incognito - Privacy Guardian
-cd /d "G:\incognito"
+cd /d "%~dp0"
 color 0C
 
 echo.

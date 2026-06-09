@@ -28,6 +28,9 @@ export function emailToEvent(params, storeOpts = {}) {
     type: 'email_inbound',
     alias: params.alias || params.to || '',
     from: params.from || '',
+    // TODO(security): SB-1 — subjects are retained as plaintext routing metadata
+    // even in 'metadata' mode. Route the subject through bodyFields (or redact
+    // it) so sensitive subject lines aren't persisted. See docs/SECURITY_BACKLOG.md.
     subject: params.subject || '',
     received_at: new Date().toISOString(),
     ...bodyFields(params.body, storeOpts),

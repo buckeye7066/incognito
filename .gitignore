@@ -5,3 +5,8 @@ dist
 .env.*.local
 .DS_Store
 *.log
+
+# Optional backend runtime data — inbound message events (metadata and, if
+# configured, encrypted/plaintext bodies). MUST never be committed.
+server/events.json
+events.json

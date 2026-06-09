@@ -64,9 +64,30 @@ describe('optional backend: message-body storage policy', () => {
     expect(fields.body_len).toBe(secretBody.length);
   });
 
-  it('plaintext mode is explicit opt-in only', () => {
-    const e = smsToEvent({ Body: secretBody }, { mode: 'plaintext' });
-    expect(e.body).toBe(secretBody);
+  it('plaintext mode is the ONLY path to a raw body (explicit opt-in)', () => {
+    // Plaintext is the single mode that persists the raw body.
+    expect(smsToEvent({ Body: secretBody }, { mode: 'plaintext' }).body).toBe(secretBody);
+
+    // No other mode — including default, encrypted, unknown strings, and an
+    // omitted/empty opts object — may ever emit a raw `body` field.
+    const encrypt = makeEncryptor('a'.repeat(64));
+    const nonPlaintext = [
+      undefined,
+      {},
+      { mode: 'metadata' },
+      { mode: 'encrypted', encrypt },
+      { mode: 'encrypted', encrypt: null },
+      { mode: 'not-a-real-mode' },
+      { mode: 'PLAINTEXT' }, // case-sensitive: not the literal 'plaintext'
+    ];
+    for (const opts of nonPlaintext) {
+      const sms = smsToEvent({ Body: secretBody, From: '+1' }, opts);
+      const email = emailToEvent({ from: 'x@y.io', body: secretBody }, opts);
+      expect(sms.body, `sms opts=${JSON.stringify(opts)}`).toBeUndefined();
+      expect(email.body, `email opts=${JSON.stringify(opts)}`).toBeUndefined();
+      expect(JSON.stringify(sms)).not.toContain(secretBody);
+      expect(JSON.stringify(email)).not.toContain(secretBody);
+    }
   });
 });
 

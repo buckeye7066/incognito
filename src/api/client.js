@@ -334,6 +334,11 @@ const SENSITIVE_ENTITY_FIELDS = {
   IdentityMessage: ['subject', 'body'],
   // A thread's subject + last-message preview are derived from message content.
   IdentityMessageThread: ['subject', 'snippet'],
+  // TODO(security): SB-2 — TrustedContact/BlockedContact phone numbers are
+  // intentionally NOT encrypted here because Call Guard must equality-match an
+  // incoming number against the lists (can't match on per-record-IV ciphertext).
+  // Replace the raw number with an HMAC blind index (phone_bi) and encrypt the
+  // displayable number. See docs/SECURITY_BACKLOG.md and ENTITY_ENCRYPTION_DECISIONS.md.
   // Recovery/legal packets and incident notes can contain full PII.
   IdentityTheftIncident: ['notes', 'details'],
   RecoveryPacket: ['content'],

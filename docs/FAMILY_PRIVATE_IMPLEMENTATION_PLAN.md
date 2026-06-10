@@ -22,10 +22,20 @@ Each pass is independently shippable and must end green on `npm run release:chec
   path (SSN/card/DOB scrubbed from every prompt); approval-queue UI remains.
 - 🟡 **Pass 6** — optional backend skeleton (`server/`) done (Twilio/email webhook
   verification, scheduler, events store), OFF by default; provider wiring remains.
-- ⏳ **Passes 4, 5, 8, 9, 11, 12, 14, 16** — UI build-out on top of the above
+- ✅ **Pass 4** — Cloaked Identity bundle (UI + local-first logic), merged.
+- ✅ **Pass 5** — email aliases + backend-gated inbox architecture, merged.
+- ✅ **Pass 6** — phone alias rules + backend-gated SMS/call logs, merged.
+- ✅ **Pass 7** — password CSV import + tags/history + TOTP otpauth/recovery, merged.
+- ✅ **Pass 9** — Cloaked Pay / virtual cards: `lib/cardPolicy.js` (validation,
+  period-aware spend, self-destruct evaluation, real-vs-placeholder honesty,
+  BALANCED subscription detection) wired into `CloakedPay.jsx` with capability
+  badges (VIRTUAL_CARD / CARD_TXN_SYNC), honest local-placeholder labeling, and a
+  capability-gated recurring-charges panel. `client.js listSubscriptions` now
+  backed by the tested heuristic.
+- ⏳ **Passes 8, 11, 12, 14, 16** — UI build-out on top of the above
   foundation; not yet started.
 
-Total tests: 97 green. `release:check` green.
+Total tests: 178 green (18 new in cardPolicy). `release:check` green.
 
 ## Pass 1 — Foundation ✅ (this commit)
 - Audit + plan + capabilities + provider-setup docs.
@@ -71,9 +81,17 @@ Total tests: 97 green. `release:check` green.
 ## Pass 8 — Browser-extension bridge
 - Finalize protocol + a minimal reference extension (separate, optional).
 
-## Pass 9 — Cloaked Pay / virtual cards
+## Pass 9 — Cloaked Pay / virtual cards ✅
 - Privacy.com create/pause/close/limit/merchant-lock/single-use/recurring;
   transaction sync; subscription detection; alerts.
+- Done: `lib/cardPolicy.js` (pure, 18 tests) — `validateCardForm`, period-aware
+  `summarizeSpend`, `evaluateSelfDestruct`, `cardKind` (real vs local placeholder),
+  `detectSubscriptions` (BALANCED: amount-cluster + regular-cadence gating, with a
+  confidence score). UI now capability-gated + honest: badges for VIRTUAL_CARD and
+  CARD_TXN_SYNC, "Local placeholder" labeling when no provider, save-placeholder
+  CTA, field validation, and a transaction-sync-gated recurring-charges panel.
+  `client.js listSubscriptions` refactored to use the tested heuristic (fixes the
+  old `count >= 2` false positive).
 
 ## Pass 10 — Broker scan/removal + Google removal
 - Curated broker directory (import/update); campaigns + task state machine;

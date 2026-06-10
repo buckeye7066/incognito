@@ -9,8 +9,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreditCard, Plus, Trash2, Search, DollarSign, Pause, Play, Lock, Flame } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Search, DollarSign, Pause, Play, Lock, Flame, Repeat, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import CapabilityBadge from '@/components/common/CapabilityBadge';
+import { CAPABILITY, CAPABILITY_STATUS, isUsable } from '@/providers/capabilities';
+import { cardKind, validateCardForm, formatCents as fmtCents } from '@/lib/cardPolicy';
 
 const CARD_TYPES = [
   { value: 'MERCHANT_LOCKED', label: 'Merchant-Locked', description: 'Locks to first merchant used' },
@@ -39,6 +43,16 @@ export default function CloakedPay() {
     merchant_name: '', spend_limit: 5000, spend_limit_duration: 'MONTHLY', card_type: 'MERCHANT_LOCKED',
   });
   const [destructForm, setDestructForm] = useState({ after_date: '', after_transactions: '' });
+
+  const { capabilities } = useCapabilities();
+  const cardCap = capabilities[CAPABILITY.VIRTUAL_CARD];
+  const txnCap = capabilities[CAPABILITY.CARD_TXN_SYNC];
+  const cardStatus = cardCap?.status;
+  const cardsUsable = isUsable(cardStatus);
+  const txnSyncReady = txnCap?.status === CAPABILITY_STATUS.READY;
+
+  // Field-level validation from the tested lib (cents-aware, type-aware).
+  const validation = validateCardForm(formData);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -73,6 +87,30 @@ export default function CloakedPay() {
     ...localCards.map(c => ({ ...c, source: 'incognito' })),
     ...privacyCards.filter(pc => !localCards.some(lc => lc.card_token === pc.card_token)),
   ];
+
+  // Real, fundable cards we can actually pull transactions for.
+  const realCardTokens = allCards
+    .filter(c => cardKind(c, cardStatus) === 'real' && c.status !== 'CLOSED')
+    .map(c => c.card_token)
+    .filter(Boolean);
+
+  // Recurring-charge detection (Pass 9). Only runs when the provider can sync
+  // transactions — otherwise we honestly say so instead of faking a list.
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ['cardSubscriptions', realCardTokens],
+    enabled: txnSyncReady && realCardTokens.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        realCardTokens.map(async (cardToken) => {
+          try {
+            const r = await incognito.functions.invoke('listSubscriptions', { cardToken });
+            return r.data || [];
+          } catch { return []; }
+        }),
+      );
+      return results.flat().sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    },
+  });
 
   const filtered = allCards
     .filter(c => activeTab === 'all' || c.status === activeTab)
@@ -138,8 +176,18 @@ export default function CloakedPay() {
             Cloaked Pay
           </h1>
           <p className="text-muted-foreground mt-1">
-            Virtual payment cards — merchant-locked, with spending limits and self-destruct. Powered by Privacy.com.
+            {cardsUsable
+              ? 'Virtual payment cards — merchant-locked, with spending limits and self-destruct. Powered by Privacy.com.'
+              : 'Plan and track virtual cards locally. Connect a Privacy.com key in Settings to issue real, fundable cards.'}
           </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              Virtual cards <CapabilityBadge status={cardCap?.status} detail={cardCap?.providers?.[0]?.detail} />
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              Transaction sync <CapabilityBadge status={txnCap?.status} detail={txnCap?.providers?.[0]?.detail} />
+            </span>
+          </div>
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
@@ -148,10 +196,22 @@ export default function CloakedPay() {
           <DialogContent>
             <DialogHeader><DialogTitle>Create Virtual Card</DialogTitle></DialogHeader>
             <div className="space-y-4">
+              {!cardsUsable && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+                  <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    No Privacy.com provider connected, so this saves a <strong>local placeholder</strong> to
+                    plan with — it has no real, spendable card number. Add a key in Settings to issue a funded card.
+                  </span>
+                </div>
+              )}
               <div>
                 <Label>Merchant / Purpose *</Label>
                 <Input placeholder="e.g., Amazon, Netflix, Spotify" value={formData.merchant_name}
                   onChange={(e) => setFormData(d => ({ ...d, merchant_name: e.target.value }))} />
+                {validation.errors.merchant_name && (
+                  <p className="text-xs text-red-400 mt-1">{validation.errors.merchant_name}</p>
+                )}
               </div>
               <div>
                 <Label>Card Type</Label>
@@ -175,6 +235,9 @@ export default function CloakedPay() {
                   <Input type="number" value={formData.spend_limit}
                     onChange={(e) => setFormData(d => ({ ...d, spend_limit: e.target.value }))} />
                   <p className="text-xs text-muted-foreground mt-1">{formatCents(formData.spend_limit || 0)}</p>
+                  {validation.errors.spend_limit && (
+                    <p className="text-xs text-red-400 mt-1">{validation.errors.spend_limit}</p>
+                  )}
                 </div>
                 <div>
                   <Label>Limit Duration</Label>
@@ -188,8 +251,8 @@ export default function CloakedPay() {
                 </div>
               </div>
               <Button className="w-full" onClick={() => createMutation.mutate(formData)}
-                disabled={!formData.merchant_name || createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create Card'}
+                disabled={!validation.ok || createMutation.isPending}>
+                {createMutation.isPending ? 'Creating...' : cardsUsable ? 'Create Card' : 'Save Local Placeholder'}
               </Button>
             </div>
           </DialogContent>
@@ -245,11 +308,16 @@ export default function CloakedPay() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="font-medium">{card.merchant_name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="font-mono text-lg">**** {card.last_four || '????'}</span>
                         <Badge variant="outline" className="text-[10px]">
                           {CARD_TYPES.find(t => t.value === card.card_type)?.label || card.card_type}
                         </Badge>
+                        {cardKind(card, cardStatus) === 'placeholder' && (
+                          <Badge variant="secondary" className="text-[10px]" title="No real card number — a local tracker until a Privacy.com key is connected.">
+                            Local placeholder
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <Badge variant={card.status === 'OPEN' ? 'default' : card.status === 'PAUSED' ? 'secondary' : 'destructive'}>
@@ -304,11 +372,53 @@ export default function CloakedPay() {
           <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">No Virtual Cards</h3>
           <p className="text-muted-foreground mb-4">
-            Create merchant-locked virtual cards to protect your real card number. Requires Privacy.com API key in Settings.
+            {cardsUsable
+              ? 'Create merchant-locked virtual cards to protect your real card number.'
+              : 'You can plan cards locally now. To issue real, fundable cards, add a Privacy.com API key in Settings.'}
           </p>
           <Button onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Create First Card
+            <Plus className="h-4 w-4" /> {cardsUsable ? 'Create First Card' : 'Plan a Card Locally'}
           </Button>
+        </Card>
+      )}
+
+      {/* Recurring charges (subscription detection) */}
+      {realCardTokens.length > 0 && (
+        <Card className="glass-card">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-primary" /> Recurring charges
+              </h3>
+              <CapabilityBadge status={txnCap?.status} detail={txnCap?.providers?.[0]?.detail} />
+            </div>
+            {!txnSyncReady ? (
+              <p className="text-sm text-muted-foreground">
+                Connect transaction sync to detect subscriptions billed to your real cards. We never
+                guess recurring charges without the provider's transaction history.
+              </p>
+            ) : subscriptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recurring charges detected yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {subscriptions.map((sub, i) => (
+                  <div key={`${sub.merchant}-${i}`} className="flex items-center justify-between text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                    <div>
+                      <span className="font-medium">{sub.merchant}</span>
+                      <span className="text-xs text-muted-foreground ml-2 capitalize">{sub.cadence}</span>
+                      <span className="text-xs text-muted-foreground ml-2">· {sub.count} charges</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{fmtCents(sub.avg_amount || 0)}</span>
+                      <Badge variant="outline" className="text-[10px]" title="Detection confidence">
+                        {Math.round((sub.confidence || 0) * 100)}%
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
 

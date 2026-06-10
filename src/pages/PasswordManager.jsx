@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Lock, Plus, Copy, Eye, EyeOff, Search, RefreshCw, Upload, Shield, AlertTriangle, Trash2, ExternalLink, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AutofillPreview from '@/components/passwords/AutofillPreview';
+import ExtensionSetupGuide from '@/components/passwords/ExtensionSetupGuide';
 
 const STRENGTH_COLORS = {
   very_weak: 'bg-red-500', weak: 'bg-orange-500', fair: 'bg-yellow-500',
@@ -208,7 +209,8 @@ export default function PasswordManager() {
         ))}
       </div>
 
-      {/* Autofill preview (capability-gated; fill needs the companion extension) */}
+      {/* Autofill: a setup guide (until the extension is loaded) + the preview */}
+      <ExtensionSetupGuide />
       <AutofillPreview passwords={passwords} />
 
       {/* Search + tag filter */}

@@ -11,6 +11,7 @@ import { Settings as SettingsIcon, Bell, Shield, Trash2, AlertTriangle, Eye, Loa
 import DarkWebConsentModal from '../components/scans/DarkWebConsentModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notify } from '@/lib/notify';
+import ProviderSetupGuide from '../components/settings/ProviderSetupGuide';
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -205,6 +206,9 @@ export default function Settings() {
         <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
         <p className="text-purple-300">Configure your privacy preferences</p>
       </div>
+
+      {/* How to enable provider-backed features */}
+      <ProviderSetupGuide />
 
       {/* API Keys */}
       <Card className="glass-card border-blue-500/30">

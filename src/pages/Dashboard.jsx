@@ -8,6 +8,7 @@ import PrivacyHealthScore from '../components/dashboard/PrivacyHealthScore';
 import RecentActivityFeed from '../components/dashboard/RecentActivityFeed';
 import PrivacyAssistant from '../components/dashboard/PrivacyAssistant';
 import ActionRecommendations from '../components/dashboard/ActionRecommendations';
+import CoverageOverview from '../components/dashboard/CoverageOverview';
 import OnboardingWizard from '../components/dashboard/OnboardingWizard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -330,6 +331,9 @@ export default function Dashboard() {
           )}
         </div>
       </motion.div>
+
+      {/* Protection Coverage — honest at-a-glance capability readiness */}
+      <CoverageOverview maxActions={4} />
 
       {/* Priority Actions */}
       <ActionRecommendations profileId={activeProfileId} maxItems={5} />

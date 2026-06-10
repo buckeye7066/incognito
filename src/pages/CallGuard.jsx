@@ -9,8 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PhoneCall, Shield, ShieldAlert, ShieldBan, ShieldCheck, FileText, Search, Trash2, AlertTriangle, Clock } from 'lucide-react';
+import { PhoneCall, Shield, ShieldAlert, ShieldBan, ShieldCheck, FileText, Search, Trash2, AlertTriangle, Clock, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import { CAPABILITY } from '@/providers';
+import CapabilityBadge from '@/components/common/CapabilityBadge';
+import { normalizePhone } from '@/lib/phoneRules';
 
 const RISK_COLORS = {
   high: 'text-red-500 bg-red-500/10', medium: 'text-yellow-500 bg-yellow-500/10', low: 'text-green-500 bg-green-500/10',
@@ -35,9 +39,12 @@ export default function CallGuard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [screeningEnabled, setScreeningEnabled] = useState(() => localStorage.getItem('call_guard_enabled') === 'true');
-  const [voiceCloneDetection, setVoiceCloneDetection] = useState(() => localStorage.getItem('voice_clone_detection') === 'true');
+  const [myNumber, setMyNumber] = useState(() => localStorage.getItem('call_guard_my_number') || '');
   const [autoBlock, setAutoBlock] = useState(() => localStorage.getItem('auto_block_scam') === 'true');
+  const [useAI, setUseAI] = useState(() => localStorage.getItem('call_guard_use_ai') === 'true');
+
+  const { capabilities } = useCapabilities();
+  const callCap = capabilities[CAPABILITY.CALL_SCREEN];
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -51,9 +58,28 @@ export default function CallGuard() {
     .filter(l => activeTab === 'all' || l.action_taken === activeTab)
     .filter(l => !searchQuery || l.caller_number?.includes(searchQuery));
 
+  // The screener learns from history: numbers you previously allowed become a
+  // local allowlist, ones you blocked stay blocked, and all prior callers feed
+  // repeat-caller detection. Everything stays on-device.
+  const learned = callLogs.reduce((acc, l) => {
+    const n = normalizePhone(l.caller_number);
+    if (!n) return acc;
+    acc.history.push(n);
+    if (l.action_taken === 'allow') acc.contacts.add(n);
+    if (l.action_taken === 'block') acc.blocked.add(n);
+    return acc;
+  }, { history: [], contacts: new Set(), blocked: new Set() });
+
   const screenMutation = useMutation({
     mutationFn: (number) => incognito.functions.invoke('screenCall', {
-      callerNumber: number, profileId: activeProfileId,
+      callerNumber: number,
+      profileId: activeProfileId,
+      myNumber,
+      contacts: [...learned.contacts],
+      blocked: [...learned.blocked],
+      history: learned.history,
+      autoBlock,
+      useAI,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries(['callGuardLogs']);
@@ -88,9 +114,11 @@ export default function CallGuard() {
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <ShieldAlert className="h-8 w-8 text-primary" />
             Call Guard
+            <CapabilityBadge status={callCap?.status} detail={callCap?.providers?.[0]?.detail} />
           </h1>
           <p className="text-muted-foreground mt-1">
-            AI-powered call screening — detect scams, robocalls, and voice cloning attempts.
+            Check a number against signals we can actually verify on-device — invalid caller IDs,
+            local-prefix spoofing, and your own allow/block history.
           </p>
         </div>
         <Dialog open={showScreen} onOpenChange={setShowScreen}>
@@ -105,12 +133,24 @@ export default function CallGuard() {
                 <Input placeholder="+1 (555) 123-4567" value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)} />
               </div>
+              <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" /> Add AI estimate
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Optional, needs an API key. Clearly labeled as an unverified guess.
+                  </p>
+                </div>
+                <Switch checked={useAI} onCheckedChange={toggleSetting('call_guard_use_ai', setUseAI)} />
+              </div>
               <p className="text-sm text-muted-foreground">
-                AI will analyze this number for scam/spam risk, caller type, and provide a recommendation.
+                Runs entirely on-device using verifiable signals. {useAI ? 'An AI estimate is added as a labeled, unverified hint.' : ''}
+                {' '}Screening flags and recommends — it can&apos;t intercept a live call (that needs your carrier or a native dialer app).
               </p>
               <Button className="w-full" onClick={() => screenMutation.mutate(phoneNumber)}
                 disabled={!phoneNumber || screenMutation.isPending}>
-                {screenMutation.isPending ? 'Analyzing...' : 'Screen Call'}
+                {screenMutation.isPending ? 'Checking…' : 'Screen Number'}
               </Button>
             </div>
           </DialogContent>
@@ -137,32 +177,42 @@ export default function CallGuard() {
       </div>
 
       {/* Settings */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="py-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-sm">AI Screening</h3>
-              <p className="text-xs text-muted-foreground">Screen unknown calls</p>
-            </div>
-            <Switch checked={screeningEnabled} onCheckedChange={toggleSetting('call_guard_enabled', setScreeningEnabled)} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="md:col-span-1">
+          <CardContent className="py-4">
+            <h3 className="font-medium text-sm">Your number</h3>
+            <p className="text-xs text-muted-foreground mb-2">
+              Enables local-prefix &ldquo;neighbor spoof&rdquo; detection. Stays on this device.
+            </p>
+            <Input
+              placeholder="+1 (555) 123-4567"
+              value={myNumber}
+              onChange={(e) => { setMyNumber(e.target.value); localStorage.setItem('call_guard_my_number', e.target.value); }}
+            />
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="py-4 flex items-center justify-between">
+          <CardContent className="py-4 flex items-center justify-between h-full">
             <div>
-              <h3 className="font-medium text-sm">Voice Clone Detection</h3>
-              <p className="text-xs text-muted-foreground">Detect AI voice cloning</p>
-            </div>
-            <Switch checked={voiceCloneDetection} onCheckedChange={toggleSetting('voice_clone_detection', setVoiceCloneDetection)} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-sm">Auto-Block Scams</h3>
-              <p className="text-xs text-muted-foreground">Block high-risk callers</p>
+              <h3 className="font-medium text-sm">Auto-block high-risk</h3>
+              <p className="text-xs text-muted-foreground">
+                Off = high-risk calls are screened for review, never silently dropped.
+              </p>
             </div>
             <Switch checked={autoBlock} onCheckedChange={toggleSetting('auto_block_scam', setAutoBlock)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-4 flex items-center justify-between h-full">
+            <div>
+              <h3 className="font-medium text-sm flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> AI estimate
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Adds a labeled, unverified AI hint (needs an API key).
+              </p>
+            </div>
+            <Switch checked={useAI} onCheckedChange={toggleSetting('call_guard_use_ai', setUseAI)} />
           </CardContent>
         </Card>
       </div>
@@ -210,11 +260,35 @@ export default function CallGuard() {
                               {log.risk_level} risk
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-0.5">{log.reasoning}</p>
+                          {Array.isArray(log.signals) && log.signals.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {log.signals.map((sig, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className={`text-[10px] ${
+                                    sig.severity === 'danger' ? 'border-red-500/50 text-red-300'
+                                      : sig.severity === 'warn' ? 'border-amber-500/50 text-amber-300'
+                                      : sig.severity === 'good' ? 'border-green-500/50 text-green-300'
+                                      : 'border-border/60 text-muted-foreground'
+                                  }`}
+                                >
+                                  {sig.label}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground mt-0.5">{log.reasoning}</p>
+                          )}
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                             <Clock className="h-3 w-3" />
                             <span>{new Date(log.screened_at).toLocaleString()}</span>
                             <span>Action: {log.action_taken}</span>
+                            {log.source && (
+                              <span className="inline-flex items-center gap-1">
+                                ·{log.source.includes('ai') ? <><Sparkles className="h-3 w-3" /> on-device + AI estimate</> : 'on-device'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -243,7 +317,7 @@ export default function CallGuard() {
           <ShieldAlert className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">No Call Screening History</h3>
           <p className="text-muted-foreground mb-4">
-            Screen phone numbers to detect scams, robocalls, and suspicious callers using AI analysis.
+            Screen phone numbers against on-device signals — invalid caller IDs, local-prefix spoofing, and your own allow/block history.
           </p>
           <Button onClick={() => setShowScreen(true)} className="gap-2">
             <PhoneCall className="h-4 w-4" /> Screen a Number

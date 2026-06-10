@@ -7,6 +7,7 @@ import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
 import { checkPasswordPwned } from '@/lib/passwordBreach';
 import { applyRuleChange, normalizeRules, DEFAULT_ALIAS_RULES } from '@/lib/aliasRules';
 import { applyPhoneRuleChange, normalizeRules as normalizePhoneRules, DEFAULT_PHONE_RULES } from '@/lib/phoneRules';
+import { assessCaller, decideAction, explainAssessment } from '@/lib/callScreening';
 import { parseOtpauthUri, isValidBase32 } from '@/lib/otpauth';
 
 const STORAGE_PREFIX = 'incognito_entity_';
@@ -4019,31 +4020,58 @@ ${(noticeText || '').slice(0, 8000)}
   // CALL GUARD (AI CALL SCREENING) FUNCTIONS
   // =========================================================================
 
-  async screenCall({ callerNumber, profileId }) {
-    const result = await invokeLLM({
-      // Caller-risk screening legitimately needs the phone number — opt into the
-      // 'phone' exception explicitly (everything else stays redacted).
-      allow: ['phone'],
-      prompt: `Analyze this phone number for potential scam/spam risk: ${callerNumber}
-Return: risk_level (high/medium/low), likely_type (scam, spam, robocall, telemarketer, legitimate, unknown), recommended_action (block, screen, allow), reasoning.`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          risk_level: { type: 'string' },
-          likely_type: { type: 'string' },
-          recommended_action: { type: 'string' },
-          reasoning: { type: 'string' },
-        },
-      },
-    });
+  async screenCall({ callerNumber, profileId, myNumber, contacts = [], blocked = [], history = [], useAI = false, autoBlock = false }) {
+    // 1) On-device assessment from VERIFIABLE signals (no network, always works).
+    //    This is the authoritative result — see lib/callScreening.js.
+    const assessment = assessCaller({ number: callerNumber, myNumber, contacts, blocked, history });
+    let action = decideAction(assessment, { autoBlockHighRisk: Boolean(autoBlock) });
+    let source = 'on_device';
+
+    // 2) OPTIONAL AI estimate. Honesty: an LLM has no live scammer database, so
+    //    its output is a labeled *estimate*, requested explicitly and only when a
+    //    key is set. It may RAISE caution (allow → screen) on an otherwise-unknown
+    //    caller, but never overrides a hard local signal (contact / blocked /
+    //    invalid format / neighbor spoof) and never auto-blocks.
+    const hardSignal = assessment.signals.some((s) =>
+      ['contact', 'blocked', 'invalid_format', 'neighbor_spoof'].includes(s.code));
+    if (useAI && getApiKeys().openai_api_key && !hardSignal) {
+      try {
+        const ai = await invokeLLM({
+          allow: ['phone'],
+          prompt: `Estimate scam/spam risk for this phone number (you do NOT have a live database — give a cautious, clearly-uncertain estimate only): ${callerNumber}
+Return: risk_level (high/medium/low), likely_type (scam, spam, robocall, telemarketer, legitimate, unknown), reasoning.`,
+          response_json_schema: {
+            type: 'object',
+            properties: {
+              risk_level: { type: 'string' },
+              likely_type: { type: 'string' },
+              reasoning: { type: 'string' },
+            },
+          },
+        });
+        if (ai && ai.likely_type) {
+          assessment.signals.push({
+            code: 'ai_estimate',
+            label: `AI estimate (unverified): ${ai.likely_type}${ai.reasoning ? ` — ${ai.reasoning}` : ''}`,
+            severity: ai.risk_level === 'high' ? 'warn' : 'info',
+          });
+          source = 'on_device+ai_estimate';
+          if (ai.risk_level === 'high' && action === 'allow') action = 'screen';
+        }
+      } catch {
+        // AI is optional; the on-device result stands.
+      }
+    }
 
     const log = await entities.CallGuardLog.create({
       profile_id: profileId,
       caller_number: callerNumber,
-      risk_level: result.risk_level,
-      likely_type: result.likely_type,
-      action_taken: result.recommended_action,
-      reasoning: result.reasoning,
+      risk_level: assessment.riskLevel,
+      likely_type: assessment.likelyType,
+      action_taken: action,
+      reasoning: explainAssessment(assessment),
+      signals: assessment.signals,
+      source,
       transcript: null,
       screened_at: new Date().toISOString(),
     });

@@ -35,8 +35,9 @@ export default function PasswordManager() {
   const [genLength, setGenLength] = useState(20);
   const [genOptions, setGenOptions] = useState({ uppercase: true, lowercase: true, numbers: true, symbols: true });
   const [importSource, setImportSource] = useState('chrome');
+  const [filterTag, setFilterTag] = useState('all');
   const [formData, setFormData] = useState({
-    service_name: '', service_url: '', username: '', password: '', notes: '',
+    service_name: '', service_url: '', username: '', password: '', notes: '', tags: '',
   });
 
   const { data: passwords = [], isLoading } = useQuery({
@@ -44,17 +45,23 @@ export default function PasswordManager() {
     queryFn: () => incognito.entities.PasswordEntry.list('-updated_date'),
   });
 
+  const allTags = [...new Set(passwords.flatMap((p) => p.tags || []))].sort();
+
   const filtered = passwords.filter(p =>
-    !searchQuery ||
-    p.service_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    (filterTag === 'all' || (p.tags || []).includes(filterTag)) &&
+    (!searchQuery ||
+      p.service_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.tags || []).some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const strength = await incognito.functions.invoke('checkPasswordStrength', { password: data.password });
+      const { tags, ...rest } = data;
       return incognito.entities.PasswordEntry.create({
-        ...data,
+        ...rest,
+        tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         strength: strength.data?.strength || 'unknown',
         last_changed: new Date().toISOString(),
         breach_checked: false,
@@ -63,7 +70,7 @@ export default function PasswordManager() {
     onSuccess: () => {
       queryClient.invalidateQueries(['passwordEntries']);
       setShowCreate(false);
-      setFormData({ service_name: '', service_url: '', username: '', password: '', notes: '' });
+      setFormData({ service_name: '', service_url: '', username: '', password: '', notes: '', tags: '' });
     },
   });
 
@@ -166,6 +173,11 @@ export default function PasswordManager() {
                     }}><RefreshCw className="h-4 w-4" /></Button>
                   </div>
                 </div>
+                <div>
+                  <Label>Tags / folder (comma-separated)</Label>
+                  <Input placeholder="e.g. work, banking" value={formData.tags}
+                    onChange={(e) => setFormData(d => ({ ...d, tags: e.target.value }))} />
+                </div>
                 <Button className="w-full" onClick={() => createMutation.mutate(formData)}
                   disabled={!formData.service_name || !formData.password}>
                   {createMutation.isPending ? 'Saving...' : 'Save Password'}
@@ -195,11 +207,22 @@ export default function PasswordManager() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Search passwords..." value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)} />
+      {/* Search + tag filter */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Search passwords or tags..." value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
+        {allTags.length > 0 && (
+          <Select value={filterTag} onValueChange={setFilterTag}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Tag" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All tags</SelectItem>
+              {allTags.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Password List */}
@@ -217,6 +240,8 @@ export default function PasswordManager() {
                           <span className="font-medium truncate">{entry.service_name}</span>
                           {entry.imported_from && <Badge variant="outline" className="text-[10px]">Imported</Badge>}
                           {entry.breach_count > 0 && <Badge variant="destructive" className="text-[10px]">Breached ({entry.breach_count}x)</Badge>}
+                          {entry.password_history?.length > 0 && <Badge variant="secondary" className="text-[10px]">rotated {entry.password_history.length}×</Badge>}
+                          {(entry.tags || []).map((t) => <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>)}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           <span>{entry.username || '—'}</span>

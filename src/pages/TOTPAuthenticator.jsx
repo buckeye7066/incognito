@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Progress } from '@/components/ui/progress';
 import { Plus, Copy, Trash2, Shield, Clock, Key, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { parseOtpauthUri as parseUri, isValidBase32 } from '@/lib/otpauth';
 
 function TOTPCodeDisplay({ secret, period = 30, digits = 6 }) {
   const [code, setCode] = useState('------');
@@ -58,8 +59,9 @@ export default function TOTPAuthenticator() {
   const [showAdd, setShowAdd] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
-    service_name: '', secret: '', digits: 6, period: 30,
+    service_name: '', secret: '', digits: 6, period: 30, algorithm: 'SHA1', recovery_codes: '',
   });
+  const [addError, setAddError] = useState('');
 
   const { data: secrets = [], isLoading } = useQuery({
     queryKey: ['totpSecrets'],
@@ -74,13 +76,19 @@ export default function TOTPAuthenticator() {
     mutationFn: (data) => incognito.functions.invoke('addTOTPSecret', {
       serviceName: data.service_name,
       secret: data.secret,
+      algorithm: data.algorithm || 'SHA1',
       digits: parseInt(data.digits) || 6,
       period: parseInt(data.period) || 30,
+      recoveryCodes: data.recovery_codes
+        ? data.recovery_codes.split(/[\s,]+/).map((c) => c.trim()).filter(Boolean)
+        : undefined,
     }),
+    onError: (e) => setAddError(e.message || 'Failed to add account'),
     onSuccess: () => {
       queryClient.invalidateQueries(['totpSecrets']);
       setShowAdd(false);
-      setFormData({ service_name: '', secret: '', digits: 6, period: 30 });
+      setAddError('');
+      setFormData({ service_name: '', secret: '', digits: 6, period: 30, algorithm: 'SHA1', recovery_codes: '' });
     },
   });
 
@@ -89,28 +97,31 @@ export default function TOTPAuthenticator() {
     onSuccess: () => queryClient.invalidateQueries(['totpSecrets']),
   });
 
-  const parseOtpauthUri = (uri) => {
-    try {
-      const url = new URL(uri);
-      if (url.protocol !== 'otpauth:') return null;
-      const label = decodeURIComponent(url.pathname.slice(2));
-      const secret = url.searchParams.get('secret') || '';
-      const issuer = url.searchParams.get('issuer') || label.split(':')[0] || label;
-      const digits = parseInt(url.searchParams.get('digits')) || 6;
-      const period = parseInt(url.searchParams.get('period')) || 30;
-      return { service_name: issuer, secret, digits, period };
-    } catch { return null; }
-  };
-
   const handleSecretChange = (value) => {
-    // Check if it's an otpauth:// URI
-    const parsed = parseOtpauthUri(value);
-    if (parsed) {
-      setFormData(parsed);
+    setAddError('');
+    // If it's an otpauth:// URI, parse it robustly (validates the base32 secret,
+    // extracts issuer/account/algorithm/digits/period). Otherwise treat as secret.
+    if (value.trim().toLowerCase().startsWith('otpauth://')) {
+      try {
+        const d = parseUri(value.trim());
+        setFormData((f) => ({
+          ...f,
+          service_name: d.issuer || d.account || f.service_name,
+          secret: d.secret,
+          algorithm: d.algorithm,
+          digits: d.digits,
+          period: d.period,
+        }));
+      } catch (e) {
+        setFormData((f) => ({ ...f, secret: value }));
+        setAddError(e.message);
+      }
     } else {
-      setFormData(d => ({ ...d, secret: value }));
+      setFormData((d) => ({ ...d, secret: value }));
     }
   };
+
+  const secretValid = !formData.secret || isValidBase32(formData.secret.replace(/\s/g, ''));
 
   return (
     <div className="space-y-6">
@@ -142,8 +153,10 @@ export default function TOTPAuthenticator() {
                 <Input placeholder="Paste secret key or otpauth:// URI" value={formData.secret}
                   onChange={(e) => handleSecretChange(e.target.value)}
                   className="font-mono text-sm" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter the base32 secret key from your service, or paste the full otpauth:// URI.
+                <p className={`text-xs mt-1 ${secretValid ? 'text-muted-foreground' : 'text-red-400'}`}>
+                  {secretValid
+                    ? 'Enter the base32 secret key, or paste the full otpauth:// URI (issuer, algorithm, digits & period are filled automatically).'
+                    : 'That secret is not valid base32. Paste the secret key or a full otpauth:// URI.'}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -158,8 +171,15 @@ export default function TOTPAuthenticator() {
                     onChange={(e) => setFormData(d => ({ ...d, period: e.target.value }))} />
                 </div>
               </div>
+              <div>
+                <Label>Recovery codes (optional, encrypted)</Label>
+                <Input placeholder="Paste backup codes, space or comma separated" value={formData.recovery_codes}
+                  onChange={(e) => setFormData(d => ({ ...d, recovery_codes: e.target.value }))} />
+                <p className="text-xs text-muted-foreground mt-1">Stored encrypted in your vault, redacted when locked.</p>
+              </div>
+              {addError && <p className="text-sm text-red-400">{addError}</p>}
               <Button className="w-full" onClick={() => addMutation.mutate(formData)}
-                disabled={!formData.service_name || !formData.secret || addMutation.isPending}>
+                disabled={!formData.service_name || !formData.secret || !secretValid || addMutation.isPending}>
                 {addMutation.isPending ? 'Adding...' : 'Add Account'}
               </Button>
             </div>

@@ -7,6 +7,7 @@ import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
 import { checkPasswordPwned } from '@/lib/passwordBreach';
 import { applyRuleChange, normalizeRules, DEFAULT_ALIAS_RULES } from '@/lib/aliasRules';
 import { applyPhoneRuleChange, normalizeRules as normalizePhoneRules, DEFAULT_PHONE_RULES } from '@/lib/phoneRules';
+import { parseOtpauthUri, isValidBase32 } from '@/lib/otpauth';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -307,7 +308,7 @@ const _idbRecoveryPromises = {};
 // (no plaintext) and writes are rejected. Adding a new sensitive entity is a
 // one-line change here.
 const SENSITIVE_ENTITY_FIELDS = {
-  PasswordEntry: ['password', 'totp_secret', 'recovery_codes', 'notes'],
+  PasswordEntry: ['password', 'totp_secret', 'recovery_codes', 'notes', 'password_history'],
   TOTPSecret: ['secret', 'recovery_codes'],
   EmailAlias: ['actual_email'],
   PhoneAlias: ['actual_phone'],
@@ -3482,10 +3483,9 @@ ${(noticeText || '').slice(0, 8000)}
     const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
     if (!identity?.password_entry_id) throw new Error('No linked password to rotate');
     const newPassword = generateSecurePassword(20);
-    await entities.PasswordEntry.update(identity.password_entry_id, {
-      password: newPassword, strength: 'strong',
-      last_changed: new Date().toISOString(), breach_checked: false, breach_count: 0,
-    });
+    // Record the previous password in encrypted history via updatePasswordEntry.
+    await localFunctions.updatePasswordEntry({ entryId: identity.password_entry_id, password: newPassword });
+    await entities.PasswordEntry.update(identity.password_entry_id, { strength: 'strong' });
     return { data: { password_entry_id: identity.password_entry_id, password: newPassword } };
   },
 
@@ -3587,17 +3587,71 @@ ${(noticeText || '').slice(0, 8000)}
   // TOTP AUTHENTICATOR FUNCTIONS
   // =========================================================================
 
-  async addTOTPSecret({ profileId, identityId, serviceName, secret, algorithm = 'SHA1', digits = 6, period = 30 }) {
+  async addTOTPSecret({ profileId, identityId, serviceName, account, secret, algorithm = 'SHA1', digits = 6, period = 30, recoveryCodes }) {
+    const cleaned = String(secret || '').replace(/\s/g, '').toUpperCase();
+    if (!isValidBase32(cleaned)) {
+      throw new Error('Invalid base32 secret. Paste the secret key or a full otpauth:// URI.');
+    }
     const entry = await entities.TOTPSecret.create({
       profile_id: profileId,
       identity_id: identityId || null,
       service_name: serviceName,
-      secret: secret.replace(/\s/g, '').toUpperCase(),
+      account: account || null,
+      secret: cleaned,
       algorithm,
       digits,
       period,
+      pending: false,
+      recovery_codes: Array.isArray(recoveryCodes) && recoveryCodes.length ? recoveryCodes : null,
     });
     return { data: entry };
+  },
+
+  /**
+   * Import a TOTP account from a full otpauth:// URI (paste or QR decode).
+   * Uses the robust parser in lib/otpauth (validates the base32 secret, extracts
+   * issuer/account/algorithm/digits/period). If `linkIdentityId` is given, the
+   * new TOTP is linked back onto that identity.
+   */
+  async addTOTPFromUri({ profileId, identityId, uri, recoveryCodes }) {
+    const d = parseOtpauthUri(uri); // throws on malformed URI / bad secret
+    const res = await localFunctions.addTOTPSecret({
+      profileId, identityId,
+      serviceName: d.issuer || d.account || 'Imported',
+      account: d.account,
+      secret: d.secret,
+      algorithm: d.algorithm,
+      digits: d.digits,
+      period: d.period,
+      recoveryCodes,
+    });
+    if (identityId) {
+      try { await entities.CloakedIdentity.update(identityId, { totp_secret_id: res.data.id }); } catch { /* best effort */ }
+    }
+    return res;
+  },
+
+  /**
+   * Update a password entry's tags/notes and (if the password changes) push the
+   * previous password into an encrypted history (capped at 10). Local-only.
+   */
+  async updatePasswordEntry({ entryId, password, tags, notes }) {
+    const entry = (await entities.PasswordEntry.list()).find(p => p.id === entryId);
+    if (!entry) throw new Error('Password entry not found');
+    const patch = {};
+    if (tags !== undefined) patch.tags = Array.isArray(tags) ? tags.map((t) => String(t).trim()).filter(Boolean) : [];
+    if (notes !== undefined) patch.notes = notes;
+    if (password !== undefined && password !== entry.password) {
+      const history = Array.isArray(entry.password_history) ? entry.password_history : [];
+      history.unshift({ password: entry.password, changed_at: entry.last_changed || null });
+      patch.password_history = history.slice(0, 10);
+      patch.password = password;
+      patch.last_changed = new Date().toISOString();
+      patch.breach_checked = false;
+      patch.breach_count = 0;
+    }
+    const updated = await entities.PasswordEntry.update(entryId, patch);
+    return { data: updated };
   },
 
   async getTOTPCode({ secret, period = 30, digits = 6 }) {

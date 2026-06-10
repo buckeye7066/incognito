@@ -313,7 +313,7 @@ const SENSITIVE_ENTITY_FIELDS = {
   VirtualCard: ['card_number', 'cvv', 'pin', 'billing_address'],
   FinancialAccount: ['account_number', 'routing_number', 'login_password'],
   PersonalData: ['value'],
-  CloakedIdentity: ['ssn', 'passport', 'dl_number', 'tax_id', 'medical_id', 'notes'],
+  CloakedIdentity: ['ssn', 'passport', 'dl_number', 'tax_id', 'medical_id', 'notes', 'custom_fields'],
   SharedIdentity: [], // already encrypted at the API level
   IdentityCustomField: ['value'],
   MonitoredAccount: ['account_password', 'recovery_email'],
@@ -3329,6 +3329,202 @@ ${(noticeText || '').slice(0, 8000)}
     const newStatus = identity.status === 'active' ? 'muted' : 'active';
     const updated = await entities.CloakedIdentity.update(identityId, { status: newStatus });
     return { data: updated };
+  },
+
+  // =========================================================================
+  // CLOAKED IDENTITY BUNDLE (Pass 4) — local-first, provider-honest
+  // =========================================================================
+
+  /**
+   * One-click identity bundle. Always creates the local identity (+ optional
+   * local password / TOTP placeholder). Provider-backed resources (email alias,
+   * virtual card) are attempted ONLY when the caller passes readiness.<type>
+   * true (the UI computes this from the capability registry) — otherwise they
+   * are honestly recorded as skipped. Nothing fake is ever created.
+   *
+   * @returns {{ data: { identity, created: string[], skipped: {resource,reason}[] } }}
+   */
+  async createIdentityBundle({
+    profileId, householdMemberId, serviceName, serviceUrl, category,
+    username = '', notes = '', customFields = {},
+    password = { create: true },
+    email = { create: false },
+    card = { create: false },
+    totp = { placeholder: false },
+    readiness = {},
+  }) {
+    const created = [];
+    const skipped = [];
+
+    const identity = await entities.CloakedIdentity.create({
+      profile_id: profileId || null,
+      household_member_id: householdMemberId || null,
+      service_name: serviceName,
+      service_url: serviceUrl || '',
+      category: category || 'general',
+      status: 'active',
+      username: username || '',
+      email_alias_id: null, phone_alias_id: null, password_entry_id: null,
+      totp_secret_id: null, virtual_card_id: null,
+      custom_fields: customFields || {},
+      notes: notes || '',
+    });
+
+    if (password?.create) {
+      try {
+        const value = password.value || generateSecurePassword(20);
+        const pw = await entities.PasswordEntry.create({
+          profile_id: profileId || null,
+          service_name: serviceName, service_url: serviceUrl || '',
+          username: username || '', password: value, strength: 'strong',
+          last_changed: new Date().toISOString(), breach_checked: false,
+        });
+        await entities.CloakedIdentity.update(identity.id, { password_entry_id: pw.id });
+        identity.password_entry_id = pw.id;
+        created.push('password');
+      } catch (e) { skipped.push({ resource: 'password', reason: e.message }); }
+    }
+
+    if (email?.create) {
+      if (!readiness.email) {
+        skipped.push({ resource: 'email', reason: 'Email alias provider not ready — set it up in Settings → Providers.' });
+      } else {
+        try {
+          const res = await localFunctions.createEmailAliasReal({ profileId, identityId: identity.id, description: `For ${serviceName}` });
+          await entities.CloakedIdentity.update(identity.id, { email_alias_id: res.data.id });
+          identity.email_alias_id = res.data.id;
+          created.push('email');
+        } catch (e) { skipped.push({ resource: 'email', reason: e.message }); }
+      }
+    }
+
+    if (card?.create) {
+      if (!readiness.card) {
+        skipped.push({ resource: 'card', reason: 'Virtual card provider (Privacy.com) not ready.' });
+      } else {
+        try {
+          const res = await localFunctions.createVirtualCard({ profileId, identityId: identity.id, merchantName: serviceName, spendLimit: card.spendLimit || undefined });
+          await entities.CloakedIdentity.update(identity.id, { virtual_card_id: res.data.id });
+          identity.virtual_card_id = res.data.id;
+          created.push('card');
+        } catch (e) { skipped.push({ resource: 'card', reason: e.message }); }
+      }
+    }
+
+    if (totp?.placeholder) {
+      try {
+        const t = await entities.TOTPSecret.create({
+          profile_id: profileId || null, identity_id: identity.id,
+          service_name: serviceName, secret: null, pending: true,
+          algorithm: 'SHA1', digits: 6, period: 30,
+        });
+        await entities.CloakedIdentity.update(identity.id, { totp_secret_id: t.id });
+        identity.totp_secret_id = t.id;
+        created.push('totp_placeholder');
+      } catch (e) { skipped.push({ resource: 'totp', reason: e.message }); }
+    }
+
+    const finalIdentity = (await entities.CloakedIdentity.list()).find(i => i.id === identity.id) || identity;
+    return { data: { identity: finalIdentity, created, skipped } };
+  },
+
+  _identityFieldFor(resourceType) {
+    return {
+      password: 'password_entry_id', email: 'email_alias_id', phone: 'phone_alias_id',
+      card: 'virtual_card_id', totp: 'totp_secret_id',
+    }[resourceType];
+  },
+
+  async linkIdentityResource({ identityId, resourceType, resourceId }) {
+    const field = localFunctions._identityFieldFor(resourceType);
+    if (!field) throw new Error(`Unknown resource type: ${resourceType}`);
+    const updated = await entities.CloakedIdentity.update(identityId, { [field]: resourceId });
+    return { data: updated };
+  },
+
+  /**
+   * Unlink a resource from an identity. If deleteRecord is true, the underlying
+   * local entity is deleted too. Never deletes silently — callers pass the
+   * explicit choice from the delete/unlink dialog.
+   */
+  async unlinkIdentityResource({ identityId, resourceType, deleteRecord = false }) {
+    const map = {
+      password: ['password_entry_id', 'PasswordEntry'],
+      email: ['email_alias_id', 'EmailAlias'],
+      phone: ['phone_alias_id', 'PhoneAlias'],
+      card: ['virtual_card_id', 'VirtualCard'],
+      totp: ['totp_secret_id', 'TOTPSecret'],
+    };
+    const pair = map[resourceType];
+    if (!pair) throw new Error(`Unknown resource type: ${resourceType}`);
+    const [field, entityName] = pair;
+    const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
+    const resourceId = identity?.[field];
+    let deletedRecord = false;
+    if (deleteRecord && resourceId) {
+      await entities[entityName].delete(resourceId);
+      deletedRecord = true;
+    }
+    const updated = await entities.CloakedIdentity.update(identityId, { [field]: null });
+    return { data: { updated, deletedRecord } };
+  },
+
+  async updateIdentityStatus({ identityId, status }) {
+    const VALID = ['active', 'muted', 'disabled', 'archived', 'compromised'];
+    if (!VALID.includes(status)) throw new Error(`Invalid identity status: ${status}`);
+    const updated = await entities.CloakedIdentity.update(identityId, { status });
+    return { data: updated };
+  },
+
+  /** Local-only password rotation for the identity's linked password entry. */
+  async rotateIdentityPassword({ identityId }) {
+    const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
+    if (!identity?.password_entry_id) throw new Error('No linked password to rotate');
+    const newPassword = generateSecurePassword(20);
+    await entities.PasswordEntry.update(identity.password_entry_id, {
+      password: newPassword, strength: 'strong',
+      last_changed: new Date().toISOString(), breach_checked: false, breach_count: 0,
+    });
+    return { data: { password_entry_id: identity.password_entry_id, password: newPassword } };
+  },
+
+  /**
+   * Delete an identity. mode 'unlink' keeps linked local records; mode
+   * 'cascade' deletes them too. The UI must collect this choice explicitly.
+   */
+  async deleteIdentity({ identityId, mode = 'unlink' }) {
+    const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
+    if (!identity) throw new Error('Identity not found');
+    const deleted = [];
+    if (mode === 'cascade') {
+      const links = [
+        ['password_entry_id', 'PasswordEntry'], ['email_alias_id', 'EmailAlias'],
+        ['phone_alias_id', 'PhoneAlias'], ['virtual_card_id', 'VirtualCard'],
+        ['totp_secret_id', 'TOTPSecret'],
+      ];
+      for (const [field, entityName] of links) {
+        if (identity[field]) {
+          try { await entities[entityName].delete(identity[field]); deleted.push(entityName); } catch { /* best effort */ }
+        }
+      }
+    }
+    await entities.CloakedIdentity.delete(identityId);
+    return { data: { deleted_identity: identityId, deleted_records: deleted, mode } };
+  },
+
+  async getIdentityBundleSummary({ identityId }) {
+    const identity = (await entities.CloakedIdentity.list()).find(i => i.id === identityId);
+    if (!identity) return { data: null };
+    return {
+      data: {
+        identity,
+        hasPassword: Boolean(identity.password_entry_id),
+        hasEmail: Boolean(identity.email_alias_id),
+        hasPhone: Boolean(identity.phone_alias_id),
+        hasCard: Boolean(identity.virtual_card_id),
+        hasTotp: Boolean(identity.totp_secret_id),
+      },
+    };
   },
 
   // =========================================================================

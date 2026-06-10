@@ -18,7 +18,7 @@
  *
  * Pure + dependency-light (only reuses normalizePhone). Unit-tested in isolation.
  */
-import { normalizePhone } from './phoneRules';
+import { normalizePhone } from './phoneRules.js';
 
 export const RISK = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
 export const ACTION = { BLOCK: 'block', SCREEN: 'screen', ALLOW: 'allow' };

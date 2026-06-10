@@ -114,8 +114,17 @@ describe('provider registry', () => {
   });
 
   it('a capability with no provider is manual_only, not faked ready', async () => {
+    const { getCapabilityStatus } = await import('@/providers/index.js');
+    // A capability nothing contributes to must degrade to an honest manual flow.
+    expect(getCapabilityStatus('__no_such_capability__').status).toBe(CAPABILITY_STATUS.MANUAL_ONLY);
+  });
+
+  it('autofill needs the browser extension, not a fake "ready"', async () => {
     const { getCapabilityStatus, CAPABILITY } = await import('@/providers/index.js');
-    expect(getCapabilityStatus(CAPABILITY.AUTOFILL).status).toBe(CAPABILITY_STATUS.MANUAL_ONLY);
+    // No companion extension is present under test, so the honest answer is
+    // "needs browser extension" — never READY and never a false MANUAL_ONLY.
+    expect(getCapabilityStatus(CAPABILITY.AUTOFILL).status)
+      .toBe(CAPABILITY_STATUS.NEEDS_BROWSER_EXTENSION);
   });
 
   it('email alias needs a provider when nothing is configured', async () => {

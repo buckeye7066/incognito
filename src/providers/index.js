@@ -32,6 +32,7 @@ import { leakcheckProvider } from './breach/leakcheckProvider.js';
 import { googleCseProvider } from './search/googleCseProvider.js';
 import { openaiCompatibleProvider } from './llm/openaiCompatibleProvider.js';
 import { vpnConfigProvider, nativeVpnBridgeProvider } from './vpn/nativeVpnBridgeProvider.js';
+import { autofillBridgeProvider } from './extension/autofillBridgeProvider.js';
 
 export { CAPABILITY, CAPABILITY_STATUS, STATUS_META, isUsable };
 
@@ -48,6 +49,7 @@ const PROVIDERS = [
   openaiCompatibleProvider,
   vpnConfigProvider,
   nativeVpnBridgeProvider,
+  autofillBridgeProvider,
   mockProvider,
 ];
 

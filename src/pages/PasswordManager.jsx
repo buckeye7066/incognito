@@ -12,6 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Lock, Plus, Copy, Eye, EyeOff, Search, RefreshCw, Upload, Shield, AlertTriangle, Trash2, ExternalLink, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AutofillPreview from '@/components/passwords/AutofillPreview';
 
 const STRENGTH_COLORS = {
   very_weak: 'bg-red-500', weak: 'bg-orange-500', fair: 'bg-yellow-500',
@@ -206,6 +207,9 @@ export default function PasswordManager() {
           </Card>
         ))}
       </div>
+
+      {/* Autofill preview (capability-gated; fill needs the companion extension) */}
+      <AutofillPreview passwords={passwords} />
 
       {/* Search + tag filter */}
       <div className="flex gap-3">

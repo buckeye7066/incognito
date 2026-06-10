@@ -4063,12 +4063,17 @@ Return: risk_level (high/medium/low), likely_type (scam, spam, robocall, telemar
   // =========================================================================
 
   async checkSSNExposure({ ssnLast4, profileId }) {
+    // HONESTY: no consumer API can look up a *specific* SSN on the dark web, and
+    // an LLM has no live intelligence about one. This produces GENERAL breach
+    // education + protective actions, keyed only to the last-4 for context — it
+    // is explicitly NOT an authoritative per-SSN exposure result. The alert is
+    // tagged `source: 'guidance'` so the UI never presents it as a confirmed hit.
     const result = await invokeLLM({
-      prompt: `Based on known data breaches and dark web intelligence, assess the risk level for a Social Security Number ending in ${ssnLast4}.
-Consider recent major breaches (Equifax 2017, National Public Data 2024, etc.) and return:
-- risk_level: critical/high/medium/low
-- known_breaches: array of breach names that may have included SSNs
-- recommended_actions: array of specific steps to take
+      prompt: `A user wants general guidance about Social Security Number protection. Their SSN ends in ${ssnLast4} (last 4 only — you cannot and must not claim to know whether THIS specific SSN was exposed).
+Provide GENERAL education based on well-known public breaches, and return:
+- risk_level: a GENERAL risk posture for US SSNs today (critical/high/medium/low), not a claim about this person
+- known_breaches: array of major public breaches that are known to have included SSNs (e.g. Equifax 2017, National Public Data 2024)
+- recommended_actions: array of concrete protective steps (credit freeze, fraud alert, IRS IP PIN, etc.)
 - credit_freeze_recommended: boolean`,
       response_json_schema: {
         type: 'object',
@@ -4090,6 +4095,8 @@ Consider recent major breaches (Equifax 2017, National Public Data 2024, etc.) a
       credit_freeze_recommended: result.credit_freeze_recommended,
       checked_at: new Date().toISOString(),
       status: 'new',
+      source: 'guidance',
+      disclaimer: 'General breach guidance based on public data — not a confirmed lookup of your specific SSN. No consumer service can search the dark web for a specific SSN.',
     });
     return { data: alert };
   },

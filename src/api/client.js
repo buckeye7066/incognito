@@ -314,6 +314,9 @@ const SENSITIVE_ENTITY_FIELDS = {
   TOTPSecret: ['secret', 'recovery_codes'],
   EmailAlias: ['actual_email'],
   PhoneAlias: ['actual_phone'],
+  // Family call coverage: the real phone we dial through to is private; the
+  // published Twilio number is meant to be handed out, so it stays queryable.
+  CallCoverage: ['forward_to'],
   VirtualCard: ['card_number', 'cvv', 'pin', 'billing_address'],
   FinancialAccount: ['account_number', 'routing_number', 'login_password'],
   PersonalData: ['value'],
@@ -630,7 +633,7 @@ const ENTITY_NAMES = [
   'Household', 'HouseholdMember', 'EmergencyAccessGrant', 'SharedVaultItem',
   'PrivacyTask', 'EvidenceItem', 'DataBroker',
   'IdentityMessageThread', 'IdentityMessage',
-  'TrustedContact', 'BlockedContact', 'CallGuardRule',
+  'TrustedContact', 'BlockedContact', 'CallGuardRule', 'CallCoverage',
   'VirtualCardTransaction', 'DarkWebAlert',
   'IdentityTheftIncident', 'RecoveryChecklistItem', 'RecoveryPacket',
   'ProviderConnection', 'CapabilityStatusRecord',

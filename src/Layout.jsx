@@ -28,6 +28,7 @@ const navigation = [
   // Privacy & Security
   { name: 'VPN Manager', path: 'VPNManager', icon: Globe, section: 'Privacy' },
   { name: 'Call Guard', path: 'CallGuard', icon: ShieldAlert },
+  { name: 'Family Call Coverage', path: 'FamilyCallCoverage', icon: Users },
   { name: 'SSN Monitor', path: 'SSNMonitor', icon: Fingerprint },
   { name: 'AI Defense', path: 'AIDefense', icon: Bot },
   // Scanning & Monitoring

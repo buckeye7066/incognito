@@ -1,5 +1,9 @@
 # Incognito – Local‑first Privacy Vault
 
+> 👋 **New here? Start with [WELCOME.md](./WELCOME.md)** — a plain‑language tour
+> of what every part of the app does and how to get going in your first 10
+> minutes. The rest of this file is for developers.
+
 Incognito is a private, **local‑first** identity protection and digital
 footprint management tool.  It runs entirely in the user's browser and
 persists state to `localStorage` and `IndexedDB` on the same device.  There

@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import BreachCheckButton from '../components/vault/BreachCheckButton';
 import RecoveryReadiness from '../components/vault/RecoveryReadiness';
+import BackupSetupGuide from '../components/vault/BackupSetupGuide';
 import { notify } from '@/lib/notify';
 
 const DATA_TYPES = [
@@ -193,6 +194,7 @@ export default function Vault() {
 
       {/* Recovery Center — protect the local-first vault from loss */}
       <RecoveryReadiness recordCount={personalData.length} />
+      <BackupSetupGuide />
 
       {/* Add Form */}
       <AnimatePresence>

@@ -110,19 +110,56 @@ export async function handleHostRequest(request, ctx = {}) {
   }
 }
 
+/** Requests that hand out a secret or mutate the vault — gated + rate-limited. */
+const SECRET_REQUESTS = [HOST_REQUEST.GET_FILL, HOST_REQUEST.GET_TOTP];
+export const APPROVAL_EVENT = 'incognito:approval-request';
+
+/**
+ * Default approval gate: dispatch an event the app's FillApprovalGate renders a
+ * modal for, and resolve to the user's choice. Times out to DENY so a hidden
+ * same-origin script can neither hang the host nor sneak a secret through an
+ * unattended prompt.
+ */
+function dispatchApproval(kind, info, timeoutMs = 30000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; clearTimeout(timer); resolve(v); } };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    const detail = { kind, info, approve: () => finish(true), deny: () => finish(false) };
+    window.dispatchEvent(new CustomEvent(APPROVAL_EVENT, { detail }));
+  });
+}
+
+/** Sliding-window rate limiter for secret requests (anti-enumeration). */
+function makeRateLimiter({ max = 10, windowMs = 60000, now = () => Date.now() } = {}) {
+  let stamps = [];
+  return () => {
+    const t = now();
+    stamps = stamps.filter((s) => t - s < windowMs);
+    if (stamps.length >= max) return true;
+    stamps.push(t);
+    return false;
+  };
+}
+
 /**
  * Wire the pure handler to the live app. Listens for same-window postMessages
- * from the extension's app-origin content script, answers with live vault data,
- * and persists SAVE_LOGIN through the client. Returns a teardown function.
+ * from the extension's app-origin content script and answers with live vault
+ * data. Secret-returning requests (GET_FILL/GET_TOTP) and SAVE_LOGIN require an
+ * explicit in-app approval (so a hostile same-origin script cannot silently
+ * enumerate or exfiltrate the vault), are rate-limited, and need the vault
+ * unlocked. Returns a teardown function.
  *
  * @param {object} deps
  * @param {object} deps.client   the incognito client (entities + generateTOTP)
  * @param {object} deps.vault    vault singleton (isUnlocked())
  * @param {(secret:string)=>Promise<string>} [deps.generateTOTP]
+ * @param {(kind:string, info:object)=>Promise<boolean>} [deps.requireApproval]
  * @param {string} [deps.version]
  */
-export function initExtensionHost({ client, vault, generateTOTP, version = '1.0.0' } = {}) {
+export function initExtensionHost({ client, vault, generateTOTP, requireApproval = dispatchApproval, version = '1.0.0' } = {}) {
   if (typeof window === 'undefined' || !client || !vault) return () => {};
+  const rateLimited = makeRateLimiter();
 
   const respond = (reqId, response) => {
     window.postMessage({ channel: HOST_RES_CHANNEL, reqId, response }, window.location.origin);
@@ -137,7 +174,18 @@ export function initExtensionHost({ client, vault, generateTOTP, version = '1.0.
     let response;
     try {
       const unlocked = vault.isUnlocked();
-      const needData = [HOST_REQUEST.MATCH_LOGINS, HOST_REQUEST.MATCH_IDENTITIES, HOST_REQUEST.GET_FILL].includes(msg.type);
+
+      // Gate secret-returning requests: unlocked + not rate-limited + the user
+      // explicitly approves IN THE APP. This is what stops a hidden same-origin
+      // script from silently enumerating credentials via GET_FILL/GET_TOTP.
+      if (SECRET_REQUESTS.includes(msg.type)) {
+        if (!unlocked) { respond(msg.reqId, { ok: false, error: 'locked' }); return; }
+        if (rateLimited()) { respond(msg.reqId, { ok: false, error: 'rate_limited' }); return; }
+        const approved = await requireApproval('fill', { request: msg.type, id: msg.id });
+        if (!approved) { respond(msg.reqId, { ok: false, error: 'denied' }); return; }
+      }
+
+      const needData = [HOST_REQUEST.MATCH_LOGINS, HOST_REQUEST.GET_FILL].includes(msg.type);
       const ctx = {
         unlocked,
         version,
@@ -152,8 +200,11 @@ export function initExtensionHost({ client, vault, generateTOTP, version = '1.0.
       };
       response = await handleHostRequest(msg, ctx);
 
-      // Persist a captured login on the app side (encrypted by the entity store).
+      // Persist a captured login ONLY after the user confirms in-app — never
+      // auto-save, so a hostile page cannot poison the vault.
       if (msg.type === HOST_REQUEST.SAVE_LOGIN && response.ok) {
+        const approved = await requireApproval('save', { url: response.save.url, username: response.save.username });
+        if (!approved) { respond(msg.reqId, { ok: false, error: 'denied' }); return; }
         await client.entities.PasswordEntry.create({
           service_url: response.save.url,
           service_name: response.save.url ? response.save.url.replace(/^https?:\/\//, '').split('/')[0] : 'Saved login',

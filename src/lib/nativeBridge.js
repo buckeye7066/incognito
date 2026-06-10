@@ -47,6 +47,17 @@ export const nativeBridge = {
     disconnect: () => call('vpn.disconnect'),
     listLocations: () => call('vpn.listLocations'),
   },
+  // Dialer / call-screening enforcement. The web app can only ADVISE on a
+  // caller; actually blocking, allowing, or screening a live call needs OS
+  // dialer access the companion native shell provides. No vault secrets cross
+  // here — only phone numbers and an opaque verdict.
+  calls: {
+    canScreen: () => call('call.canScreen'),
+    recentEvents: () => call('call.recentEvents'),
+    block: (number) => call('call.block', { number }),
+    allow: (number) => call('call.allow', { number }),
+    report: (number, verdict) => call('call.report', { number, verdict }),
+  },
 };
 
 export default nativeBridge;

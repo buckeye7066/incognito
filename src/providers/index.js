@@ -26,6 +26,7 @@ import { simpleloginProvider } from './email/simpleloginProvider.js';
 import { addyProvider } from './email/addyProvider.js';
 import { emailInboxProvider } from './email/emailInboxProvider.js';
 import { twilioProvider, twilioBackendProvider } from './phone/twilioProvider.js';
+import { nativeCallProvider } from './phone/nativeCallProvider.js';
 import { privacyComProvider } from './payments/privacyComProvider.js';
 import { hibpProvider } from './breach/hibpProvider.js';
 import { leakcheckProvider } from './breach/leakcheckProvider.js';
@@ -42,6 +43,7 @@ const PROVIDERS = [
   emailInboxProvider,
   twilioProvider,
   twilioBackendProvider,
+  nativeCallProvider,
   privacyComProvider,
   hibpProvider,
   leakcheckProvider,

@@ -21,6 +21,7 @@ export const CAPABILITY = {
   PHONE_ALIAS: 'phone_alias',
   SMS_INBOX: 'sms_inbox',
   CALL_SCREEN: 'call_screen',
+  CALL_BLOCK: 'call_block',
   VIRTUAL_CARD: 'virtual_card',
   CARD_TXN_SYNC: 'card_txn_sync',
   BREACH_CHECK: 'breach_check',

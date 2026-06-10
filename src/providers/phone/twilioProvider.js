@@ -36,12 +36,12 @@ export const twilioBackendProvider = defineProvider({
   id: 'twilio_backend',
   displayName: 'Twilio + self-hosted webhook',
   description: 'Inbound SMS inbox, call logs, and live call screening.',
-  capabilities: [CAPABILITY.SMS_INBOX, CAPABILITY.CALL_SCREEN],
+  capabilities: [CAPABILITY.SMS_INBOX, CAPABILITY.CALL_SCREEN, CAPABILITY.CALL_ROUTING],
   consentProviderId: 'twilio',
   requiredSecrets: ['twilio_account_sid', 'twilio_auth_token'],
   requiredConsentDataTypes: ['phone'],
   requiresBackend: true,
-  limitations: 'Requires the optional server/ webhook receiver. See docs/OPTIONAL_BACKEND.md.',
+  limitations: 'Requires the optional server/ webhook receiver. Central call coverage (you + family) routes each published Twilio number through the backend. See docs/CALL_ROUTING.md.',
   docsAnchor: 'twilio',
 });
 

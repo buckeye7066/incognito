@@ -22,6 +22,7 @@ export const CAPABILITY = {
   SMS_INBOX: 'sms_inbox',
   CALL_SCREEN: 'call_screen',
   CALL_BLOCK: 'call_block',
+  CALL_ROUTING: 'call_routing',
   VIRTUAL_CARD: 'virtual_card',
   CARD_TXN_SYNC: 'card_txn_sync',
   BREACH_CHECK: 'breach_check',

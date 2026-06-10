@@ -9,7 +9,7 @@ import http from 'node:http';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { verifyTwilioSignature, smsToEvent, voiceScreeningTwiml } from './twilioWebhook.js';
+import { verifyTwilioSignature, smsToEvent, routeVoiceCall } from './twilioWebhook.js';
 import { verifyEmailWebhook, emailToEvent } from './emailWebhook.js';
 import { makeEncryptor, STORE_MODES } from './storage.js';
 
@@ -32,11 +32,22 @@ const STORE_OPTS = {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE = path.join(__dirname, '..', 'events.json');
+const COVERAGE_STORE = path.join(__dirname, '..', 'coverage.json');
 const MAX_EVENTS = 1000;
 
 function loadEvents() {
   try { return existsSync(STORE) ? JSON.parse(readFileSync(STORE, 'utf-8')) : []; }
   catch { return []; }
+}
+
+// Family call-coverage list (which Twilio numbers map to which real phones).
+// Numbers only — no vault secrets. The app syncs this via the /coverage API.
+function loadCoverage() {
+  try { return existsSync(COVERAGE_STORE) ? JSON.parse(readFileSync(COVERAGE_STORE, 'utf-8')) : []; }
+  catch { return []; }
+}
+function saveCoverage(list) {
+  writeFileSync(COVERAGE_STORE, JSON.stringify(Array.isArray(list) ? list : []));
 }
 function appendEvent(evt) {
   const events = loadEvents();
@@ -80,8 +91,28 @@ const server = http.createServer((req, res) => {
         params, signature: req.headers['x-twilio-signature'],
       });
       if (!ok) return send(res, 403, 'bad signature');
-      appendEvent({ type: 'call_inbound', from: params.From || '', received_at: new Date().toISOString() });
-      return send(res, 200, voiceScreeningTwiml(), { 'Content-Type': 'text/xml' });
+      // Decide reject / voicemail / screen / forward from the coverage list,
+      // log a metadata-only event, and answer with the TwiML.
+      const { twiml, event } = routeVoiceCall(params, { coverage: loadCoverage() });
+      appendEvent(event);
+      return send(res, 200, twiml, { 'Content-Type': 'text/xml' });
+    }
+
+    // Family call-coverage sync (app ↔ backend). Authenticated like /events.
+    if (url.pathname === '/coverage') {
+      if (!verifyEmailWebhook(req.headers['x-incognito-secret'], SHARED_SECRET)) {
+        return send(res, 403, 'forbidden');
+      }
+      if (req.method === 'GET') {
+        return send(res, 200, JSON.stringify(loadCoverage()), { 'Content-Type': 'application/json' });
+      }
+      if (req.method === 'POST') {
+        let list;
+        try { list = JSON.parse(body); } catch { return send(res, 400, 'invalid json'); }
+        if (!Array.isArray(list)) return send(res, 400, 'expected an array');
+        saveCoverage(list);
+        return send(res, 200, JSON.stringify({ ok: true, count: list.length }), { 'Content-Type': 'application/json' });
+      }
     }
 
     if (req.method === 'POST' && url.pathname === '/webhooks/email') {

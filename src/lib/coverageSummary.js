@@ -22,6 +22,7 @@ export const CAPABILITY_META = {
   [CAPABILITY.SMS_INBOX]: { label: 'SMS inbox', page: 'PhoneAliases' },
   [CAPABILITY.CALL_SCREEN]: { label: 'Call screening', page: 'CallGuard' },
   [CAPABILITY.CALL_BLOCK]: { label: 'Call blocking (native)', page: 'CallGuard' },
+  [CAPABILITY.CALL_ROUTING]: { label: 'Family call coverage', page: 'CallGuard' },
   [CAPABILITY.VIRTUAL_CARD]: { label: 'Virtual cards', page: 'CloakedPay' },
   [CAPABILITY.CARD_TXN_SYNC]: { label: 'Card transactions', page: 'CloakedPay' },
   [CAPABILITY.BREACH_CHECK]: { label: 'Breach checks', page: 'PasswordChecker' },

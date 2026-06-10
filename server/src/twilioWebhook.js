@@ -8,6 +8,7 @@
  */
 import crypto from 'node:crypto';
 import { bodyFields } from './storage.js';
+import { routeIncomingCall, buildVoiceTwiml, routeToEvent } from '../../src/lib/callRouting.js';
 
 export function verifyTwilioSignature({ authToken, url, params, signature }) {
   if (!authToken || !signature) return false;
@@ -38,9 +39,23 @@ export function smsToEvent(params, storeOpts = {}) {
   };
 }
 
-/** Minimal TwiML response for an inbound call (screening hook point). */
+/** Minimal TwiML response for an inbound call (fallback when no coverage). */
 export function voiceScreeningTwiml({ message = 'This number does not accept unscreened calls. Please state your name after the tone.' } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${escapeXml(message)}</Say><Record maxLength="30"/></Response>`;
+}
+
+/**
+ * Route an inbound voice call against the household's coverage list.
+ * Returns the TwiML to answer with + a metadata-only event to log.
+ * @param {object} params  Twilio POST params (From, To, ...)
+ * @param {{ coverage?: object[] }} [opts]
+ */
+export function routeVoiceCall(params, { coverage = [] } = {}) {
+  const decision = routeIncomingCall({ from: params.From || '', to: params.To || '', coverage });
+  return {
+    twiml: buildVoiceTwiml(decision),
+    event: routeToEvent(decision, { from: params.From || '', to: params.To || '' }),
+  };
 }
 
 function escapeXml(s) {

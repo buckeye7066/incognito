@@ -13,13 +13,12 @@ import { Users, Plus, Phone, PhoneForwarded, ShieldBan, Trash2, RefreshCw, ListC
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { CAPABILITY } from '@/providers';
-import { getBackendUrl, setBackendUrl } from '@/providers/index.js';
-import { CAPABILITY_STATUS } from '@/providers/capabilities';
+import { getBackendUrl } from '@/providers/index.js';
 import CapabilityBadge from '@/components/common/CapabilityBadge';
-import { toBackendCoverage, coverageEntryValid, maskPhone, splitNumbers } from '@/lib/familyCoverage';
+import { toBackendCoverage, coverageEntryValid, maskPhone, splitNumbers, BACKEND_SECRET_KEY } from '@/lib/familyCoverage';
+import TwilioSetupWizard from '@/components/calls/TwilioSetupWizard';
 import { notify } from '@/lib/notify';
 
-const SECRET_KEY = 'incognito_backend_secret';
 const EMPTY = {
   id: null, label: '', twilio_number: '', forward_to: '', contacts: '', blocked: '',
   auto_block_high_risk: true, voicemail_on_screen: false, record: false,
@@ -36,12 +35,9 @@ export default function FamilyCallCoverage() {
   const queryClient = useQueryClient();
   const { capabilities } = useCapabilities();
   const cap = capabilities[CAPABILITY.CALL_ROUTING];
-  const ready = cap?.status === CAPABILITY_STATUS.READY;
 
   const [form, setForm] = useState(EMPTY);
   const [showForm, setShowForm] = useState(false);
-  const [backendUrl, setUrl] = useState(() => getBackendUrl() || '');
-  const [secret, setSecret] = useState(() => localStorage.getItem(SECRET_KEY) || '');
   const [log, setLog] = useState(null);
 
   const { data: coverage = [] } = useQuery({
@@ -64,19 +60,13 @@ export default function FamilyCallCoverage() {
     onSuccess: () => queryClient.invalidateQueries(['callCoverage']),
   });
 
-  const saveConn = () => {
-    setBackendUrl(backendUrl.trim() || null);
-    localStorage.setItem(SECRET_KEY, secret.trim());
-    notify.success('Connection saved.');
-  };
-
   const sync = useMutation({
     mutationFn: async () => {
       const base = (getBackendUrl() || '').replace(/\/$/, '');
-      if (!base) throw new Error('Set your backend URL first.');
+      if (!base) throw new Error('Set your backend URL in the setup guide first.');
       const res = await fetch(`${base}/coverage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-incognito-secret': localStorage.getItem(SECRET_KEY) || '' },
+        headers: { 'Content-Type': 'application/json', 'x-incognito-secret': localStorage.getItem(BACKEND_SECRET_KEY) || '' },
         body: JSON.stringify(toBackendCoverage(coverage)),
       });
       if (!res.ok) throw new Error(`Backend rejected the sync (${res.status}).`);
@@ -89,8 +79,8 @@ export default function FamilyCallCoverage() {
   const loadLog = async () => {
     try {
       const base = (getBackendUrl() || '').replace(/\/$/, '');
-      if (!base) { notify.warn('Set your backend URL first.'); return; }
-      const res = await fetch(`${base}/events`, { headers: { 'x-incognito-secret': localStorage.getItem(SECRET_KEY) || '' } });
+      if (!base) { notify.warn('Set your backend URL in the setup guide first.'); return; }
+      const res = await fetch(`${base}/events`, { headers: { 'x-incognito-secret': localStorage.getItem(BACKEND_SECRET_KEY) || '' } });
       if (!res.ok) throw new Error(String(res.status));
       const events = await res.json();
       setLog((Array.isArray(events) ? events : []).filter((e) => e.type === 'call_routed').reverse());
@@ -134,25 +124,8 @@ export default function FamilyCallCoverage() {
         </CardContent>
       </Card>
 
-      {/* Setup checklist when the backend isn't wired yet */}
-      {!ready && (
-        <Card className="glass-card border-amber-500/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-300">
-              <ListChecks className="h-4 w-4" /> Finish setup to start screening real calls
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>You can add people now; calls are only screened once these are done (see <span className="font-mono">docs/CALL_ROUTING.md</span>):</p>
-            <ol className="list-decimal ml-5 space-y-1">
-              <li>Create a Twilio account and buy one number per person.</li>
-              <li>Run the local backend (<span className="font-mono">server/</span>) and expose it with a tunnel (e.g. <span className="font-mono">cloudflared</span>).</li>
-              <li>Point each Twilio number's Voice webhook at <span className="font-mono">/webhooks/twilio/voice</span>.</li>
-              <li>Enter the backend URL + secret below and press <b>Sync</b>.</li>
-            </ol>
-          </CardContent>
-        </Card>
-      )}
+      {/* Step-by-step setup guide (Twilio + backend + tunnel) */}
+      <TwilioSetupWizard />
 
       {/* Covered people */}
       <div className="space-y-2">
@@ -200,30 +173,15 @@ export default function FamilyCallCoverage() {
         )}
       </div>
 
-      {/* Backend connection + sync */}
+      {/* Sync + verify actions (connection is configured in the setup guide above) */}
       <Card className="glass-card">
-        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4 text-primary" /> Backend connection</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Backend URL</Label>
-              <Input placeholder="https://your-tunnel.example.com" value={backendUrl} onChange={(e) => setUrl(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">Shared secret</Label>
-              <Input type="password" placeholder="WEBHOOK_SHARED_SECRET" value={secret} onChange={(e) => setSecret(e.target.value)} />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={saveConn}>Save connection</Button>
-            <Button onClick={() => sync.mutate()} disabled={sync.isPending || coverage.length === 0} className="gap-2">
-              <RefreshCw className="h-4 w-4" /> {sync.isPending ? 'Syncing…' : 'Sync coverage to backend'}
-            </Button>
-            <Button variant="outline" onClick={loadLog} className="gap-2"><ListChecks className="h-4 w-4" /> Load recent calls</Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Your real phone numbers are encrypted in the vault. Only numbers + the screening verdict are
-            sent to your own backend — never recordings.
+        <CardContent className="py-3 px-4 flex flex-wrap items-center gap-2">
+          <Button onClick={() => sync.mutate()} disabled={sync.isPending || coverage.length === 0} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> {sync.isPending ? 'Syncing…' : 'Sync coverage to backend'}
+          </Button>
+          <Button variant="outline" onClick={loadLog} className="gap-2"><ListChecks className="h-4 w-4" /> Load recent calls</Button>
+          <p className="text-xs text-muted-foreground ml-auto">
+            Real numbers are encrypted in the vault; only numbers + the verdict reach your backend — never recordings.
           </p>
         </CardContent>
       </Card>

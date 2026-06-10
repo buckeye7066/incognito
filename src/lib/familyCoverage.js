@@ -11,6 +11,9 @@
  */
 import { normalizePhone } from './phoneRules.js';
 
+/** localStorage key for the backend shared secret (auths /coverage + /events). */
+export const BACKEND_SECRET_KEY = 'incognito_backend_secret';
+
 /** A coverage entry is usable only with both a published number and a real one. */
 export function coverageEntryValid(e) {
   return Boolean(normalizePhone(e?.twilio_number) && normalizePhone(e?.forward_to));

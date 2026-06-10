@@ -50,19 +50,36 @@ as a scam by the app's rules is rejected here too.
 | Apply allow/block lists + risk policy per number | Make people use the published Twilio number |
 | Expose a synced coverage list + an event log to verify | Reach a **local** backend from Twilio without a public tunnel |
 
-## Setup
+## Setup — the easy way
+
+The app has a built-in, step-by-step guide. Open **Family Call Coverage** in the
+sidebar and follow **"Turn on real call screening — step by step"** — it has copy
+buttons for every command/URL and remembers which steps you've finished.
+
+The one piece that runs outside the app:
+
+```
+start-backend-tunnel.bat      # starts the backend + a public cloudflared tunnel
+```
+
+It prints a public `https://…trycloudflare.com` URL and launches the backend with
+`PUBLIC_BASE_URL` already set to it (so Twilio signature checks pass). Paste that
+URL into the app's setup guide (Backend URL) and into each Twilio number's Voice
+webhook as `<url>/webhooks/twilio/voice`. Keep the window open while you want
+screening active. (Requires `cloudflared` — `winget install Cloudflare.cloudflared`.
+Put `TWILIO_AUTH_TOKEN` + `WEBHOOK_SHARED_SECRET` in `server/.env` first.)
+
+## Setup — manual reference
 
 1. **Twilio:** create an account, buy one number **per covered person**.
 2. **Run the backend** (`server/`): set `TWILIO_AUTH_TOKEN`, `WEBHOOK_SHARED_SECRET`,
    and `PUBLIC_BASE_URL`. See `server/README.md` / `server/.env.example`.
-3. **Expose it to Twilio.** Because the app is local-only, the backend needs a
-   public URL Twilio can POST to — a tunnel (`cloudflared tunnel`, `ngrok http 8787`)
-   or a tiny always-on host. Set `PUBLIC_BASE_URL` to that exact URL (the
-   signature check uses it).
+3. **Expose it to Twilio** with a tunnel (the runner above uses cloudflared) or a
+   tiny always-on host. Set `PUBLIC_BASE_URL` to that exact URL.
 4. **Point each Twilio number's Voice webhook** at `PUBLIC_BASE_URL/webhooks/twilio/voice`
    (HTTP POST).
-5. **Set coverage.** POST the JSON array above to `/coverage` with the
-   `x-incognito-secret` header, or drop a `coverage.json` next to the server.
+5. **Set coverage** from the app (Sync), or POST the JSON array above to `/coverage`
+   with the `x-incognito-secret` header.
 
 ## Verify it works
 

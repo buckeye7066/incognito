@@ -58,7 +58,9 @@ extension"…) are how it tells you the honest truth at a glance.
 - **Family Call Coverage** — the real call-screening setup. Give each person a
   screening number to hand out; scam/spam callers are stopped and trusted callers
   ring straight through to their real phone — for your whole family, from one
-  place. Needs a Twilio account + the backend (the page walks you through it).
+  place. The page has a **built-in step-by-step guide** (with copy buttons) plus a
+  one-command helper — `start-backend-tunnel.bat` — that brings the backend online
+  for Twilio. Follow the guide top to bottom and you're set.
 - **SSN Monitor / AI Defense** — guidance and alerts around SSN exposure and
   AI-era threats.
 

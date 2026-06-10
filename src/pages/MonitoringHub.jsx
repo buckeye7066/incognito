@@ -11,6 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, Plus, RefreshCw, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import CapabilityBadge from '@/components/common/CapabilityBadge';
+import { CAPABILITY, CAPABILITY_STATUS } from '@/providers/capabilities';
 import DisposableCredentialCard from '../components/monitoring/DisposableCredentialCard';
 import AIActivityAnalyzer from '../components/monitoring/AIActivityAnalyzer';
 import QuickGenerateCard from '../components/monitoring/QuickGenerateCard';
@@ -29,6 +32,11 @@ export default function MonitoringHub() {
   });
 
   const { activeProfileId } = useActiveProfile();
+
+  const { capabilities } = useCapabilities();
+  const darkwebCap = capabilities[CAPABILITY.DARKWEB_MONITOR];
+  const breachCap = capabilities[CAPABILITY.BREACH_CHECK];
+  const darkwebReady = darkwebCap?.status === CAPABILITY_STATUS.READY;
 
   const { data: allAccounts = [] } = useQuery({
     queryKey: ['monitoredAccounts'],
@@ -191,9 +199,9 @@ export default function MonitoringHub() {
 
       let findingsCount = 0;
       for (const data of profileData) {
-        const prompt = `Search dark web breach databases and monitoring sources for this identifier: ${data.data_type} = ${data.value}.
-        Check: breach databases (HIBP, DeHashed), credential dumps, paste sites, dark web marketplaces.
-        For each finding, provide: source_name, risk_score, data_exposed, details.
+        const prompt = `Using only publicly reported data breaches and public web sources, identify breaches that PLAUSIBLY may have exposed this identifier: ${data.data_type} = ${data.value}.
+        Do NOT claim access to the dark web or to private credential dumps. Base findings only on publicly known breaches.
+        For each, provide: source_name (the public breach), risk_score, data_exposed, details (note this is an estimate, not a confirmed hit).
         Return JSON array of findings.`;
 
         const result = await incognito.integrations.Core.InvokeLLM({
@@ -224,13 +232,19 @@ export default function MonitoringHub() {
               profile_id: activeProfileId,
               personal_data_id: data.id,
               source_name: finding.source_name,
-              source_type: 'breach_database',
+              // HONESTY: without a real dark-web provider this is an AI web-search
+              // ESTIMATE, not a confirmed breach-database hit. Label it as such so
+              // it is never shown as a verified exposure.
+              source_type: darkwebReady ? 'breach_database' : 'ai_estimate',
               risk_score: finding.risk_score,
               data_exposed: finding.data_exposed,
               status: 'new',
               scan_date: new Date().toISOString().split('T')[0],
               metadata: {
-                scan_type: 'dark_web',
+                scan_type: darkwebReady ? 'dark_web' : 'ai_heuristic',
+                estimated: !darkwebReady,
+                disclaimer: darkwebReady ? undefined
+                  : 'AI estimate from public web search — not a confirmed dark-web breach hit. Connect a dark-web monitoring provider for verified results.',
                 details: finding.details
               }
             });
@@ -239,10 +253,14 @@ export default function MonitoringHub() {
         }
       }
 
-      notify.success(`Dark web scan complete! Found ${findingsCount} exposure(s) of your profile data.`);
+      if (darkwebReady) {
+        notify.success(`Dark-web re-check complete — ${findingsCount} exposure(s) found.`);
+      } else {
+        notify.success(`AI estimate complete — ${findingsCount} possible mention(s). These are estimates, not confirmed dark-web hits.`);
+      }
       queryClient.invalidateQueries({ queryKey: ['scanResults'] });
     } catch (error) {
-      notify.error('Dark web scan failed: ' + error.message);
+      notify.error('Scan failed: ' + error.message);
     } finally {
       setDarkWebScanning(false);
     }
@@ -295,7 +313,15 @@ export default function MonitoringHub() {
             <Smartphone className="w-10 h-10 text-purple-400" />
             Monitoring Hub
           </h1>
-          <p className="text-purple-300">Monitor your profile data across emails, dark web, and social media</p>
+          <p className="text-purple-300">Scheduled re-checks of your profile data across email, breach databases, and social media — not a live dark-web feed.</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-purple-300/80">
+            <span className="inline-flex items-center gap-1.5">
+              Breach check <CapabilityBadge status={breachCap?.status} detail={breachCap?.providers?.[0]?.detail} />
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              Dark-web monitoring <CapabilityBadge status={darkwebCap?.status} detail={darkwebCap?.providers?.[0]?.detail} />
+            </span>
+          </div>
         </div>
         <Button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -329,7 +355,14 @@ export default function MonitoringHub() {
               className="h-24 border-red-500/50 text-red-300 flex-col gap-2"
             >
               <AlertCircle className={`w-8 h-8 ${darkWebScanning ? 'animate-pulse' : ''}`} />
-              <span>{darkWebScanning ? 'Scanning Dark Web...' : 'Dark Web Scan'}</span>
+              <span>
+                {darkWebScanning
+                  ? (darkwebReady ? 'Re-checking...' : 'Estimating...')
+                  : (darkwebReady ? 'Dark-Web Re-check' : 'AI Exposure Estimate')}
+              </span>
+              {!darkwebReady && (
+                <CapabilityBadge status={darkwebCap?.status} detail={darkwebCap?.providers?.[0]?.detail} />
+              )}
             </Button>
             <Button
               onClick={runSocialMediaScan}

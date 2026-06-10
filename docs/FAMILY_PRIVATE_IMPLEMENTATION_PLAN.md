@@ -32,10 +32,17 @@ Each pass is independently shippable and must end green on `npm run release:chec
   badges (VIRTUAL_CARD / CARD_TXN_SYNC), honest local-placeholder labeling, and a
   capability-gated recurring-charges panel. `client.js listSubscriptions` now
   backed by the tested heuristic.
-- ⏳ **Passes 8, 11, 12, 14, 16** — UI build-out on top of the above
+- ✅ **Pass 11** — dark-web / SSN monitoring: `lib/monitorSchedule.js`
+  (severity-adaptive re-check scheduler + honest coverage summary + SSN masking)
+  wired into MonitoringHub + SSNMonitor with BREACH_CHECK / DARKWEB_MONITOR
+  capability badges. Fixed two honesty bugs: the LLM "dark web scan" now labels
+  results as AI estimates (not confirmed breach hits) unless a real provider is
+  connected, and `checkSSNExposure` is reframed as general breach guidance
+  (tagged `source: 'guidance'` + disclaimer) since no service can look up one SSN.
+- ⏳ **Passes 8, 12, 14, 16** — UI build-out on top of the above
   foundation; not yet started.
 
-Total tests: 178 green (18 new in cardPolicy). `release:check` green.
+Total tests: 195 green (18 cardPolicy + 17 monitorSchedule). `release:check` green.
 
 ## Pass 1 — Foundation ✅ (this commit)
 - Audit + plan + capabilities + provider-setup docs.
@@ -97,9 +104,19 @@ Total tests: 178 green (18 new in cardPolicy). `release:check` green.
 - Curated broker directory (import/update); campaigns + task state machine;
   evidence capture; rescan/reappearance; guided Google removal.
 
-## Pass 11 — Dark-web / SSN monitoring
+## Pass 11 — Dark-web / SSN monitoring ✅
 - HIBP + LeakCheck providers; scheduled re-checks (local scheduler/backend);
   alert + response checklists; SSN last-4 default, full SSN encrypted.
+- Done: `lib/monitorSchedule.js` (pure, 17 tests) — `isDue`/`nextCheckAt`/
+  `dueItems`, severity-adaptive `intervalHours` (critical re-checked ~4× sooner;
+  `{adaptive:false}` for fixed), `summarizeMonitoring` (honest coverage:
+  "scheduled re-checks" only when DARKWEB_MONITOR is READY, else "manual/on-demand"),
+  `maskSSN`/`ssnLast4`, `sortBySeverity`. UI: capability badges on MonitoringHub +
+  SSNMonitor; honest framing that monitoring = scheduled re-checks, not a live feed.
+- Honesty fixes: MonitoringHub "dark web scan" stores AI web-search results as
+  `source_type: 'ai_estimate'` (not `breach_database`) with a disclaimer unless a
+  real provider is connected; `checkSSNExposure` reframed as general guidance
+  (`source: 'guidance'`) because no consumer service can look up a specific SSN.
 
 ## Pass 12 — Call Guard
 - Trusted/blocked contacts; rules; provider/backend-aware UI ("risk lookup

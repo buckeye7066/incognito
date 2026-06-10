@@ -7,8 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertTriangle, Shield, ShieldAlert, Search, Clock, CheckCircle, ExternalLink, Lock, Fingerprint, Trash2 } from 'lucide-react';
+import { AlertTriangle, Shield, ShieldAlert, Search, Clock, CheckCircle, ExternalLink, Lock, Fingerprint, Trash2, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import CapabilityBadge from '@/components/common/CapabilityBadge';
+import { CAPABILITY } from '@/providers/capabilities';
+import { maskSSN } from '@/lib/monitorSchedule';
 
 const CREDIT_BUREAUS = [
   { name: 'Equifax', freezeUrl: 'https://www.equifax.com/personal/credit-report-services/credit-freeze/', color: 'bg-red-500' },
@@ -30,6 +34,10 @@ export default function SSNMonitor() {
   const [selectedAlert, setSelectedAlert] = useState(null);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+
+  const { capabilities } = useCapabilities();
+  const breachCap = capabilities[CAPABILITY.BREACH_CHECK];
+  const darkwebCap = capabilities[CAPABILITY.DARKWEB_MONITOR];
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['ssnMonitorAlerts'],
@@ -72,8 +80,16 @@ export default function SSNMonitor() {
             SSN & Identity Monitor
           </h1>
           <p className="text-muted-foreground mt-1">
-            Monitor your Social Security Number on the dark web and get guided response plans.
+            General SSN-protection guidance and guided response plans. We use only your SSN's last 4 digits — no service can look up a specific SSN on the dark web.
           </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              Breach check <CapabilityBadge status={breachCap?.status} detail={breachCap?.providers?.[0]?.detail} />
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              Dark-web monitoring <CapabilityBadge status={darkwebCap?.status} detail={darkwebCap?.providers?.[0]?.detail} />
+            </span>
+          </div>
         </div>
         <Dialog open={showCheck} onOpenChange={setShowCheck}>
           <DialogTrigger asChild>
@@ -86,6 +102,10 @@ export default function SSNMonitor() {
                 <AlertTriangle className="h-4 w-4 inline mr-1 text-yellow-500" />
                 Only the last 4 digits of your SSN are used. Full SSN is never stored or transmitted.
               </div>
+              <div className="p-3 bg-blue-500/10 rounded-lg text-xs text-blue-300 flex items-start gap-2">
+                <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                This produces <strong>general breach guidance</strong> and a protective action plan — not a confirmed lookup of your specific SSN. No consumer service can search the dark web for one SSN.
+              </div>
               <div>
                 <Label>Last 4 Digits of SSN</Label>
                 <Input type="password" maxLength={4} placeholder="****" value={ssnLast4}
@@ -94,7 +114,7 @@ export default function SSNMonitor() {
               </div>
               <Button className="w-full" onClick={() => checkMutation.mutate(ssnLast4)}
                 disabled={ssnLast4.length !== 4 || checkMutation.isPending}>
-                {checkMutation.isPending ? 'Checking dark web databases...' : 'Check Exposure'}
+                {checkMutation.isPending ? 'Generating guidance...' : 'Get Guidance'}
               </Button>
             </div>
           </DialogContent>
@@ -113,13 +133,23 @@ export default function SSNMonitor() {
                 }
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold">SSN Risk Level: {latestAlert.risk_level?.toUpperCase()}</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold">
+                    {latestAlert.source === 'guidance' ? 'General SSN Risk Posture' : 'SSN Risk Level'}: {latestAlert.risk_level?.toUpperCase()}
+                  </h2>
                   <Badge variant={riskStyle(latestAlert.risk_level).badge}>{latestAlert.risk_level}</Badge>
+                  {latestAlert.source === 'guidance' && (
+                    <Badge variant="outline" className="text-[10px]">Guidance, not a confirmed hit</Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Last checked: {new Date(latestAlert.checked_at).toLocaleString()} — SSN ending in ****{latestAlert.ssn_last4}
+                  Last checked: {new Date(latestAlert.checked_at).toLocaleString()} — {maskSSN(latestAlert.ssn_last4)}
                 </p>
+                {latestAlert.disclaimer && (
+                  <p className="text-xs text-muted-foreground/80 mt-1 flex items-start gap-1">
+                    <Info className="h-3 w-3 mt-0.5 shrink-0" /> {latestAlert.disclaimer}
+                  </p>
+                )}
                 {latestAlert.credit_freeze_recommended && (
                   <p className="text-sm text-red-500 font-medium mt-1">
                     Credit freeze is STRONGLY recommended.

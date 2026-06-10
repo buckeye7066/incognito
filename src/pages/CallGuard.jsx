@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { incognito } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PhoneCall, Shield, ShieldAlert, ShieldBan, ShieldCheck, FileText, Search, Trash2, AlertTriangle, Clock, Sparkles } from 'lucide-react';
+import { PhoneCall, Shield, ShieldAlert, ShieldBan, ShieldCheck, FileText, Search, Trash2, AlertTriangle, Clock, Sparkles, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { CAPABILITY } from '@/providers';
 import CapabilityBadge from '@/components/common/CapabilityBadge';
 import { normalizePhone } from '@/lib/phoneRules';
+import nativeBridge from '@/lib/nativeBridge';
+import { planEnforcement, mergeCallEvents, summarizeEnforcement } from '@/lib/callEnforcement';
+import { notify } from '@/lib/notify';
 
 const RISK_COLORS = {
   high: 'text-red-500 bg-red-500/10', medium: 'text-yellow-500 bg-yellow-500/10', low: 'text-green-500 bg-green-500/10',
@@ -45,6 +48,25 @@ export default function CallGuard() {
 
   const { capabilities } = useCapabilities();
   const callCap = capabilities[CAPABILITY.CALL_SCREEN];
+  const blockCap = capabilities[CAPABILITY.CALL_BLOCK];
+
+  // Native dialer bridge: present only inside the companion native shell. When
+  // absent, Call Guard is honestly advisory — it recommends but cannot enforce.
+  const [native, setNative] = useState({ present: false, canScreen: false, events: [] });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!nativeBridge.isPresent()) return;
+      try {
+        const canScreen = await nativeBridge.calls.canScreen();
+        const events = await nativeBridge.calls.recentEvents().catch(() => []);
+        if (!cancelled) setNative({ present: true, canScreen: Boolean(canScreen), events: Array.isArray(events) ? events : [] });
+      } catch {
+        if (!cancelled) setNative({ present: true, canScreen: false, events: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
 
@@ -93,10 +115,42 @@ export default function CallGuard() {
     onSuccess: () => queryClient.invalidateQueries(['callGuardLogs']),
   });
 
+  // Block/allow a number. Records the decision locally (so the screener learns)
+  // and, when the native bridge is present, actually enforces it on the device.
+  // Without the bridge it stays honestly advisory.
+  const enforceMutation = useMutation({
+    mutationFn: async ({ number, action }) => {
+      const plan = planEnforcement(action, { hasBridge: native.present, canScreen: native.canScreen });
+      if (plan.command && nativeBridge.isPresent()) {
+        await nativeBridge.calls[plan.command](number);
+      }
+      await incognito.entities.CallGuardLog.create({
+        profile_id: activeProfileId,
+        caller_number: number,
+        risk_level: action === 'block' ? 'high' : 'low',
+        likely_type: action === 'block' ? 'scam' : 'legitimate',
+        action_taken: action,
+        reasoning: action === 'block' ? 'Manually blocked' : 'Manually allowed',
+        signals: [{ code: 'manual', label: `You ${action === 'block' ? 'blocked' : 'allowed'} this number`, severity: action === 'block' ? 'danger' : 'good' }],
+        source: plan.mode === 'enforced' ? 'native' : 'on_device',
+        screened_at: new Date().toISOString(),
+      });
+      return plan;
+    },
+    onSuccess: (plan) => {
+      queryClient.invalidateQueries(['callGuardLogs']);
+      notify.success(plan.note);
+    },
+    onError: (err) => notify.error(err?.message || 'Could not apply that.'),
+  });
+
   const toggleSetting = (key, setter) => (value) => {
     setter(value);
     localStorage.setItem(key, value.toString());
   };
+
+  // Fold the OS's own call events into the history for an honest device tally.
+  const enforcement = summarizeEnforcement(mergeCallEvents(callLogs, native.events));
 
   const stats = {
     total: callLogs.length,
@@ -115,10 +169,17 @@ export default function CallGuard() {
             <ShieldAlert className="h-8 w-8 text-primary" />
             Call Guard
             <CapabilityBadge status={callCap?.status} detail={callCap?.providers?.[0]?.detail} />
+            <span className="inline-flex items-center gap-1 text-sm font-normal">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <CapabilityBadge status={blockCap?.status} detail={blockCap?.providers?.[0]?.detail} />
+            </span>
           </h1>
           <p className="text-muted-foreground mt-1">
             Check a number against signals we can actually verify on-device — invalid caller IDs,
             local-prefix spoofing, and your own allow/block history.
+            {native.present && native.canScreen
+              ? ' Blocks are enforced on this device.'
+              : ' Blocking is advisory until you install the companion app.'}
           </p>
         </div>
         <Dialog open={showScreen} onOpenChange={setShowScreen}>
@@ -175,6 +236,20 @@ export default function CallGuard() {
           </Card>
         ))}
       </div>
+
+      {/* Native enforcement banner — only meaningful inside the companion app */}
+      {native.present && (
+        <Card className="glass-card border-green-500/20 bg-green-500/5">
+          <CardContent className="py-3 px-4 flex items-center gap-3 text-sm">
+            <Smartphone className="h-4 w-4 text-green-400" />
+            <span className="text-green-300">
+              {native.canScreen
+                ? `Enforcement active on this device · ${enforcement.enforcedOnDevice} call event${enforcement.enforcedOnDevice === 1 ? '' : 's'} from the OS.`
+                : 'Companion app detected, but it has no call-screening permission yet.'}
+            </span>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Settings */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -296,6 +371,22 @@ export default function CallGuard() {
                         {log.transcript && (
                           <Button variant="ghost" size="icon" className="h-8 w-8" title="View transcript">
                             <FileText className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {log.action_taken !== 'block' && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400"
+                            title={native.canScreen ? 'Block on this device' : 'Block (advisory)'}
+                            disabled={enforceMutation.isPending}
+                            onClick={() => enforceMutation.mutate({ number: log.caller_number, action: 'block' })}>
+                            <ShieldBan className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {log.action_taken !== 'allow' && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-green-400"
+                            title={native.canScreen ? 'Allow on this device' : 'Allow (advisory)'}
+                            disabled={enforceMutation.isPending}
+                            onClick={() => enforceMutation.mutate({ number: log.caller_number, action: 'allow' })}>
+                            <ShieldCheck className="h-3 w-3" />
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"

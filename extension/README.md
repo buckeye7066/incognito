@@ -5,14 +5,29 @@ read the active tab's domain and fill credentials into a page. The **vault never
 lives in the extension** — it stays in the Incognito app, which must be open and
 unlocked for any fill.
 
-## Install (unpacked, for development)
+## Install — local-only build
 
-1. Build/serve the Incognito app and note its origin (e.g. `http://localhost:5173`).
-2. If your app origin isn't already listed, add it to **three** places in
-   `manifest.json`: the `content_scripts` match for `content-app.js`, the
-   matching `exclude_matches` for `content-site.js`, and `web_accessible_resources`.
-3. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**,
-   and select this `extension/` folder. (Edge: `edge://extensions`.)
+This build trusts only the local app origins (`http://localhost:5173` dev,
+`http://localhost:4173` preview). There is no public/hosted origin.
+
+### Easiest: the launcher (Windows)
+
+Run **`launch.bat`** in the repo root (or the desktop shortcut). It starts the
+app and opens Chrome/Edge in a dedicated, isolated profile with this extension
+already loaded — no manual steps. (Implemented by `open-incognito-browser.ps1`.)
+
+### Manual (any OS)
+
+1. `npm run dev` (app on `:5173`) — or `npm run build && npm run preview` (`:4173`).
+2. Open `chrome://extensions` (Edge: `edge://extensions`), enable **Developer
+   mode**, click **Load unpacked**, and select this `extension/` folder.
+3. Open the app at `http://localhost:5173`, unlock the vault, and the AUTOFILL
+   capability flips to **Ready**.
+
+> If you later host the app, add that exact origin to **three** places in
+> `manifest.json` (the `content-app.js` match, the `content-site.js`
+> `exclude_matches`, and `web_accessible_resources`). Never use a wildcard
+> subdomain — see Security hardening below.
 
 ## How it works
 

@@ -25,5 +25,8 @@ echo   DO NOT close this window while using the app.
 echo   Press Ctrl+C to stop the server.
 echo.
 
-start "" /b cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5173"
+echo   Loading the companion autofill extension into an isolated browser profile.
+echo.
+
+start "" /b powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0open-incognito-browser.ps1"
 npm run dev

@@ -8,6 +8,7 @@ import { checkPasswordPwned } from '@/lib/passwordBreach';
 import { applyRuleChange, normalizeRules, DEFAULT_ALIAS_RULES } from '@/lib/aliasRules';
 import { applyPhoneRuleChange, normalizeRules as normalizePhoneRules, DEFAULT_PHONE_RULES } from '@/lib/phoneRules';
 import { assessCaller, decideAction, explainAssessment } from '@/lib/callScreening';
+import { summarizeBackup, verifyBackupStructure, BACKUP_VERSION } from '@/lib/recoveryKit';
 import { parseOtpauthUri, isValidBase32 } from '@/lib/otpauth';
 
 const STORAGE_PREFIX = 'incognito_entity_';
@@ -671,6 +672,85 @@ export async function migrateLegacyPlaintext() {
 /** List of entities subject to vault encryption. Useful for UI status. */
 export function getSensitiveEntityNames() {
   return Object.keys(SENSITIVE_ENTITY_FIELDS);
+}
+
+/**
+ * Produce an ENCRYPTED backup of the whole household vault (Pass 14).
+ *
+ * Honesty: docs/BACKUP_AND_RECOVERY.md promises encrypted backups, so this
+ * encrypts the entire payload with the vault's AES-GCM key — never a plaintext
+ * dump of secrets. The outer envelope carries only a manifest (per-type counts
+ * + an integrity checksum) so the file can be inspected without decrypting.
+ *
+ * @returns {Promise<object>} a serializable, encrypted backup envelope
+ */
+export async function exportEncryptedBackup() {
+  if (!vault.isUnlocked()) {
+    throw new Error('Unlock the vault before creating a backup.');
+  }
+  const entitiesMap = {};
+  for (const name of ENTITY_NAMES) {
+    entitiesMap[name] = await entities[name].list();
+  }
+  const manifest = summarizeBackup(entitiesMap);
+  const inner = JSON.stringify({ entities: entitiesMap, apiKeys: getApiKeys(), checksum: manifest.checksum });
+  const payload = await vault.encrypt(inner); // AES-256-GCM via the unlocked key
+  return {
+    app: 'incognito',
+    version: BACKUP_VERSION,
+    encrypted: true,
+    exported_at: new Date().toISOString(),
+    manifest: { totalRecords: manifest.totalRecords, byType: manifest.byType, checksum: manifest.checksum },
+    payload,
+  };
+}
+
+/**
+ * Restore from an encrypted backup envelope produced by exportEncryptedBackup.
+ * Verifies structure + decrypts + checks the integrity checksum before writing
+ * anything, so a corrupted file fails loudly instead of half-importing.
+ *
+ * @param {object} envelope  parsed backup file
+ * @param {{ mode?: 'merge'|'replace' }} [opts]
+ * @returns {Promise<{ imported: number, byType: Record<string,number> }>}
+ */
+export async function importEncryptedBackup(envelope, { mode = 'merge' } = {}) {
+  if (!vault.isUnlocked()) {
+    throw new Error('Unlock the vault before restoring a backup.');
+  }
+  const check = verifyBackupStructure(envelope);
+  if (!check.ok) throw new Error(check.reason);
+  if (!check.encrypted) throw new Error('This is a plaintext backup — use Settings → Import for that format.');
+
+  let inner;
+  try {
+    inner = JSON.parse(await vault.decrypt(envelope.payload));
+  } catch {
+    throw new Error('Could not decrypt backup — it may be from a different vault/master password.');
+  }
+  const recomputed = summarizeBackup(inner.entities || {}).checksum;
+  if (inner.checksum && recomputed !== inner.checksum) {
+    throw new Error('Backup integrity check failed (checksum mismatch) — file may be corrupted.');
+  }
+
+  const byType = {};
+  let imported = 0;
+  for (const name of ENTITY_NAMES) {
+    const items = inner.entities?.[name];
+    if (!Array.isArray(items) || items.length === 0) continue;
+    if (mode === 'replace') {
+      const existing = await entities[name].list();
+      for (const e of existing) { try { await entities[name].delete(e.id); } catch { /* ignore */ } }
+    }
+    for (const item of items) {
+      try { await entities[name].create(item); imported++; byType[name] = (byType[name] || 0) + 1; }
+      catch { /* skip malformed record, keep going */ }
+    }
+  }
+  if (inner.apiKeys && typeof inner.apiKeys === 'object') {
+    try { await setApiKeys(inner.apiKeys); } catch { /* keys are optional */ }
+  }
+  return { imported, byType };
 }
 
 // No cache invalidation needed — entity stores always read fresh from localStorage

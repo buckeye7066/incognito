@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import BreachCheckButton from '../components/vault/BreachCheckButton';
+import RecoveryReadiness from '../components/vault/RecoveryReadiness';
 import { notify } from '@/lib/notify';
 
 const DATA_TYPES = [
@@ -189,6 +190,9 @@ export default function Vault() {
           </Button>
         </div>
       </div>
+
+      {/* Recovery Center — protect the local-first vault from loss */}
+      <RecoveryReadiness recordCount={personalData.length} />
 
       {/* Add Form */}
       <AnimatePresence>

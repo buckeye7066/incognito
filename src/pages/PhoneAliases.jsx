@@ -1,303 +1,208 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { incognito } from '@/api/client';
+import vault from '@/lib/vault';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Phone, Plus, Copy, Trash2, Search, PhoneCall, MessageSquare, PhoneOff, PhoneForwarded } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Phone, Plus, Copy, Search, Lock, PhoneForwarded } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCapabilities } from '@/hooks/useCapabilities';
+import CapabilityBadge from '@/components/common/CapabilityBadge';
+import { CAPABILITY, CAPABILITY_STATUS } from '@/providers/capabilities';
+import { summarizePhoneRules } from '@/lib/phoneRules';
+import { estimateMonthlyCost, formatUsd } from '@/lib/phoneCost';
+import PhoneDetailDrawer from '@/components/phone/PhoneDetailDrawer';
 
 export default function PhoneAliases() {
   const queryClient = useQueryClient();
+  const { capabilities } = useCapabilities();
+  const [locked, setLocked] = useState(!vault.isUnlocked());
   const [showCreate, setShowCreate] = useState(false);
-  const [showSMS, setShowSMS] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchAreaCode, setSearchAreaCode] = useState('');
-  const [availableNumbers, setAvailableNumbers] = useState([]);
-  const [searchingNumbers, setSearchingNumbers] = useState(false);
-  const [smsForm, setSmsForm] = useState({ to: '', body: '' });
-  const [forwardingForm, setForwardingForm] = useState({});
-  const [formData, setFormData] = useState({ purpose: '' });
+  const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [fMember, setFMember] = useState('all');
+  const [areaCode, setAreaCode] = useState('');
+  const [available, setAvailable] = useState([]);
+  const [form, setForm] = useState({ purpose: '', household_member_id: 'none' });
+
+  useEffect(() => {
+    const a = vault.on('lock', () => setLocked(true));
+    const b = vault.on('unlock', () => setLocked(false));
+    return () => { if (a) a(); if (b) b(); };
+  }, []);
 
   const activeProfileId = typeof window !== 'undefined' ? window.activeProfileId : null;
+  const phoneCap = capabilities[CAPABILITY.PHONE_ALIAS];
+  const phoneReady = phoneCap?.status === CAPABILITY_STATUS.READY;
 
-  const { data: phoneAliases = [], isLoading } = useQuery({
-    queryKey: ['phoneAliases'],
-    queryFn: () => incognito.entities.PhoneAlias.list('-created_date'),
+  const { data: aliases = [], isLoading } = useQuery({ queryKey: ['phoneAliases'], queryFn: () => incognito.entities.PhoneAlias.list('-created_date') });
+  const { data: members = [] } = useQuery({ queryKey: ['householdMembers'], queryFn: () => incognito.entities.HouseholdMember.list() });
+  const memberById = Object.fromEntries(members.map((m) => [m.id, m]));
+
+  const searchMutation = useMutation({
+    mutationFn: (ac) => incognito.functions.invoke('listAvailablePhoneNumbers', { areaCode: ac }),
+    onSuccess: (r) => setAvailable(r.data || []),
   });
-
-  const filtered = phoneAliases
-    .filter(p => !activeProfileId || p.profile_id === activeProfileId)
-    .filter(p => !searchQuery || p.phone_number?.includes(searchQuery) || p.purpose?.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  const searchNumbersMutation = useMutation({
-    mutationFn: async (areaCode) => {
-      const result = await incognito.functions.invoke('listAvailablePhoneNumbers', { areaCode });
-      return result.data || [];
-    },
-    onSuccess: (data) => setAvailableNumbers(data),
-  });
-
   const purchaseMutation = useMutation({
-    mutationFn: ({ phoneNumber }) => incognito.functions.invoke('purchasePhoneNumber', {
-      phoneNumber, profileId: activeProfileId, purpose: formData.purpose,
+    mutationFn: (phoneNumber) => incognito.functions.invoke('purchasePhoneNumber', {
+      phoneNumber, profileId: activeProfileId,
+      householdMemberId: form.household_member_id === 'none' ? null : form.household_member_id,
+      purpose: form.purpose,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries(['phoneAliases']);
-      setShowCreate(false);
-      setAvailableNumbers([]);
-      setFormData({ purpose: '' });
+      queryClient.invalidateQueries({ queryKey: ['phoneAliases'] });
+      setShowCreate(false); setAvailable([]); setForm({ purpose: '', household_member_id: 'none' });
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => incognito.entities.PhoneAlias.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['phoneAliases']),
+  const filtered = aliases.filter((p) => {
+    if (fMember !== 'all') { if (fMember === 'unassigned' ? p.household_member_id : p.household_member_id !== fMember) return false; }
+    if (search && !`${p.phone_number} ${p.purpose || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
-  const sendSMSMutation = useMutation({
-    mutationFn: ({ fromAliasSid, to, body }) => incognito.functions.invoke('sendSMS', { fromAliasSid, to, body }),
-    onSuccess: () => {
-      setShowSMS(null);
-      setSmsForm({ to: '', body: '' });
-    },
-  });
-
-  const forwardingMutation = useMutation({
-    mutationFn: ({ phoneAliasSid, forwardingNumber }) =>
-      incognito.functions.invoke('configurePhoneForwarding', { phoneAliasSid, forwardingNumber }),
-    onSuccess: () => queryClient.invalidateQueries(['phoneAliases']),
-  });
-
-  const toggleAlias = async (alias) => {
-    const newStatus = alias.status === 'active' ? 'disabled' : 'active';
-    await incognito.entities.PhoneAlias.update(alias.id, { status: newStatus });
-    queryClient.invalidateQueries(['phoneAliases']);
-  };
-
-  const copyToClipboard = (text) => navigator.clipboard.writeText(text);
-
-  const stats = {
-    total: phoneAliases.length,
-    active: phoneAliases.filter(p => p.status === 'active').length,
-    withForwarding: phoneAliases.filter(p => p.forwarding_number).length,
-  };
+  const cost = estimateMonthlyCost({ numberCount: aliases.length });
+  const selected = aliases.find((a) => a.id === selectedId);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Phone className="h-8 w-8 text-primary" />
-            Phone Aliases
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Generate unique phone numbers for every service via Twilio. Forward calls and texts to your real number.
-          </p>
+          <h1 className="text-3xl font-bold flex items-center gap-3"><Phone className="h-8 w-8 text-primary" /> Phone Aliases</h1>
+          <p className="text-muted-foreground mt-1">Real Twilio numbers per service. Forward calls/texts to your real number; block/allow callers per number.</p>
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" /> New Number</Button>
-          </DialogTrigger>
+          <DialogTrigger asChild><Button className="gap-2" disabled={locked}><Plus className="h-4 w-4" /> New Number</Button></DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Get a New Phone Number</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Purpose</Label>
-                <Input placeholder="e.g., Online shopping, Dating apps" value={formData.purpose}
-                  onChange={(e) => setFormData(d => ({ ...d, purpose: e.target.value }))} />
+              <div className="rounded-lg border p-3 text-xs flex items-center gap-2">
+                <span className="flex-1 text-muted-foreground">
+                  {phoneReady ? `Real Twilio numbers — about ${formatUsd(cost.perNumber)}/mo each plus usage.` : 'Configure Twilio in Settings → Providers to search and buy numbers. No fake numbers are created.'}
+                </span>
+                <CapabilityBadge status={phoneCap?.status} detail={phoneCap?.providers?.[0]?.detail} />
               </div>
+              <div><Label>Purpose</Label><Input placeholder="e.g. Online shopping" value={form.purpose} onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))} /></div>
+              {members.length > 0 && (
+                <div><Label>Household member</Label>
+                  <Select value={form.household_member_id} onValueChange={(v) => setForm((f) => ({ ...f, household_member_id: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Unassigned —</SelectItem>
+                      {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.display_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
-                <Label>Search by Area Code (optional)</Label>
+                <Label>Search by area code (optional)</Label>
                 <div className="flex gap-2">
-                  <Input placeholder="e.g., 212, 415, 310" value={searchAreaCode}
-                    onChange={(e) => setSearchAreaCode(e.target.value)} />
-                  <Button onClick={() => searchNumbersMutation.mutate(searchAreaCode)}
-                    disabled={searchNumbersMutation.isPending}>
-                    {searchNumbersMutation.isPending ? 'Searching...' : 'Search'}
-                  </Button>
+                  <Input placeholder="e.g. 212, 415" value={areaCode} disabled={!phoneReady} onChange={(e) => setAreaCode(e.target.value)} />
+                  <Button disabled={!phoneReady || searchMutation.isPending} onClick={() => searchMutation.mutate(areaCode)}>{searchMutation.isPending ? 'Searching…' : 'Search'}</Button>
                 </div>
               </div>
-
-              {availableNumbers.length > 0 && (
+              {available.length > 0 && (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  <Label>Available Numbers</Label>
-                  {availableNumbers.map((num, i) => (
-                    <Card key={i} className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => purchaseMutation.mutate({ phoneNumber: num.phone_number })}>
+                  <Label>Available numbers</Label>
+                  {available.map((num, i) => (
+                    <Card key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => purchaseMutation.mutate(num.phone_number)}>
                       <CardContent className="py-2 px-3 flex items-center justify-between">
-                        <div>
-                          <span className="font-mono">{num.friendly_name || num.phone_number}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {num.locality || ''} {num.region || ''}
-                          </span>
-                        </div>
-                        <Button size="sm" disabled={purchaseMutation.isPending}>
-                          {purchaseMutation.isPending ? 'Getting...' : 'Get Number'}
-                        </Button>
+                        <span className="font-mono">{num.friendly_name || num.phone_number}<span className="text-xs text-muted-foreground ml-2">{num.locality || ''} {num.region || ''}</span></span>
+                        <Button size="sm" disabled={purchaseMutation.isPending}>{purchaseMutation.isPending ? 'Getting…' : 'Get'}</Button>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
               )}
-
-              {availableNumbers.length === 0 && searchNumbersMutation.isSuccess && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No numbers available for that area code. Try a different one.
-                </p>
-              )}
-
-              <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Requires Twilio Account</p>
-                <p>Phone numbers are provisioned through Twilio. You'll need a Twilio account with funds to purchase numbers (~$1.15/mo per number). Configure your Twilio credentials in Settings.</p>
-              </div>
+              {searchMutation.isError && <p className="text-xs text-red-400">{searchMutation.error?.message}</p>}
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {locked && <Card className="glass-card border-amber-500/30"><CardContent className="p-3 flex items-center gap-2 text-amber-300 text-sm"><Lock className="h-4 w-4" /> Unlock the vault to manage numbers (forwarding numbers are encrypted).</CardContent></Card>}
+
+      {/* Capability chips */}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <span className="inline-flex items-center gap-1.5">Numbers / SMS <CapabilityBadge status={phoneCap?.status} detail={phoneCap?.providers?.[0]?.detail} /></span>
+        <span className="inline-flex items-center gap-1.5">Inbox & call logs <CapabilityBadge status={capabilities[CAPABILITY.SMS_INBOX]?.status} detail={capabilities[CAPABILITY.SMS_INBOX]?.providers?.[0]?.detail} /></span>
+        <span className="inline-flex items-center gap-1.5">Live screening <CapabilityBadge status={capabilities[CAPABILITY.CALL_SCREEN]?.status} detail={capabilities[CAPABILITY.CALL_SCREEN]?.providers?.[0]?.detail} /></span>
+      </div>
+
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Numbers', value: stats.total, icon: Phone },
-          { label: 'Active', value: stats.active, icon: PhoneCall },
-          { label: 'With Forwarding', value: stats.withForwarding, icon: PhoneForwarded },
+          { label: 'Numbers', value: aliases.length },
+          { label: 'Active', value: aliases.filter((p) => p.status === 'active').length },
+          { label: 'With forwarding', value: aliases.filter((p) => p.forwarding_number).length },
+          { label: 'Est. base /mo', value: formatUsd(cost.base) },
         ].map((s, i) => (
-          <Card key={i} className="glass-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <s.icon className="h-5 w-5 mx-auto mb-1 text-primary" />
-              <div className="text-2xl font-bold">{s.value}</div>
-              <div className="text-xs text-muted-foreground">{s.label}</div>
-            </CardContent>
-          </Card>
+          <Card key={i} className="glass-card"><CardContent className="pt-4 pb-3 text-center"><div className="text-2xl font-bold">{s.value}</div><div className="text-xs text-muted-foreground">{s.label}</div></CardContent></Card>
         ))}
       </div>
 
-      {/* Search */}
-      {phoneAliases.length > 0 && (
-        <div className="relative">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search phone numbers..." value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)} />
+          <Input className="pl-9" placeholder="Search numbers…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      )}
+        <Select value={fMember} onValueChange={setFMember}>
+          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All members</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.display_name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Phone Alias List */}
-      <div className="space-y-3">
+      {/* List */}
+      <div className="space-y-2">
         <AnimatePresence>
-          {filtered.map((alias) => (
-            <motion.div key={alias.id} layout initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <Card className={`${alias.status === 'disabled' ? 'opacity-60' : ''}`}>
-                <CardContent className="py-4 px-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <Phone className={`h-5 w-5 ${alias.status === 'active' ? 'text-green-500' : 'text-muted-foreground'}`} />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-lg font-medium">{alias.phone_number}</span>
-                          <Badge variant={alias.status === 'active' ? 'default' : 'secondary'}>{alias.status}</Badge>
+          {filtered.map((alias) => {
+            const member = alias.household_member_id ? memberById[alias.household_member_id] : null;
+            return (
+              <motion.div key={alias.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Card className={`cursor-pointer hover:bg-muted/30 transition-colors ${alias.status === 'disabled' ? 'opacity-60' : ''}`} onClick={() => setSelectedId(alias.id)}>
+                  <CardContent className="py-3 px-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Phone className={`h-5 w-5 shrink-0 ${alias.status === 'active' ? 'text-green-500' : 'text-muted-foreground'}`} />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm">{alias.phone_number}</span>
+                          <Badge variant={alias.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">{alias.status}</Badge>
+                          {alias.forwarding_number && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><PhoneForwarded className="h-3 w-3" />{alias.forwarding_number}</span>}
                         </div>
-                        {alias.purpose && <p className="text-sm text-muted-foreground">{alias.purpose}</p>}
+                        <div className="text-xs text-muted-foreground truncate">{alias.purpose || '—'}{member ? ` · ${member.display_name}` : ''} · {summarizePhoneRules(alias.rules)}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={() => copyToClipboard(alias.phone_number)}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={() => toggleAlias(alias)}>
-                        {alias.status === 'active' ? <PhoneOff className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                        onClick={() => deleteMutation.mutate(alias.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Features row */}
-                  <div className="flex flex-wrap gap-2">
-                    <div className="flex items-center gap-1 text-xs">
-                      <Switch checked={alias.sms_enabled !== false} onCheckedChange={async (v) => {
-                        await incognito.entities.PhoneAlias.update(alias.id, { sms_enabled: v });
-                        queryClient.invalidateQueries(['phoneAliases']);
-                      }} />
-                      <span>SMS</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <Switch checked={alias.voice_enabled !== false} onCheckedChange={async (v) => {
-                        await incognito.entities.PhoneAlias.update(alias.id, { voice_enabled: v });
-                        queryClient.invalidateQueries(['phoneAliases']);
-                      }} />
-                      <span>Voice</span>
-                    </div>
-                    <Button variant="outline" size="sm" className="gap-1 text-xs h-7"
-                      onClick={() => setShowSMS(alias)}>
-                      <MessageSquare className="h-3 w-3" /> Send SMS
-                    </Button>
-                    <div className="flex items-center gap-1 ml-auto">
-                      <PhoneForwarded className="h-3 w-3 text-muted-foreground" />
-                      <Input placeholder="Forward to..." className="h-7 w-36 text-xs"
-                        value={forwardingForm[alias.id] || alias.forwarding_number || ''}
-                        onChange={(e) => setForwardingForm(f => ({ ...f, [alias.id]: e.target.value }))} />
-                      <Button size="sm" className="h-7 text-xs" variant="outline"
-                        onClick={() => forwardingMutation.mutate({
-                          phoneAliasSid: alias.twilio_sid,
-                          forwardingNumber: forwardingForm[alias.id] || alias.forwarding_number,
-                        })}>Save</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(alias.phone_number); }} className="text-muted-foreground hover:text-primary shrink-0"><Copy className="h-4 w-4" /></button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
 
-      {phoneAliases.length === 0 && !isLoading && (
+      {filtered.length === 0 && !isLoading && (
         <Card className="p-12 text-center">
           <Phone className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-          <h3 className="text-lg font-semibold mb-2">No Phone Numbers</h3>
-          <p className="text-muted-foreground mb-4">
-            Get dedicated phone numbers for different services. Requires Twilio credentials in Settings.
-          </p>
-          <Button onClick={() => setShowCreate(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Get First Number
-          </Button>
+          <h3 className="text-lg font-semibold mb-2">{aliases.length === 0 ? 'No phone numbers yet' : 'No numbers match your filters'}</h3>
+          <p className="text-muted-foreground mb-4">{aliases.length === 0 ? 'Real Twilio numbers per service. Requires Twilio credentials in Settings.' : 'Try clearing a filter.'}</p>
+          {aliases.length === 0 && <Button onClick={() => setShowCreate(true)} disabled={locked} className="gap-2"><Plus className="h-4 w-4" /> Get First Number</Button>}
         </Card>
       )}
 
-      {/* Send SMS Dialog */}
-      <Dialog open={!!showSMS} onOpenChange={() => setShowSMS(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Send SMS from {showSMS?.phone_number}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>To Number</Label>
-              <Input placeholder="+1..." value={smsForm.to}
-                onChange={(e) => setSmsForm(f => ({ ...f, to: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Message</Label>
-              <Textarea value={smsForm.body} onChange={(e) => setSmsForm(f => ({ ...f, body: e.target.value }))}
-                placeholder="Type your message..." />
-            </div>
-            <Button className="w-full" onClick={() => sendSMSMutation.mutate({
-              fromAliasSid: showSMS?.twilio_sid, to: smsForm.to, body: smsForm.body,
-            })} disabled={!smsForm.to || !smsForm.body || sendSMSMutation.isPending}>
-              {sendSMSMutation.isPending ? 'Sending...' : 'Send SMS'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PhoneDetailDrawer open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}
+        alias={selected} members={members} capabilities={capabilities} locked={locked}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ['phoneAliases'] })} />
     </div>
   );
 }

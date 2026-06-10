@@ -6,6 +6,7 @@ import { redactForLLM, assertSafeForLLM } from '@/lib/aiRedaction';
 import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
 import { checkPasswordPwned } from '@/lib/passwordBreach';
 import { applyRuleChange, normalizeRules, DEFAULT_ALIAS_RULES } from '@/lib/aliasRules';
+import { applyPhoneRuleChange, normalizeRules as normalizePhoneRules, DEFAULT_PHONE_RULES } from '@/lib/phoneRules';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -3739,7 +3740,7 @@ ${(noticeText || '').slice(0, 8000)}
     }
   },
 
-  async purchasePhoneNumber({ phoneNumber, profileId, identityId, purpose }) {
+  async purchasePhoneNumber({ phoneNumber, profileId, identityId, householdMemberId, purpose }) {
     const result = await twilioApi('/IncomingPhoneNumbers', 'POST', {
       PhoneNumber: phoneNumber,
       FriendlyName: `Incognito: ${purpose || 'alias'}`,
@@ -3747,6 +3748,7 @@ ${(noticeText || '').slice(0, 8000)}
     const entry = await entities.PhoneAlias.create({
       profile_id: profileId,
       identity_id: identityId || null,
+      household_member_id: householdMemberId || null,
       phone_number: result.phone_number,
       twilio_sid: result.sid,
       purpose,
@@ -3755,8 +3757,72 @@ ${(noticeText || '').slice(0, 8000)}
       sms_enabled: true,
       voice_enabled: true,
       status: 'active',
+      rules: { ...DEFAULT_PHONE_RULES },
     });
     return { data: entry };
+  },
+
+  /**
+   * Release a phone number: relinquish it at Twilio, then delete the local
+   * record. The Twilio call throws cleanly if credentials are missing (no fake).
+   */
+  async releasePhoneNumber({ aliasId }) {
+    const alias = (await entities.PhoneAlias.list()).find(a => a.id === aliasId);
+    if (!alias) throw new Error('Phone alias not found');
+    if (alias.twilio_sid) {
+      await twilioApi(`/IncomingPhoneNumbers/${alias.twilio_sid}`, 'DELETE');
+    }
+    await entities.PhoneAlias.delete(aliasId);
+    return { data: { released: true, aliasId } };
+  },
+
+  /** Update alias metadata: purpose, household member, forwarding number, rules. */
+  async updatePhoneAlias({ aliasId, purpose, householdMemberId, forwardingNumber, rules }) {
+    const patch = {};
+    if (purpose !== undefined) patch.purpose = purpose;
+    if (householdMemberId !== undefined) patch.household_member_id = householdMemberId;
+    if (forwardingNumber !== undefined) patch.forwarding_number = forwardingNumber;
+    if (rules !== undefined) patch.rules = normalizePhoneRules(rules);
+    const updated = await entities.PhoneAlias.update(aliasId, patch);
+    return { data: updated };
+  },
+
+  /** Apply a single rule change (forward calls/texts, block/allow number). */
+  async setPhoneRule({ aliasId, change }) {
+    const alias = (await entities.PhoneAlias.list()).find(a => a.id === aliasId);
+    if (!alias) throw new Error('Phone alias not found');
+    const rules = applyPhoneRuleChange(alias.rules, change);
+    const updated = await entities.PhoneAlias.update(aliasId, { rules });
+    return { data: updated };
+  },
+
+  /**
+   * Read inbound SMS + call-log activity for a number from the OPTIONAL backend.
+   * Honest about availability: receive/log needs the webhook backend. `fetchImpl`
+   * is injectable for tests.
+   */
+  async getPhoneActivity({ phoneNumber, fetchImpl } = {}) {
+    const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+    let backendUrl = null;
+    try { backendUrl = localStorage.getItem('incognito_backend_url'); } catch { /* ignore */ }
+    const keys = getApiKeys();
+    if (!backendUrl || !keys.backend_shared_secret || !doFetch) {
+      return { data: { activityAvailable: false, messages: [], calls: [], reason: 'SMS inbox & call logs need the optional backend (URL + shared secret).' } };
+    }
+    try {
+      const resp = await doFetch(`${backendUrl.replace(/\/$/, '')}/events`, {
+        headers: { 'X-Incognito-Secret': keys.backend_shared_secret },
+      });
+      if (!resp.ok) return { data: { activityAvailable: true, messages: [], calls: [], reason: `Backend error ${resp.status}` } };
+      const events = await resp.json();
+      const list = Array.isArray(events) ? events : [];
+      const matches = (e) => !phoneNumber || String(e.to || '').includes(phoneNumber) || String(e.from || '').includes(phoneNumber);
+      const messages = list.filter(e => e.type === 'sms_inbound' && matches(e)).map(e => ({ id: e.id, from: e.from, received_at: e.received_at }));
+      const calls = list.filter(e => e.type === 'call_inbound' && matches(e)).map(e => ({ id: e.id, from: e.from, received_at: e.received_at }));
+      return { data: { activityAvailable: true, messages, calls } };
+    } catch (e) {
+      return { data: { activityAvailable: true, messages: [], calls: [], reason: e.message } };
+    }
   },
 
   async configurePhoneForwarding({ phoneAliasSid, forwardingNumber }) {

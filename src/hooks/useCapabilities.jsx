@@ -25,10 +25,15 @@ export function useCapabilities() {
   useEffect(() => {
     const offUnlock = vault.on('unlock', refresh);
     const offLock = vault.on('lock', refresh);
+    // The companion extension injects its bridge asynchronously; refresh when it
+    // announces itself so AUTOFILL flips from "Needs extension" to "Ready".
+    const onExt = () => refresh();
+    if (typeof window !== 'undefined') window.addEventListener('incognito:extension-ready', onExt);
     refresh();
     return () => {
       if (typeof offUnlock === 'function') offUnlock();
       if (typeof offLock === 'function') offLock();
+      if (typeof window !== 'undefined') window.removeEventListener('incognito:extension-ready', onExt);
     };
   }, [refresh]);
 

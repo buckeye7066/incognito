@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Incognito Companion",
+  "version": "1.0.0",
+  "description": "Autofill saved logins, identities, and TOTP codes from your Incognito vault. The vault stays in the Incognito app; this extension only fills pages.",
+  "permissions": ["activeTab", "scripting", "tabs", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Incognito Companion",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "http://localhost:4173/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": ["content-app.js"],
+      "run_at": "document_start",
+      "comment": "App-origin courier. Add your deployed Incognito origin here."
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "http://localhost:5173/*",
+        "http://localhost:4173/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": ["content-site.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage.js"],
+      "matches": [
+        "http://localhost:5173/*",
+        "http://localhost:4173/*",
+        "https://*.vercel.app/*"
+      ]
+    }
+  ]
+}

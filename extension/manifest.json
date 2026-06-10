@@ -14,12 +14,11 @@
     {
       "matches": [
         "http://localhost:5173/*",
-        "http://localhost:4173/*",
-        "https://incognito-app.vercel.app/*"
+        "http://localhost:4173/*"
       ],
       "js": ["content-app.js"],
       "run_at": "document_start",
-      "comment": "App-origin courier. Add your deployed Incognito origin here."
+      "comment": "App-origin courier. Local-only build: Vite dev (5173) + preview (4173)."
     },
     {
       "matches": ["<all_urls>"],

@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { ActiveProfileProvider } from '@/hooks/useActiveProfile';
 import { useScanScheduler } from '@/hooks/useScanScheduler';
 import AdminRoute from '@/lib/AdminRoute';
+import FillApprovalGate from '@/components/common/FillApprovalGate';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -70,6 +71,7 @@ function App() {
             <NavigationTracker />
             <AuthenticatedApp />
           </Router>
+          <FillApprovalGate />
           <Toaster />
         </ActiveProfileProvider>
       </QueryClientProvider>

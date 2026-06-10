@@ -42,6 +42,23 @@ The app side of this contract is `src/lib/extensionBridge.js` (app → extension
 and `src/lib/extensionHost.js` (extension → app vault). See
 `docs/EXTENSION_BRIDGE.md`.
 
+## Security hardening
+
+- **One canonical origin, no wildcards.** `manifest.json` lists the exact app
+  origin(s) only — never `*.vercel.app`, so another Vercel site can't pose as
+  the app and request vault data. Replace `https://incognito-app.vercel.app`
+  with your real production origin in all three spots.
+- **Explicit approval for every secret.** The app never serves a credential
+  (`GET_FILL`/`GET_TOTP`) or saves a captured login silently — it shows an
+  in-app confirmation (`FillApprovalGate`). A hidden same-origin script that
+  tries to enumerate the vault gets a denial, not data. Secret requests are also
+  rate-limited and require the vault unlocked.
+- **Domain-matched fills only.** The background refuses to inject a credential
+  into a tab whose domain doesn't match the credential's stored URL
+  (confused-deputy guard).
+- **Deploy with a strict CSP** on the app origin (no third-party `script-src`,
+  no `unsafe-inline`) so the only code that can drive the bridge is the app's own.
+
 ## Files
 
 | File | Context | Role |

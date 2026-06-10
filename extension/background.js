@@ -33,13 +33,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'SITE_FILL': {
           const host = await hostFetch({ type: 'GET_FILL', id: message.id });
           if (host?.ok && sender.tab?.id != null) {
+            // Defense-in-depth: never inject a credential whose stored domain
+            // contradicts the tab we'd type it into.
+            if (domainMismatch(host.fill?.url, sender.tab.url)) {
+              sendResponse({ ok: false, error: 'Credential domain does not match this site.', code: 'E_DOMAIN_MISMATCH' });
+              return;
+            }
             await injectIntoTab(sender.tab.id, { kind: 'login', fill: host.fill });
           }
           sendResponse(host);
           return;
         }
         case 'SITE_SAVE': {
-          sendResponse(await hostFetch({ type: 'SAVE_LOGIN', payload: message.payload }));
+          // Bind the save URL to the REAL tab origin, not content-script payload,
+          // so a hostile page can't attribute a capture to another site.
+          const url = tabOrigin(sender.tab?.url) || message.payload?.url || '';
+          sendResponse(await hostFetch({ type: 'SAVE_LOGIN', payload: { ...message.payload, url } }));
           return;
         }
         default:
@@ -71,6 +80,11 @@ async function handleAppCall(method, args) {
       if (!host?.ok) return { ok: false, error: host?.error || 'fill unavailable' };
       const tab = await targetSiteTab();
       if (!tab) return { ok: false, error: 'No site tab to fill', code: 'E_NO_ACTIVE_TAB' };
+      // Refuse to fill a credential into a tab whose domain it doesn't belong to
+      // (confused-deputy guard — the target tab is chosen heuristically).
+      if (domainMismatch(host.fill?.url, tab.url)) {
+        return { ok: false, error: 'Active tab domain does not match this credential.', code: 'E_DOMAIN_MISMATCH' };
+      }
       await injectIntoTab(tab.id, { kind: method === 'fillIdentity' ? 'identity' : 'login', fill: host.fill });
       return { ok: true, result: { filled: true } };
     }
@@ -118,6 +132,30 @@ async function activeSiteDomain() {
   const tab = await targetSiteTab();
   if (!tab?.url) return null;
   try { return new URL(tab.url).hostname; } catch { return null; }
+}
+
+function hostOf(u) {
+  try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
+}
+function tabOrigin(u) {
+  try { return new URL(u).origin; } catch { return ''; }
+}
+// Compact registrable-domain collapse (mirrors src/lib/domainMatch.js intent;
+// extension can't import app modules, so a small inline copy lives here).
+const MULTI_SUFFIX = new Set(['co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.jp', 'com.br', 'com.mx', 'github.io', 'pages.dev']);
+function registrable(host) {
+  if (!host || !host.includes('.')) return host;
+  const l = host.split('.');
+  const last2 = l.slice(-2).join('.');
+  return l.length >= 3 && MULTI_SUFFIX.has(last2) ? l.slice(-3).join('.') : last2;
+}
+/** True only on a POSITIVE mismatch (both hosts known and different sites). */
+function domainMismatch(credUrl, tabUrl) {
+  const a = hostOf(credUrl);
+  const b = hostOf(tabUrl);
+  if (!a || !b) return false; // can't verify (e.g. urlless credential) → don't block
+  if (a === b) return false;
+  return registrable(a) !== registrable(b);
 }
 
 /** The most recently active normal tab that is NOT an app tab. */

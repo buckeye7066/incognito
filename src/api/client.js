@@ -1259,37 +1259,23 @@ const localFunctions = {
     const result = await privacyComApi(`/transaction?card_token=${cardToken}&page_size=100`);
     const txns = result.data || [];
 
-    const merchantMap = {};
-    for (const txn of txns) {
-      const merchant = txn.merchant?.descriptor || txn.merchant?.city || 'Unknown';
-      if (!merchantMap[merchant]) {
-        merchantMap[merchant] = { merchant, count: 0, total: 0, transactions: [], card_token: cardToken };
-      }
-      merchantMap[merchant].count++;
-      merchantMap[merchant].total += txn.amount || 0;
-      merchantMap[merchant].transactions.push(txn);
-    }
-
-    const subs = Object.values(merchantMap)
-      .filter(m => m.count >= 2)
-      .map(m => {
-        const sorted = m.transactions.sort((a, b) => new Date(a.created) - new Date(b.created));
-        const intervals = [];
-        for (let i = 1; i < sorted.length; i++) {
-          intervals.push((new Date(sorted[i].created) - new Date(sorted[i - 1].created)) / 86400000);
-        }
-        const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : null;
-        return {
-          merchant: m.merchant,
-          count: m.count,
-          total: m.total,
-          card_token: m.card_token,
-          first_transaction: sorted[0]?.created,
-          last_transaction: sorted[sorted.length - 1]?.created,
-          estimated_interval_days: avgInterval,
-        };
-      })
-      .sort((a, b) => b.total - a.total);
+    // Backed by the tested BALANCED heuristic in lib/cardPolicy — only flags a
+    // merchant when amounts cluster AND the cadence is regular, so unrelated
+    // repeat purchases at the same retailer are no longer mis-read as subs.
+    const { detectSubscriptions } = await import('@/lib/cardPolicy.js');
+    const subs = detectSubscriptions(txns).map((s) => ({
+      merchant: s.merchant,
+      count: s.count,
+      total: s.total,
+      card_token: cardToken,
+      first_transaction: s.firstTransaction,
+      last_transaction: s.lastTransaction,
+      estimated_interval_days: s.intervalDays,
+      // richer, honest extras (consumers may ignore):
+      cadence: s.cadence,
+      confidence: s.confidence,
+      avg_amount: s.avgAmount,
+    }));
 
     return { data: subs };
   },

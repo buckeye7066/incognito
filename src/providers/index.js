@@ -24,6 +24,7 @@ import {
 import { mockProvider } from './mockProvider.js';
 import { simpleloginProvider } from './email/simpleloginProvider.js';
 import { addyProvider } from './email/addyProvider.js';
+import { emailInboxProvider } from './email/emailInboxProvider.js';
 import { twilioProvider, twilioBackendProvider } from './phone/twilioProvider.js';
 import { privacyComProvider } from './payments/privacyComProvider.js';
 import { hibpProvider } from './breach/hibpProvider.js';
@@ -37,6 +38,7 @@ export { CAPABILITY, CAPABILITY_STATUS, STATUS_META, isUsable };
 const PROVIDERS = [
   simpleloginProvider,
   addyProvider,
+  emailInboxProvider,
   twilioProvider,
   twilioBackendProvider,
   privacyComProvider,

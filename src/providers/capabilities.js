@@ -17,6 +17,7 @@
 /** The set of capabilities the app reasons about. */
 export const CAPABILITY = {
   EMAIL_ALIAS: 'email_alias',
+  EMAIL_INBOX: 'email_inbox',
   PHONE_ALIAS: 'phone_alias',
   SMS_INBOX: 'sms_inbox',
   CALL_SCREEN: 'call_screen',

@@ -5,6 +5,7 @@ import { withExternalCallAudit } from '@/lib/auditLog';
 import { redactForLLM, assertSafeForLLM } from '@/lib/aiRedaction';
 import { parsePasswordCsv, findDuplicates } from '@/lib/passwordImport';
 import { checkPasswordPwned } from '@/lib/passwordBreach';
+import { applyRuleChange, normalizeRules, DEFAULT_ALIAS_RULES } from '@/lib/aliasRules';
 
 const STORAGE_PREFIX = 'incognito_entity_';
 const SETTINGS_KEY = 'incognito_api_keys';
@@ -3608,10 +3609,11 @@ ${(noticeText || '').slice(0, 8000)}
   // EMAIL ALIAS FUNCTIONS (SimpleLogin / addy.io)
   // =========================================================================
 
-  async createEmailAliasReal({ profileId, identityId, description }) {
+  async createEmailAliasReal({ profileId, identityId, householdMemberId, description }) {
     const keys = getApiKeys();
     const provider = keys.email_alias_provider || 'simplelogin';
-    let alias;
+    let alias = null;
+    let isPlaceholder = false;
     try {
       if (provider === 'addy') {
         const result = await emailAliasApi('/aliases', 'POST', {
@@ -3625,19 +3627,28 @@ ${(noticeText || '').slice(0, 8000)}
         });
         alias = result.alias;
       }
+      if (!alias) throw new Error('Provider returned no alias');
     } catch (e) {
+      // No real provider available — create a CLEARLY-LABELLED local placeholder,
+      // never a fake real-looking address. The .invalid TLD (RFC 2606) is by
+      // definition undeliverable, so it can't be mistaken for a working alias.
       const ts = Date.now().toString(36);
-      alias = `incognito.${ts}@protonmail.com`;
+      const base = (description || 'alias').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'alias';
+      alias = `${base}.${ts}@placeholder.invalid`;
+      isPlaceholder = true;
     }
 
     const entry = await entities.EmailAlias.create({
       profile_id: profileId,
       identity_id: identityId || null,
+      household_member_id: householdMemberId || null,
       alias_email: alias,
       description,
-      provider: keys.email_alias_provider || 'local',
+      provider: isPlaceholder ? 'local_placeholder' : (keys.email_alias_provider || 'simplelogin'),
+      placeholder: isPlaceholder,
       forwarding_enabled: true,
       status: 'active',
+      rules: { ...DEFAULT_ALIAS_RULES },
     });
     return { data: entry };
   },
@@ -3649,6 +3660,53 @@ ${(noticeText || '').slice(0, 8000)}
     const newStatus = alias.status === 'active' ? 'disabled' : 'active';
     const updated = await entities.EmailAlias.update(aliasId, { status: newStatus });
     return { data: updated };
+  },
+
+  /** Update alias metadata: description, household member, and/or rules. */
+  async updateEmailAlias({ aliasId, description, householdMemberId, rules }) {
+    const patch = {};
+    if (description !== undefined) patch.description = description;
+    if (householdMemberId !== undefined) patch.household_member_id = householdMemberId;
+    if (rules !== undefined) patch.rules = normalizeRules(rules);
+    const updated = await entities.EmailAlias.update(aliasId, patch);
+    return { data: updated };
+  },
+
+  /** Apply a single rule change (forward/mute/block/allow) to an alias. */
+  async setAliasRule({ aliasId, change }) {
+    const alias = (await entities.EmailAlias.list()).find(a => a.id === aliasId);
+    if (!alias) throw new Error('Alias not found');
+    const rules = applyRuleChange(alias.rules, change);
+    const updated = await entities.EmailAlias.update(aliasId, { rules });
+    return { data: updated };
+  },
+
+  /**
+   * Read the inbound messages for an alias from the OPTIONAL self-hosted backend.
+   * Honest about availability: without a backend URL + shared secret the inbox is
+   * unavailable (receive/forward only). `fetchImpl` is injectable for tests.
+   */
+  async getAliasInbox({ aliasEmail, fetchImpl } = {}) {
+    const doFetch = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+    let backendUrl = null;
+    try { backendUrl = localStorage.getItem('incognito_backend_url'); } catch { /* ignore */ }
+    const keys = getApiKeys();
+    if (!backendUrl || !keys.backend_shared_secret || !doFetch) {
+      return { data: { inboxAvailable: false, messages: [], reason: 'Inbox needs the optional backend (URL + shared secret). Aliases are receive/forward only without it.' } };
+    }
+    try {
+      const resp = await doFetch(`${backendUrl.replace(/\/$/, '')}/events`, {
+        headers: { 'X-Incognito-Secret': keys.backend_shared_secret },
+      });
+      if (!resp.ok) return { data: { inboxAvailable: true, messages: [], reason: `Backend error ${resp.status}` } };
+      const events = await resp.json();
+      const messages = (Array.isArray(events) ? events : [])
+        .filter(e => e.type === 'email_inbound' && (!aliasEmail || String(e.alias || '').toLowerCase() === String(aliasEmail).toLowerCase()))
+        .map(e => ({ id: e.id, from: e.from, subject: e.subject, received_at: e.received_at }));
+      return { data: { inboxAvailable: true, messages } };
+    } catch (e) {
+      return { data: { inboxAvailable: true, messages: [], reason: e.message } };
+    }
   },
 
   async listEmailAliasesFromProvider() {
